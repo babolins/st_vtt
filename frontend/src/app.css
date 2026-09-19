@@ -156,7 +156,10 @@ table.grid input[type="text"] { width: 100%; }
 :root[data-theme="paper"] .coll.top > .head {
   border-bottom: 0;
   padding-bottom: calc(.5em + 2px);
-  background: url('./textures/ink-rule.svg') left bottom / auto 4px repeat-x;
+  /* The colour carries as much as the texture: a sheet header that is (or
+     becomes) sticky has content scrolling under it, and a background of only
+     an image lets the page show straight through. */
+  background: var(--bg-elev) url('./textures/ink-rule.svg') left bottom / auto 4px repeat-x;
 }
 :root[data-theme="paper"] .toggle h2 { font-size: 1.3em; letter-spacing: .01em; }
 :root[data-theme="paper"] .toggle h3 { color: var(--fg); font-weight: 700; font-size: 1.05em; }
