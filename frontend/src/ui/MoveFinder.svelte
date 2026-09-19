@@ -11,7 +11,7 @@
   import { openRoll } from '../lib/dialogs.svelte';
   import { send } from '../lib/ws';
   import { canEdit } from '../lib/state.svelte';
-  import { go } from '../lib/router.svelte';
+  import { go, peek } from '../lib/router.svelte';
   import MoveBody from './MoveBody.svelte';
 
   let { onclose }: { onclose: () => void } = $props();
@@ -64,7 +64,14 @@
     input?.focus();
   });
 
-  /** Enter sends you to the move's own address, so it can be linked and reloaded. */
+  /** Enter glances at the move beside whatever you were looking at; Open goes
+   *  to its own page. Both are addresses, so both survive a reload. */
+  function glance() {
+    if (!selected) return;
+    peek({ kind: 'move', id: selected.move.id });
+    onclose();
+  }
+
   function open() {
     if (!selected) return;
     go({ kind: 'move', id: selected.move.id });
@@ -89,7 +96,8 @@
     else if (e.key === 'ArrowUp') { cursor = Math.max(cursor - 1, 0); e.preventDefault(); }
     else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { roll(); e.preventDefault(); }
     else if (e.key === 'Enter' && e.shiftKey) { share(); e.preventDefault(); }
-    else if (e.key === 'Enter') { open(); e.preventDefault(); }
+    else if (e.key === 'Enter' && e.altKey) { open(); e.preventDefault(); }
+    else if (e.key === 'Enter') { glance(); e.preventDefault(); }
   }
 </script>
 
@@ -128,7 +136,7 @@
           </div>
           {#each g.entries as e}
             {@const i = flat.indexOf(e)}
-            <button class="hit" class:sel={i === cursor} onclick={() => (cursor = i)} ondblclick={open} onmouseenter={() => (cursor = i)}>
+            <button class="hit" class:sel={i === cursor} onclick={() => (cursor = i)} ondblclick={glance} onmouseenter={() => (cursor = i)}>
               <span class="hname">
                 {#if hitFor && flat[cursor] === e && hitFor.marks.length}
                   {#each splitMarks(e.move.name, hitFor.marks) as part}<span class:mark={part.hit}>{part.text}</span>{/each}
@@ -158,6 +166,7 @@
         <div class="row pactions">
           {#if selected.move.roll && rollOn}<button class="small primary" onclick={roll}>Roll</button>{/if}
           <button class="small" onclick={share}>Show the table</button>
+          <button class="small" onclick={glance}>Peek</button>
           <button class="small" onclick={open}>Open</button>
         </div>
       {/if}
@@ -166,7 +175,7 @@
 
   <div class="row keys muted small">
     <span><span class="kbd">↑↓</span> walk</span>
-    <span><span class="kbd">↵</span> open</span>
+    <span><span class="kbd">↵</span> peek</span>
     <span><span class="kbd">⌘↵</span> roll</span>
     <span><span class="kbd">⇧↵</span> show the table</span>
     <span><span class="kbd">esc</span> close</span>

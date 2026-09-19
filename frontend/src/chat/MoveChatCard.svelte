@@ -4,6 +4,7 @@
   import { timeShort } from '../lib/util';
   import type { Message, Move } from '../lib/types';
   import MoveBody from '../ui/MoveBody.svelte';
+  import { peek } from '../lib/router.svelte';
 
   let { message }: { message: Message } = $props();
   const p = $derived(message.payload);
@@ -28,12 +29,13 @@
     <span class="grow"></span>
     <span class="muted small">{timeShort(message.ts)}</span>
   </div>
-  <div class="name">{move.name}</div>
+  <button class="name" onclick={() => peek({ kind: 'move', id: move.id })} title="Peek at this move">{move.name}</button>
   <MoveBody {move} />
 </div>
 
 <style>
   .mc { border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 6px; padding: .4em .6em; background: var(--bg); }
   .top { gap: .4em; }
-  .name { font-weight: 600; margin: .15em 0; }
+  .name { font-weight: 600; margin: .15em 0; background: none; border: 0; padding: 0; color: var(--fg); cursor: pointer; font-size: 1em; text-align: left; }
+  .name:hover { color: var(--accent); }
 </style>

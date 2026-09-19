@@ -6,7 +6,7 @@
    *  that is already nineteen screens tall.
    */
   import { app, isGm, myCharacters, otherCharacters, sharedSheets } from '../lib/state.svelte';
-  import { go, href, isAt, type Route } from '../lib/router.svelte';
+  import { href, isAt, type Place } from '../lib/router.svelte';
   import { userColor } from '../lib/util';
 
   let { onfind }: { onfind: () => void } = $props();
@@ -24,7 +24,7 @@
   {#if mine.length}
     <div class="group">You</div>
     {#each mine as row (row.id)}
-      {@const route: Route = { kind: 'character', id: row.id }}
+      {@const route: Place = { kind: 'character', id: row.id }}
       <a class="place" class:on={isAt(route)} href={href(route)}>
         <span class="nm">{label(row, 'Your character')}</span>
         <span class="sub">{app.content?.playbooks.find((p) => p.id === row.data.playbook)?.name ?? ''}</span>
@@ -35,7 +35,7 @@
   {#if sharedSheets().length}
     <div class="group">The table</div>
     {#each sharedSheets() as row (row.id)}
-      {@const route: Route = { kind: 'shared', id: row.id }}
+      {@const route: Place = { kind: 'shared', id: row.id }}
       <a class="place" class:on={isAt(route)} href={href(route)}>
         <span class="nm">{label(row, 'Shared sheet')}</span>
       </a>
@@ -45,7 +45,7 @@
   {#if others.length}
     <div class="group">{isGm() ? 'Players' : 'Others'}</div>
     {#each others as row (row.id)}
-      {@const route: Route = { kind: 'character', id: row.id }}
+      {@const route: Place = { kind: 'character', id: row.id }}
       <a class="place" class:on={isAt(route)} href={href(route)}>
         <span class="dot" class:lit={online(row.owner)} style="--who: {userColor(row.owner ?? '')}"></span>
         <span class="nm">{label(row, 'Unnamed')}</span>

@@ -4,7 +4,7 @@
    *  has taken it, which is the question that usually follows "what does it say?" */
   import { app } from '../lib/state.svelte';
   import { allMoves, movesOf } from '../lib/moveindex';
-  import { go } from '../lib/router.svelte';
+  import { go, peek } from '../lib/router.svelte';
   import { openRoll } from '../lib/dialogs.svelte';
   import { send } from '../lib/ws';
   import MoveBody from '../ui/MoveBody.svelte';
@@ -37,7 +37,7 @@
       <p class="small muted who">
         Taken by
         {#each holders as row, i}<!--
-          -->{i > 0 ? ', ' : ' '}<a href="#/c/{row.id}">{row.data.name || 'Unnamed'}</a><!--
+          -->{i > 0 ? ', ' : ' '}<button class="linky" onclick={() => peek({ kind: 'character', id: row.id })}>{row.data.name || 'Unnamed'}</button><!--
         -->{/each}
       </p>
     {/if}
@@ -52,4 +52,5 @@
   .head { gap: .5em; align-items: baseline; margin-bottom: .5em; }
   .name { font-size: 1.3em; }
   .who { margin-top: .8em; }
+  .linky { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; }
 </style>

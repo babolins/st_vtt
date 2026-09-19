@@ -12,6 +12,7 @@
   import Rail from './Rail.svelte';
   import MovePage from './MovePage.svelte';
   import { land, router } from '../lib/router.svelte';
+  import Peek from '../ui/Peek.svelte';
 
   let chatOpen = $state(false);
   let showNew = $state(false);
@@ -27,7 +28,8 @@
   const mine = $derived(myCharacters());
   const others = $derived(otherCharacters());
   const unread = $derived(app.messages.length);
-  const route = $derived(router.route);
+  const route = $derived(router.route.place);
+  const peeked = $derived(router.route.peek);
 
   // Land on your own sheet, not on everyone's at once. Only when the URL says
   // nothing — a link someone sent you always wins.
@@ -87,6 +89,9 @@
   <aside class:open={chatOpen}>
     <ChatPanel onclose={() => (chatOpen = false)} />
   </aside>
+  {#if peeked}
+    <Peek place={peeked} />
+  {/if}
   <button class="fab primary" onclick={() => (chatOpen = !chatOpen)} aria-label="toggle chat">💬 <span class="small">{unread}</span></button>
 </div>
 
@@ -102,7 +107,10 @@
 
 <style>
   .layout { display: grid; grid-template-columns: minmax(11em, 14em) minmax(0, 1fr) minmax(20em, 26em); grid-template-rows: auto 1fr; height: 100%; }
-  main { grid-column: 2; grid-row: 2; overflow-y: auto; padding: .75em; }
+  /* No padding above the scrollport: a sheet's sticky header sits flush at the
+     top, and there is no strip left over for content to peek through. */
+  main { grid-column: 2; grid-row: 2; overflow-y: auto; padding: 0 .75em .75em; }
+  main > :global(:first-child) { margin-top: .75em; }
   aside { grid-column: 3; grid-row: 2; border-left: 1px solid var(--border); background: var(--bg-elev); min-height: 0; display: flex; flex-direction: column; }
   .fab { display: none; position: fixed; right: 1em; bottom: 1em; border-radius: 999px; padding: .6em .9em; box-shadow: var(--shadow); z-index: 20; }
   .empty { padding: 1.5em; text-align: center; margin-bottom: .75em; }
