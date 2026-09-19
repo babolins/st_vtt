@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { api, ApiError } from '../lib/api';
   import { app } from '../lib/state.svelte';
-  import { currentTheme, toggleTheme } from '../lib/theme';
+  import { currentTheme, nextTheme, THEME_GLYPH } from '../lib/theme';
 
   let { onlogin }: { onlogin: () => void } = $props();
   let users = $state<{ name: string; role: string; has_password: boolean }[]>([]);
@@ -45,7 +45,7 @@
   <form class="card box stack" onsubmit={submit}>
     <div class="row">
       <h1 class="grow">Shared Table <span class="muted small tagline">st_vtt</span></h1>
-      <button type="button" class="ghost small" onclick={() => (theme = toggleTheme())} title="Toggle theme">{theme === 'dark' ? '☀' : '☾'}</button>
+      <button type="button" class="ghost small" onclick={() => (theme = nextTheme())} title="Theme: light, dark, paper">{THEME_GLYPH[theme]}</button>
     </div>
     <p class="muted">Who are you?</p>
     <div class="who">

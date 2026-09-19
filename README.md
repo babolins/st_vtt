@@ -13,7 +13,9 @@ character sheets, shared sheets such as the town everyone lives in, and a chat w
   **not** built in. You supply it as a JSON content pack. See
   [content/SCHEMA.md](content/SCHEMA.md).
 - Characters and shared sheets import/export as JSON.
-- Light and dark themes.
+- Light, dark, and `paper` themes. `paper` sets the app as a printed playbook —
+  Avara Bold titles, Caslon text, ink hairlines, no colour and no shadows — for
+  tables that want the sheets on screen to look like the ones on the table.
 
 ## Requirements
 
