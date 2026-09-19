@@ -54,6 +54,12 @@
     {/each}
   {/if}
 
+  <div class="group">The campaign</div>
+  <a class="place" class:on={isAt({ kind: 'people' })} href={href({ kind: 'people' })}>
+    <span class="nm">People</span>
+    <span class="sub">{Object.keys(app.records).length || 'nobody yet'}</span>
+  </a>
+
   <div class="group">Everything</div>
   <a class="place" class:on={isAt({ kind: 'all' })} href={href({ kind: 'all' })}>
     <span class="nm">All sheets</span>

@@ -11,7 +11,9 @@ export type Place =
   | { kind: 'all' }
   | { kind: 'character'; id: string }
   | { kind: 'shared'; id: string }
-  | { kind: 'move'; id: string };
+  | { kind: 'move'; id: string }
+  | { kind: 'people' }
+  | { kind: 'record'; id: string };
 
 /** Where you are, plus what you are glancing at without going there. */
 export interface Route {
@@ -29,6 +31,8 @@ function parsePlace(path: string): Place | null {
   if (head === 'c' && id) return { kind: 'character', id };
   if (head === 's' && id) return { kind: 'shared', id };
   if (head === 'm' && id) return { kind: 'move', id };
+  if (head === 'people') return { kind: 'people' };
+  if (head === 'n' && id) return { kind: 'record', id };
   return null;
 }
 
@@ -47,6 +51,8 @@ function placeHref(place: Place): string {
     case 'character': return `/c/${place.id}`;
     case 'shared': return `/s/${place.id}`;
     case 'move': return `/m/${place.id}`;
+    case 'people': return '/people';
+    case 'record': return `/n/${place.id}`;
   }
 }
 

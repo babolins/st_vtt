@@ -72,6 +72,35 @@ def default_section_value(sec: Section) -> Any:
     }[sec.type]
 
 
+def new_record(kind: str, name: str, *, by: str | None = None) -> dict[str, Any]:
+    """A person (or faction, or place) the campaign wants to remember.
+
+    Fields chosen from what a real session's notes carry: nearly every NPC there
+    is pronouns, a role, a home, a standing, and above all *ties* — someone's
+    deputy, someone's sidekick, the one who sold the town out. So ties are a
+    typed list from the start rather than prose in `notes`, or nothing could
+    ever read them back.
+
+    `secret` is the GM's copy of the truth beside what the table believes;
+    `visibility` hides the whole record, for the things the table should not
+    know exists yet.
+    """
+    return {
+        "kind": kind,
+        "name": name.strip(),
+        "pronouns": "",
+        "role": "",
+        "home": "",
+        "status": "",
+        "tags": [],
+        "ties": [],
+        "notes": "",
+        "secret": "",
+        "visibility": "table",
+        "created_by": by,
+    }
+
+
 def new_shared_sheet(pack: ContentPack, tpl: SharedSheetDef, name: str | None = None) -> dict[str, Any]:
     return {
         "pack_id": pack.pack.id,

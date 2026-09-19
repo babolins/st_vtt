@@ -13,6 +13,7 @@
   import { send } from '../lib/ws';
   import { fmtMod } from '../lib/util';
   import MoveBody from './MoveBody.svelte';
+  import RecordCard from './RecordCard.svelte';
 
   let { place }: { place: Place } = $props();
 
@@ -20,6 +21,7 @@
   const move = $derived(place.kind === 'move' ? allMoves(content).find((e) => e.move.id === place.id) : undefined);
   const character = $derived(place.kind === 'character' ? app.characters[place.id] : undefined);
   const sheet = $derived(place.kind === 'shared' ? app.shared[place.id] : undefined);
+  const record = $derived(place.kind === 'record' ? app.records[place.id] : undefined);
 
   const pb = $derived(character ? content.playbooks.find((p) => p.id === character.data.playbook) : undefined);
   const mineWithMove = $derived(
@@ -37,7 +39,7 @@
 
 <aside class="peek" aria-label="Preview">
   <div class="row bar">
-    <span class="muted small">{move ? move.source.label : character ? `${pb?.name ?? ''} · ${character.owner ?? 'unowned'}` : sheet ? 'Shared sheet' : ''}</span>
+    <span class="muted small">{move ? move.source.label : character ? `${pb?.name ?? ''} · ${character.owner ?? 'unowned'}` : record ? record.data.kind : sheet ? 'Shared sheet' : ''}</span>
     <span class="grow"></span>
     <button class="ghost small" onclick={() => go(place)} title="Open this as the page">Open</button>
     <button class="ghost small" onclick={unpeek} title="Close (esc)">✕</button>
@@ -75,6 +77,8 @@
     </p>
     {#if debilities.length}<p class="small deb">{debilities.map((d) => d.label).join(' · ')}</p>{/if}
     {#if character.data.look}<p class="small muted">{character.data.look}</p>{/if}
+  {:else if record}
+    <RecordCard row={record} dense />
   {:else if sheet}
     <h3 class="title">{sheet.data.name || 'Shared sheet'}</h3>
     <p class="small muted">Open it to edit — a shared sheet is too big to glance at.</p>

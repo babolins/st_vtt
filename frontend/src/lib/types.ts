@@ -108,6 +108,20 @@ export interface ContentPack {
   followers: FollowerRules; arcana: Arcanum[]; shared_sheets: SharedSheetDef[];
 }
 
+/** A person, faction or place the campaign remembers. Ties are typed from the
+ *  start: in real session notes an NPC is mostly who they are to someone else. */
+export interface Tie { type: string; to: string; note: string }
+export interface RecordDoc {
+  kind: string; name: string; pronouns: string; role: string; home: string; status: string;
+  tags: string[]; ties: Tie[]; notes: string;
+  /** GM only — the truth beside what the table believes. Absent for players. */
+  secret?: string;
+  /** 'table' or 'gm'; a 'gm' record is not sent to players at all. */
+  visibility: string;
+  created_by: string | null;
+}
+export interface RecordRow { id: string; kind: string; data: RecordDoc; revision: number; created_at: number; updated_at: number }
+
 // ---- documents
 
 export interface Follower {
@@ -156,5 +170,6 @@ export interface Message {
 }
 export interface StateResponse {
   me: User; campaign_name: string; users: User[]; online: string[];
-  characters: CharacterRow[]; shared: SharedRow[]; messages: Message[];
+  characters: CharacterRow[]; shared: SharedRow[];
+  records: RecordRow[]; messages: Message[];
 }

@@ -6,7 +6,7 @@ from typing import Any
 
 from .config import UserConfig
 
-GM_ONLY_PATHS = ("/gm_notes",)
+GM_ONLY_PATHS = ("/gm_notes", "/secret", "/visibility")
 IMMUTABLE_PATHS = ("/pack_id", "/playbook")
 
 
@@ -24,6 +24,12 @@ def check_patch(user: UserConfig, entity: str, owner: str | None, path: str, gm_
         if not can_edit_character(user, owner):
             raise Forbidden("you do not own this character")
     elif entity == "shared":
+        if gm_only and not user.is_gm:
+            raise Forbidden("GM only")
+    elif entity == "record":
+        # Collaborative by default: anyone at the table may write down what they
+        # know about a person. A record the GM has hidden is theirs alone, and
+        # `secret` and `visibility` are GM-only paths on every record.
         if gm_only and not user.is_gm:
             raise Forbidden("GM only")
     else:
@@ -49,4 +55,5 @@ def strip_for_user(user: UserConfig, doc: dict[str, Any]) -> dict[str, Any]:
         return doc
     out = dict(doc)
     out.pop("gm_notes", None)
+    out.pop("secret", None)
     return out

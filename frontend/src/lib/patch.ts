@@ -2,14 +2,14 @@ import { applyPointer, type PatchOp } from './pointer';
 import { app } from './state.svelte';
 import { send } from './ws';
 
-export type Entity = 'character' | 'shared';
+export type Entity = 'character' | 'shared' | 'record';
 
 /**
  * Optimistically apply a patch locally, then send it. Errors are toasted by ws.ts and the entity refetched.
  * For op 'text_patch', `value` is the locally merged text and `patchText` the diff-match-patch patch to send.
  */
 export function patch(entity: Entity, id: string | null, path: string, value: unknown, op: PatchOp = 'set', patchText?: string): Promise<void> {
-  const target = entity === 'character' ? app.characters[id!] : app.shared[id!];
+  const target = entity === 'character' ? app.characters[id!] : entity === 'record' ? app.records[id!] : app.shared[id!];
   if (target) {
     try { applyPointer(target.data, path, value, op); } catch (e) { console.warn('local patch failed', e); }
   }
@@ -26,6 +26,9 @@ export function characterPatcher(id: string): Patcher {
 }
 export function sharedPatcher(id: string): Patcher {
   return (path, value, op = 'set', patchText) => patch('shared', id, path, value, op, patchText);
+}
+export function recordPatcher(id: string): Patcher {
+  return (path, value, op = 'set', patchText) => patch('record', id, path, value, op, patchText);
 }
 
 /** Context shared by a sheet with its field components (set via setContext('sheet', ...)). */

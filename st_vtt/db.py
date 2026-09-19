@@ -29,6 +29,15 @@ CREATE TABLE IF NOT EXISTS shared_sheets (
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS records (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    name TEXT,
+    data TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ts REAL NOT NULL,
@@ -62,6 +71,54 @@ class Database:
     def close(self) -> None:
         with self._lock:
             self._conn.close()
+
+    # ---------------------------------------------------------------- records
+    def list_records(self) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM records ORDER BY created_at").fetchall()
+        return [self._record_row(r) for r in rows]
+
+    def get_record(self, rid: str) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM records WHERE id=?", (rid,)).fetchone()
+        return self._record_row(row) if row else None
+
+    def insert_record(self, rid: str, kind: str, doc: dict[str, Any]) -> dict[str, Any]:
+        now = time.time()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO records (id, kind, name, data, revision, created_at, updated_at) VALUES (?,?,?,?,0,?,?)",
+                (rid, kind, doc.get("name"), json.dumps(doc), now, now),
+            )
+            self._conn.commit()
+        return self.get_record(rid)  # type: ignore[return-value]
+
+    def save_record(self, rid: str, doc: dict[str, Any]) -> int:
+        with self._lock:
+            row = self._conn.execute("SELECT revision FROM records WHERE id=?", (rid,)).fetchone()
+            rev = (row["revision"] if row else 0) + 1
+            self._conn.execute(
+                "UPDATE records SET data=?, name=?, revision=?, updated_at=? WHERE id=?",
+                (json.dumps(doc), doc.get("name"), rev, time.time(), rid),
+            )
+            self._conn.commit()
+        return rev
+
+    def delete_record(self, rid: str) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM records WHERE id=?", (rid,))
+            self._conn.commit()
+
+    @staticmethod
+    def _record_row(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "id": row["id"],
+            "kind": row["kind"],
+            "data": json.loads(row["data"]),
+            "revision": row["revision"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
 
     # ------------------------------------------------------------- characters
     def list_characters(self) -> list[dict[str, Any]]:

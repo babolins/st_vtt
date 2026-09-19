@@ -11,6 +11,8 @@
   import MoveFinder from '../ui/MoveFinder.svelte';
   import Rail from './Rail.svelte';
   import MovePage from './MovePage.svelte';
+  import People from './People.svelte';
+  import RecordPage from './RecordPage.svelte';
   import { land, router } from '../lib/router.svelte';
   import Peek from '../ui/Peek.svelte';
 
@@ -62,6 +64,10 @@
       {/if}
     {:else if route.kind === 'move'}
       <MovePage id={route.id} />
+    {:else if route.kind === 'people'}
+      <People />
+    {:else if route.kind === 'record'}
+      <RecordPage id={route.id} />
     {:else}
       {#each mine as row (row.id)}
         <CharacterSheet {row} />
