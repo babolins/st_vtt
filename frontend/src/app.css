@@ -148,7 +148,16 @@ table.grid input[type="text"] { width: 100%; }
 /* A section heading sits on a heavy rule -- the one move that does most of the
    work of making this read as a playbook rather than a web page. */
 :root[data-theme="paper"] .coll.top { border-color: var(--rule); }
-:root[data-theme="paper"] .coll.top > .head { border-bottom: 2px solid var(--rule); }
+/* Heavy strokes on the printed sheets did not take ink evenly: the bar under a
+   heading is eaten away along its underside, and the stat boxes are chipped all
+   round. Thin rules came out clean, so nothing else gets this. The textures are
+   tileable SVGs baked at build time (src/textures/generate.py) rather than a
+   runtime filter -- no per-frame cost, and the same wear every reload. */
+:root[data-theme="paper"] .coll.top > .head {
+  border-bottom: 0;
+  padding-bottom: calc(.5em + 2px);
+  background: url('./textures/ink-rule.svg') left bottom / auto 4px repeat-x;
+}
 :root[data-theme="paper"] .toggle h2 { font-size: 1.3em; letter-spacing: .01em; }
 :root[data-theme="paper"] .toggle h3 { color: var(--fg); font-weight: 700; font-size: 1.05em; }
 /* The printed sheets head their sections in title-case Caslon, not the spaced
@@ -158,7 +167,12 @@ table.grid input[type="text"] { width: 100%; }
 
 /* Stat boxes are rounded rectangles in heavier ink, numerals in the display
    face -- the block across the top of every character sheet. */
-:root[data-theme="paper"] .stat { border: 1.5px solid var(--rule); border-radius: 10px; background: var(--bg-elev); }
+:root[data-theme="paper"] .stat {
+  border: 3px solid transparent;
+  border-image: url('./textures/ink-box.svg') 8 / 3px round;
+  border-radius: 0;
+  background: var(--bg-elev);
+}
 :root[data-theme="paper"] .lbl { color: var(--fg); letter-spacing: .06em; text-transform: none; }
 /* Debilities are named in italic under the stat line, as on the playbook. */
 :root[data-theme="paper"] .deb { font-style: italic; }
@@ -188,5 +202,8 @@ table.grid input[type="text"] { width: 100%; }
 :root[data-theme="paper"] .pill { border-radius: 2px; }
 :root[data-theme="paper"] .badge { background: var(--accent); color: var(--accent-fg); border-radius: 2px; }
 :root[data-theme="paper"] table.grid th { color: var(--fg); font-weight: 700; }
-:root[data-theme="paper"] header { border-bottom: 2px solid var(--rule); }
+:root[data-theme="paper"] header {
+  border-bottom: 0;
+  background: var(--bg-elev) url('./textures/ink-rule-alt.svg') left bottom / auto 4px repeat-x;
+}
 :root[data-theme="paper"] .title { font-family: var(--display); }
