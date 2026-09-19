@@ -1,8 +1,10 @@
 <script lang="ts">
   import { timeShort, fmtMod } from '../lib/util';
   import { api } from '../lib/api';
+  import { allMoves } from '../lib/moveindex';
   import { app, canEdit, isGm, toast } from '../lib/state.svelte';
   import Markdown from '../ui/Markdown.svelte';
+  import MoveBody from '../ui/MoveBody.svelte';
   import type { Message, OutcomeAction } from '../lib/types';
 
   let { message }: { message: Message } = $props();
@@ -15,6 +17,10 @@
   const character = $derived(p.character_id ? app.characters[p.character_id] : undefined);
   const mayApply = $derived(p.character_id ? !!character && canEdit(character) : !!p.shared_id && (isGm() || !!app.shared[p.shared_id]));
   const debilities = $derived(app.content?.pack.debilities ?? []);
+  // The dice landing is exactly when the table wants the printed move in front of
+  // them, so the card can show the whole thing — the pack already has it.
+  const rolled = $derived(p.move_id && app.content ? allMoves(app.content).find((e) => e.move.id === p.move_id)?.move : undefined);
+  let showMove = $state(false);
   let choosing = $state<number | null>(null);
 
   async function apply(index: number, choice?: string) {
@@ -60,6 +66,14 @@
   {#if p.outcome}
     <Markdown text={p.outcome} class="outcome" />
   {/if}
+  {#if rolled}
+    <button class="ghost small showmove" onclick={() => (showMove = !showMove)} aria-expanded={showMove}>
+      {showMove ? '▾' : '▸'} the move
+    </button>
+    {#if showMove}
+      <div class="movebody"><MoveBody move={rolled} /></div>
+    {/if}
+  {/if}
   {#if actions.length}
     <div class="row actions">
       {#each actions as a, i}
@@ -85,6 +99,8 @@
 </div>
 
 <style>
+  .showmove { padding: .1em .2em; margin-top: .2em; }
+  .movebody { border-top: 1px solid var(--border); margin-top: .3em; padding-top: .3em; }
   .rc { border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 6px; padding: .4em .6em; background: var(--bg); }
   .rc.hit { border-left-color: var(--ok); }
   .rc.mixed { border-left-color: var(--warn); }

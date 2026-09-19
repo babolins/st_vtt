@@ -253,6 +253,10 @@ class Move(Strict):
     hold: Hold | None = None
     tracks: Tracks = Field(default_factory=Tracks, description="Boxes tracked on the move itself.")
     requires: Requires | None = None
+    themes: list[str] = Field(
+        default_factory=list,
+        description="Free-form thematic grouping for browsing ('fighting', 'travel', 'talking'); the pack's own vocabulary, not the engine's.",
+    )
     tags: list[str] = Field(default_factory=list)
     replaces: str | None = None
     insert: str | None = Field(default=None, description="Taking this move adds the named insert to the sheet.")

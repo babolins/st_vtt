@@ -8,16 +8,28 @@
   import SharedSheet from '../sheet/SharedSheet.svelte';
   import NewCharacter from '../gm/NewCharacter.svelte';
   import Collapsible from '../ui/Collapsible.svelte';
+  import MoveFinder from '../ui/MoveFinder.svelte';
 
   let chatOpen = $state(false);
   let showNew = $state(false);
+  let finding = $state(false);
+
+  // ⌘K anywhere, the way every other dense app opens its search.
+  function onkey(e: KeyboardEvent) {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      finding = !finding;
+      e.preventDefault();
+    }
+  }
   const mine = $derived(myCharacters());
   const others = $derived(otherCharacters());
   const unread = $derived(app.messages.length);
 </script>
 
+<svelte:window onkeydown={onkey} />
+
 <div class="layout">
-  <Header onnew={() => (showNew = true)} />
+  <Header onnew={() => (showNew = true)} onfind={() => (finding = true)} />
   <main>
     {#each mine as row (row.id)}
       <CharacterSheet {row} />
@@ -52,6 +64,9 @@
 {/if}
 {#if showNew}
   <NewCharacter onclose={() => (showNew = false)} />
+{/if}
+{#if finding && app.content}
+  <MoveFinder onclose={() => (finding = false)} />
 {/if}
 
 <style>

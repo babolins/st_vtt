@@ -5,7 +5,7 @@
   import { disconnect } from '../lib/ws';
   import GmBar from '../gm/GmBar.svelte';
 
-  let { onnew }: { onnew: () => void } = $props();
+  let { onnew, onfind }: { onnew: () => void; onfind: () => void } = $props();
   let theme = $state(currentTheme());
   let gmOpen = $state(false);
 
@@ -29,6 +29,7 @@
       {/each}
     </span>
     {#if !app.connected}<span class="pill bad">reconnecting…</span>{/if}
+    <button class="small" onclick={onfind} title="Find a move (⌘K)">Moves</button>
     <button class="small" onclick={onnew}>+ Character</button>
     {#if isGm()}
       <button class="small" class:primary={gmOpen} onclick={() => (gmOpen = !gmOpen)}>GM tools</button>

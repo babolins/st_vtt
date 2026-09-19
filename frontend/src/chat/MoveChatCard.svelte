@@ -1,11 +1,23 @@
 <script lang="ts">
+  import { app } from '../lib/state.svelte';
+  import { allMoves } from '../lib/moveindex';
   import { timeShort } from '../lib/util';
-  import Markdown from '../ui/Markdown.svelte';
-  import { renderInline } from '../lib/markdown';
-  import type { Message } from '../lib/types';
+  import type { Message, Move } from '../lib/types';
+  import MoveBody from '../ui/MoveBody.svelte';
 
   let { message }: { message: Message } = $props();
   const p = $derived(message.payload);
+  // The card carries the move's text, but the pack has the authoritative copy —
+  // options, tracks and all — so prefer it and keep one renderer for both.
+  const move = $derived.by((): Move => {
+    const found = p.move_id && app.content ? allMoves(app.content).find((e) => e.move.id === p.move_id)?.move : undefined;
+    return found ?? ({
+      id: p.move_id ?? 'shared', name: p.name, trigger: p.trigger ?? '', text: p.text ?? '',
+      roll: null, outcomes: p.outcomes ?? {}, hold: p.hold ?? null, tracks: {},
+      requires: null, themes: [], tags: [], replaces: null, insert: null, grants: null,
+      options: [], min: null, max: null,
+    } as unknown as Move);
+  });
 </script>
 
 <div class="mc">
@@ -16,24 +28,12 @@
     <span class="grow"></span>
     <span class="muted small">{timeShort(message.ts)}</span>
   </div>
-  <div class="name">{p.name}</div>
-  {#if p.trigger}<p class="muted"><em>{@html renderInline(p.trigger)}</em></p>{/if}
-  {#if p.text}<Markdown text={p.text} />{/if}
-  {#if p.outcomes && Object.keys(p.outcomes).length}
-    <dl class="outcomes">
-      {#each Object.entries(p.outcomes) as [tier, outcome]}
-        <dt>{tier}</dt><dd><Markdown text={String(outcome)} /></dd>
-      {/each}
-    </dl>
-  {/if}
-  {#if p.hold}<p class="small muted">Hold: <strong>{p.hold.name}</strong>{#if p.hold.note} — {p.hold.note}{/if}</p>{/if}
+  <div class="name">{move.name}</div>
+  <MoveBody {move} />
 </div>
 
 <style>
   .mc { border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 6px; padding: .4em .6em; background: var(--bg); }
   .top { gap: .4em; }
   .name { font-weight: 600; margin: .15em 0; }
-  .outcomes { display: grid; grid-template-columns: auto 1fr; gap: .15em .6em; margin: .3em 0 0; }
-  .outcomes dt { font-weight: 600; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
-  .outcomes dd { margin: 0; }
 </style>

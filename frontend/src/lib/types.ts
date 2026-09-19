@@ -37,6 +37,8 @@ export interface Move {
   id: string; name: string; trigger: string; text: string; roll: RollSpec | null;
   outcomes: Record<string, Outcome>; hold: Hold | null; tracks: Tracks;
   requires: Requires | null; tags: string[]; replaces: string | null;
+  /** how the pack groups this move for browsing ('fighting', 'travel'); may be empty */
+  themes: string[];
   /** taking this move adds the named insert to the sheet */
   insert: string | null;
   /** taking this move lets you pick moves from other playbooks */
