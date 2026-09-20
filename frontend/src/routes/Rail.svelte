@@ -57,7 +57,16 @@
   <div class="group">The campaign</div>
   <a class="place" class:on={isAt({ kind: 'people' })} href={href({ kind: 'people' })}>
     <span class="nm">People</span>
-    <span class="sub">{Object.keys(app.records).length || 'nobody yet'}</span>
+    <span class="sub">{Object.values(app.records).filter((r) => r.kind !== 'event').length || 'nobody yet'}</span>
+  </a>
+
+  <a class="place" class:on={isAt({ kind: 'graph' })} href={href({ kind: 'graph' })}>
+    <span class="nm">Ties</span>
+    <span class="sub">who is who to whom</span>
+  </a>
+  <a class="place" class:on={isAt({ kind: 'timeline' })} href={href({ kind: 'timeline' })}>
+    <span class="nm">What happened</span>
+    <span class="sub">{Object.values(app.records).filter((r) => r.kind === 'event').length || 'nothing'} so far</span>
   </a>
 
   <div class="group">Everything</div>

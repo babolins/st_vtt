@@ -114,6 +114,8 @@ export interface Tie { type: string; to: string; note: string }
 export interface RecordDoc {
   kind: string; name: string; pronouns: string; role: string; home: string; status: string;
   tags: string[]; ties: Tie[]; notes: string;
+  /** events only: when in the table's own words, a hand-set order, and who was there */
+  when?: string; order?: number; involves?: string[];
   /** GM only — the truth beside what the table believes. Absent for players. */
   secret?: string;
   /** 'table' or 'gm'; a 'gm' record is not sent to players at all. */

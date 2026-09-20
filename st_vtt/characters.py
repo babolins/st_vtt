@@ -85,7 +85,7 @@ def new_record(kind: str, name: str, *, by: str | None = None) -> dict[str, Any]
     `visibility` hides the whole record, for the things the table should not
     know exists yet.
     """
-    return {
+    doc: dict[str, Any] = {
         "kind": kind,
         "name": name.strip(),
         "pronouns": "",
@@ -99,6 +99,14 @@ def new_record(kind: str, name: str, *, by: str | None = None) -> dict[str, Any]
         "visibility": "table",
         "created_by": by,
     }
+    if kind == "event":
+        # Not one date in thirteen pages of real notes: "nine years ago", "before
+        # Glenys was born", "last spring". So an event says when in words, and
+        # sorts by a number the table can nudge.
+        doc["when"] = ""
+        doc["order"] = 0
+        doc["involves"] = []
+    return doc
 
 
 def new_shared_sheet(pack: ContentPack, tpl: SharedSheetDef, name: str | None = None) -> dict[str, Any]:

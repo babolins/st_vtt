@@ -143,7 +143,7 @@ def _record_render(row: dict[str, Any], kind: str) -> Render:
 
 
 def create_record(app: FastAPI, user: UserConfig, kind: str, name: str) -> tuple[dict[str, Any], list[Render]]:
-    if kind not in ("npc", "faction", "place"):
+    if kind not in ("npc", "faction", "place", "event"):
         raise ServiceError(f"unknown record kind {kind!r}")
     if not name.strip():
         raise ServiceError("a record needs a name")

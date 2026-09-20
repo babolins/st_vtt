@@ -13,6 +13,8 @@
   import MovePage from './MovePage.svelte';
   import People from './People.svelte';
   import RecordPage from './RecordPage.svelte';
+  import Graph from './Graph.svelte';
+  import Timeline from './Timeline.svelte';
   import { land, router } from '../lib/router.svelte';
   import Peek from '../ui/Peek.svelte';
 
@@ -68,6 +70,10 @@
       <People />
     {:else if route.kind === 'record'}
       <RecordPage id={route.id} />
+    {:else if route.kind === 'graph'}
+      <Graph />
+    {:else if route.kind === 'timeline'}
+      <Timeline />
     {:else}
       {#each mine as row (row.id)}
         <CharacterSheet {row} />

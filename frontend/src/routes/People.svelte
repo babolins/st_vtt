@@ -16,7 +16,7 @@
   let newName = $state('');
   let busy = $state(false);
 
-  const all = $derived(records());
+  const all = $derived(records().filter((r) => r.kind !== 'event'));
   const values = (pick: (r: RecordRow) => string) =>
     [...new Set(all.map(pick).map((v) => v.trim()).filter(Boolean))].sort();
 
