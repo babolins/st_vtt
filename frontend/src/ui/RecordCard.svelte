@@ -13,6 +13,9 @@
   import { peek } from '../lib/router.svelte';
   import type { RecordRow } from '../lib/types';
   import DebouncedText from './DebouncedText.svelte';
+  import Markdown from './Markdown.svelte';
+  import { mentionsOf } from '../lib/links.svelte';
+  import { go } from '../lib/router.svelte';
 
   let { row, dense = false }: { row: RecordRow; dense?: boolean } = $props();
 
@@ -23,8 +26,11 @@
   /** A tie points at a record or at a player's character; both are people. */
   const nameOf = (id: string) => app.records[id]?.data.name ?? app.characters[id]?.data.name ?? id;
 
+  const mentions = $derived(mentionsOf(doc.name, { kind: 'record', id: row.id }));
+
   let tieType = $state('');
   let tieTo = $state('');
+  let preview = $state(true);
 
   async function addTie() {
     if (!tieType.trim() || !tieTo) return;
@@ -77,7 +83,32 @@
     </div>
   </div>
 
-  <label class="block">Notes<DebouncedText value={doc.notes} onchange={(v) => p('/notes', v)} multiline placeholder="What the table knows." /></label>
+  <div class="block">
+    <div class="row notehead">
+      <span class="lbl">Notes</span>
+      <span class="grow"></span>
+      <button class="ghost small" onclick={() => (preview = !preview)}>{preview ? 'Edit' : 'Done'}</button>
+    </div>
+    {#if preview}
+      <button class="asprose" onclick={() => (preview = false)} title="Click to edit">
+        <Markdown text={doc.notes || '_Nothing written down yet._'} />
+      </button>
+    {:else}
+      <DebouncedText value={doc.notes} onchange={(v) => p('/notes', v)} multiline placeholder="What the table knows. Link anyone with [[their name]]." />
+    {/if}
+  </div>
+
+  {#if mentions.length}
+    <div class="block mentions">
+      <span class="lbl">Appears in</span>
+      {#each mentions as m}
+        <button class="mention" onclick={() => go(m.place)}>
+          <span class="mlabel">{m.label}</span>
+          {#if m.context}<span class="mctx muted small">{m.context}</span>{/if}
+        </button>
+      {/each}
+    </div>
+  {/if}
 
   {#if isGm()}
     <label class="block secret">What really happened <span class="muted small">— GM only</span>
@@ -113,4 +144,11 @@
   .gmbar { margin-top: .7em; gap: .5em; }
   .chk { display: inline-flex; align-items: center; gap: .35em; color: var(--fg); font-size: .9em; }
   .dense .fields { grid-template-columns: repeat(auto-fit, minmax(7em, 1fr)); }
+  .notehead { align-items: baseline; }
+  .asprose { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0; cursor: text; color: inherit; font: inherit; }
+  .mentions { gap: .2em; }
+  .mention { display: block; width: 100%; text-align: left; background: none; border: 0; border-left: 2px solid var(--border); padding: .1em .5em; cursor: pointer; }
+  .mention:hover { border-left-color: var(--accent); background: var(--bg-sunken); }
+  .mlabel { font-weight: 600; font-size: .9em; }
+  .mctx { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
