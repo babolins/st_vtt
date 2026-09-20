@@ -40,7 +40,9 @@ function subsequence(haystack: string, needle: string): number[] | null {
   if (i !== needle.length) return null;
   const span = hits[hits.length - 1] - hits[0] + 1;
   const wordStarts = hits.filter((at) => at === 0 || /[\s\-—(':]/.test(haystack[at - 1] ?? '')).length;
-  const tight = span <= needle.length + 2;
+  // Room for an abbreviation ("mkcmp" for Make Camp) but not for a sprawl: the
+  // letters of "melee" can be found scattered across "Torment's Blessing".
+  const tight = span <= needle.length * 2.5 + 2;
   const initials = wordStarts >= Math.ceil(needle.length / 2);
   return tight || initials ? hits : null;
 }
