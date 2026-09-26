@@ -4,6 +4,7 @@
   import type { CharacterDoc, Playbook } from '../../lib/types';
   import type { Patcher } from '../../lib/patch';
   import Stepper from '../../ui/Stepper.svelte';
+  import StatBlock from '../../ui/StatBlock.svelte';
   import { getContext } from 'svelte';
   import { SHEET, type SheetContext } from '../../lib/patch';
   import { presence } from '../../lib/presence.svelte';
@@ -16,25 +17,24 @@
   const sheet = getContext<SheetContext | undefined>(SHEET);
   const pres = (path: string) => (sheet ? { entity: sheet.entity, id: sheet.id, path } : undefined);
 
+  /** The marked debilities that give rolls with this stat disadvantage. */
+  const affecting = (stat: string) => content.pack.debilities.filter((d) => doc.debilities[d.id] && d.affects.includes(stat));
+
   function levelUp() {
     p('/xp', doc.xp - cost);
     p('/level', doc.level + 1);
   }
 </script>
 
-<div class="stats">
-  {#each content.pack.stats as s}
-    {@const affected = content.pack.debilities.filter((d) => doc.debilities[d.id] && d.affects.includes(s.id))}
-    <div class="stat" class:dis={affected.length > 0} title={affected.length ? `Disadvantage: ${affected.map((d) => d.label).join(', ')}` : ''}>
-      <div class="lbl">{s.label}</div>
-      {#if editable}
-        <Stepper value={doc.stats?.[s.id] ?? 0} min={s.min} max={s.max} onchange={(v) => p(`/stats/${s.id}`, v)} path={`/stats/${s.id}`} big />
-      {:else}
-        <div class="val">{fmtMod(doc.stats?.[s.id] ?? 0)}</div>
-      {/if}
-    </div>
-  {/each}
-</div>
+<StatBlock stats={content.pack.stats} warn={(s) => affecting(s.id).length > 0} title={(s) => affecting(s.id).length ? `Disadvantage: ${affecting(s.id).map((d) => d.label).join(', ')}` : ''}>
+  {#snippet value(s)}
+    {#if editable}
+      <Stepper value={doc.stats?.[s.id] ?? 0} min={s.min} max={s.max} onchange={(v) => p(`/stats/${s.id}`, v)} path={`/stats/${s.id}`} big />
+    {:else}
+      <div class="val">{fmtMod(doc.stats?.[s.id] ?? 0)}</div>
+    {/if}
+  {/snippet}
+</StatBlock>
 {#if array.length && editable && !doc.creation_done}
   <div class="muted small">Assign {array.map((n) => fmtMod(n)).join(', ')}</div>
 {/if}
@@ -70,12 +70,6 @@
 </div>
 
 <style>
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5em, 1fr)); gap: .4em; margin: .25em 0; }
-  .stat {
-    text-align: center; border: var(--stat-border-width) solid var(--border); border-radius: var(--radius-sm); padding: .3em;
-    border-image: var(--stat-border-image) 8 / var(--stat-border-width) round; background: var(--stat-bg);
-  }
-  .stat.dis { border-color: var(--warn); border-image-source: var(--stat-border-image-warn); }
   .lbl { font-size: .75em; letter-spacing: .06em; color: var(--label-color); text-transform: var(--label-case); }
   .val { font-size: 1.4em; font-weight: 700; font-family: var(--display); }
   .vitals { margin: .5em 0; gap: 1em; }

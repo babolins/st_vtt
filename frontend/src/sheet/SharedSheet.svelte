@@ -9,6 +9,7 @@
   import Confirm from '../ui/Confirm.svelte';
   import DebouncedText from '../ui/DebouncedText.svelte';
   import Stepper from '../ui/Stepper.svelte';
+  import StatBlock from '../ui/StatBlock.svelte';
   import GenericSection from './sections/GenericSection.svelte';
   import MoveCard from './sections/MoveCard.svelte';
   import Notes from './sections/Notes.svelte';
@@ -66,12 +67,11 @@
 
     {#if def.stats.length}
       <div class="stats">
-        {#each def.stats as s}
-          <div class="stat" title={s.help}>
-            <div class="lbl">{s.label}</div>
+        <StatBlock stats={def.stats} title={(s) => s.help}>
+          {#snippet value(s)}
             <Stepper value={doc.stats?.[s.id] ?? s.start} min={s.min} max={s.max} onchange={(v) => p(`/stats/${s.id}`, v)} path={`/stats/${s.id}`} big />
-          </div>
-        {/each}
+          {/snippet}
+        </StatBlock>
       </div>
     {/if}
 
@@ -118,12 +118,7 @@
 <style>
   .head { padding: .5em 0; }
   .f { display: flex; flex-direction: column; gap: .15em; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5em, 1fr)); gap: .4em; margin: .25em 0 .5em; }
-  .stat {
-    text-align: center; border: var(--stat-border-width) solid var(--border); border-radius: var(--radius-sm); padding: .3em;
-    border-image: var(--stat-border-image) 8 / var(--stat-border-width) round; background: var(--stat-bg);
-  }
-  .lbl { font-size: .75em; letter-spacing: .06em; color: var(--label-color); text-transform: var(--label-case); }
+  .stats { margin-bottom: .5em; }
   .debils { gap: 1em; margin-bottom: .5em; }
   .deb { display: inline-flex; align-items: center; gap: .3em; color: var(--fg); cursor: pointer; font-style: var(--debility-style); }
 </style>
