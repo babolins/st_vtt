@@ -12,6 +12,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from . import service
 from .auth import WS_NOT_LOGGED_IN, ws_session
 from .config import UserConfig
+from .perms import GM_ONLY_PATHS
 
 log = logging.getLogger("st_vtt.ws")
 
@@ -149,9 +150,16 @@ async def websocket_endpoint(ws: WebSocket) -> None:
 EPHEMERAL = {"focus", "blur", "typing", "presence_sync"}
 
 
-def _gm_only_entity(app: FastAPI, entity: str | None, eid: str | None) -> bool:
-    """Whether presence on this entity should only be shown to GMs."""
-    return bool(entity == "shared" and service.shared_is_gm_only(app, eid))
+def _gm_only_focus(app: FastAPI, focus: dict[str, Any]) -> bool:
+    """Whether presence on this field should only be shown to GMs: a sheet or record
+    the table cannot see, or a field it is never sent (gm_notes, a record's secret).
+    Presence carries no content, but it would still say that such a thing exists."""
+    entity, eid, path = focus.get("entity"), focus.get("id"), focus.get("path")
+    if entity == "shared" and service.shared_is_gm_only(app, eid):
+        return True
+    if entity == "record" and service.record_is_hidden(app, eid):
+        return True
+    return isinstance(path, str) and any(path == p or path.startswith(p + "/") for p in GM_ONLY_PATHS)
 
 
 async def handle_ephemeral(app: FastAPI, hub: Hub, ws: WebSocket, user: UserConfig, msg: dict[str, Any]) -> None:
@@ -162,7 +170,7 @@ async def handle_ephemeral(app: FastAPI, hub: Hub, ws: WebSocket, user: UserConf
         hub.set_focus(ws, client, focus)
         await hub.broadcast_ephemeral(
             {"type": "field_presence", "user": user.name, "client": client, **focus},
-            exclude=ws, gm_only=_gm_only_entity(app, focus["entity"], focus["id"]),
+            exclude=ws, gm_only=_gm_only_focus(app, focus),
         )
     elif kind == "blur":
         hub.set_focus(ws, client, None)
@@ -173,7 +181,7 @@ async def handle_ephemeral(app: FastAPI, hub: Hub, ws: WebSocket, user: UserConf
         for f in hub.focus_snapshot():
             if f.get("client") == client:
                 continue
-            if _gm_only_entity(app, f.get("entity"), f.get("id")) and not user.is_gm:
+            if _gm_only_focus(app, f) and not user.is_gm:
                 continue
             await hub.send(ws, {"type": "field_presence", **f})
 

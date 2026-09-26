@@ -7,6 +7,8 @@ Two of these tests exist because the first implementation failed them: a
 the copy players already held in place.
 """
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -160,6 +162,40 @@ def test_hiding_withdraws_the_record_from_players(app, alice, gm):
     assert back[0]["type"] == "record_created"
     assert back[0]["record"]["data"]["name"] == "Brennan"
     assert "secret" not in back[0]["record"]["data"]
+
+
+def test_the_gm_at_work_on_what_the_table_cannot_see_is_not_shown(alice, gm):
+    """Presence names no content, but a GM seen editing a record nobody else can
+    see, or someone's secret, gives away that there is one."""
+    known = make(alice, "Cerys")
+    hidden = make(gm, "Brennan")
+    patch(gm, hidden, "/visibility", "gm")
+
+    def recv(ws):
+        return json.loads(ws.receive_text())
+
+    def focus(ws, entity, eid, path):
+        ws.send_text(json.dumps({"type": "focus", "entity": entity, "id": eid, "path": path, "client": "cg"}))
+
+    with alice.websocket_connect("/ws") as wa:
+        recv(wa)  # presence
+        with gm.websocket_connect("/ws") as wg:
+            recv(wa); recv(wg)  # presence x2
+            focus(wg, "record", hidden, "/role")
+            focus(wg, "record", known, "/secret")
+            focus(wg, "character", "anyone", "/gm_notes")
+            # Events arrive in order, so the first one Alice hears of is this.
+            focus(wg, "record", known, "/role")
+            assert recv(wa) == {"type": "field_presence", "user": "Gm", "client": "cg", "entity": "record", "id": known, "path": "/role"}
+
+            # Nor does a snapshot for a late joiner name it: her own chat comes back first.
+            # (The GM's chat landing first proves the server has taken the new focus.)
+            focus(wg, "record", hidden, "/notes")
+            wg.send_text(json.dumps({"type": "chat", "text": "noted"}))
+            assert recv(wa)["type"] == "message"
+            wa.send_text(json.dumps({"type": "presence_sync", "client": "ca"}))
+            wa.send_text(json.dumps({"type": "chat", "text": "ping"}))
+            assert recv(wa)["type"] == "message"
 
 
 # ------------------------------------------------------------------ the rules themselves
