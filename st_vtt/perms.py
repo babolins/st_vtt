@@ -8,6 +8,9 @@ from .config import UserConfig
 
 GM_ONLY_PATHS = ("/gm_notes", "/secret", "/visibility")
 IMMUTABLE_PATHS = ("/pack_id", "/playbook")
+# `kind` mirrors the records table's own column, and `created_by` decides who may
+# delete a record; both are fixed at creation, for the GM too.
+RECORD_IMMUTABLE_PATHS = ("/kind", "/created_by")
 
 
 class Forbidden(Exception):
@@ -34,7 +37,8 @@ def check_patch(user: UserConfig, entity: str, owner: str | None, path: str, gm_
             raise Forbidden("GM only")
     else:
         raise Forbidden(f"unknown entity {entity!r}")
-    if any(path == p or path.startswith(p + "/") for p in IMMUTABLE_PATHS):
+    immutable = IMMUTABLE_PATHS + (RECORD_IMMUTABLE_PATHS if entity == "record" else ())
+    if any(path == p or path.startswith(p + "/") for p in immutable):
         raise Forbidden(f"{path} cannot be changed")
     if not user.is_gm and any(path == p or path.startswith(p + "/") for p in GM_ONLY_PATHS):
         raise Forbidden("GM only")

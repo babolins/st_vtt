@@ -55,6 +55,20 @@ def test_author_or_gm_may_delete(alice, bob, gm):
     assert gm.delete(f"/api/records/{theirs}").status_code == 200
 
 
+def test_nobody_may_claim_a_record_or_change_its_kind(alice, bob, gm):
+    rid = make(alice, "Meirion")
+    # Claiming it would make it yours to delete.
+    assert patch(bob, rid, "/created_by", "Bob").status_code == 403
+    assert bob.delete(f"/api/records/{rid}").status_code == 403
+    # The kind is also the table's own column; the GM cannot drift them apart either.
+    assert patch(bob, rid, "/kind", "event").status_code == 403
+    assert patch(gm, rid, "/kind", "event").status_code == 403
+    assert patch(gm, rid, "/created_by", "Gm").status_code == 403
+
+    doc = alice.get(f"/api/records/{rid}").json()["data"]
+    assert (doc["kind"], doc["created_by"]) == ("npc", "Alice")
+
+
 # ------------------------------------------------------------------ the GM's half
 
 
@@ -150,6 +164,12 @@ def test_check_patch_knows_records():
     with pytest.raises(Forbidden):
         check_patch(player, "record", None, "/notes", gm_only=True)
     check_patch(master, "record", None, "/secret")
+    for path in ("/kind", "/created_by"):
+        for user in (player, master):
+            with pytest.raises(Forbidden):
+                check_patch(user, "record", None, path)
+    # Only records: a character or shared sheet may have fields of the same name.
+    check_patch(master, "shared", None, "/kind")
 
 
 def test_strip_for_user_drops_the_secret():
