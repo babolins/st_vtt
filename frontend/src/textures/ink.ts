@@ -68,11 +68,11 @@ function specks(rng: Rng, width: number, height: number, n: number, size: number
   return out;
 }
 
-/** A mask that keeps the ink everywhere except under `shapes`. */
+/** A mask that keeps the ink everywhere except under `shapes`, a pixel past each edge. */
 function wearMask(width: number, height: number, shapes: string[]): string {
   return (
-    `<mask id="wear" maskUnits="userSpaceOnUse" x="0" y="0" width="${width}" height="${height}">` +
-    `<rect width="${width}" height="${height}" fill="#fff"/>` +
+    `<mask id="wear" maskUnits="userSpaceOnUse" x="-1" y="-1" width="${width + 2}" height="${height + 2}">` +
+    `<rect x="-1" y="-1" width="${width + 2}" height="${height + 2}" fill="#fff"/>` +
     `<g fill="#000">${shapes.join('')}</g>` +
     `</mask>`
   );
@@ -87,7 +87,9 @@ export function ruleTile(seed: number, width = 320, bar = 3.2, height = 4.4): st
   // Depth caps at a third of the bar: the ink thins there, it never breaks.
   // Bite deeper and the line reads as dashed rather than worn.
   const worn = [...bites(rng, width, bar, 1.2, 4.0, 11.0), ...specks(rng, width, bar, 9, 0.7)];
-  const ink = `<rect width="${width}" height="${bar}" fill="${INK}" mask="url(#wear)"/>`;
+  // The bar runs a pixel past both ends of the tile: drawn edge to edge, its ends
+  // anti-alias, and a repeat shows a hairline gap at every seam.
+  const ink = `<rect x="-1" width="${width + 2}" height="${bar}" fill="${INK}" mask="url(#wear)"/>`;
   return svg(width, height, wearMask(width, height, worn) + ink);
 }
 
