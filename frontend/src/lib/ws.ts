@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, basePath } from './api';
 import { applyPointer } from './pointer';
 import { app, loadState, toast } from './state.svelte';
 import type { Message, StateResponse } from './types';
@@ -20,7 +20,7 @@ export async function refreshState(): Promise<void> {
 export function connect(): void {
   closedByUs = false;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  socket = new WebSocket(`${proto}://${location.host}/ws`);
+  socket = new WebSocket(`${proto}://${location.host}${basePath}/ws`);
   socket.onopen = async () => {
     backoff = 500;
     app.connected = true;

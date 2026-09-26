@@ -1,12 +1,15 @@
 import { app } from './state.svelte';
 
+/** Prefix the bundle was built for: '' at the site root, '/stonetop' under a sub-path (see vite.config.ts). */
+export const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) { super(message); this.status = status; }
 }
 
 async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
-  const res = await fetch(url, {
+  const res = await fetch(basePath + url, {
     method,
     headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
     body: body !== undefined ? JSON.stringify(body) : undefined,
