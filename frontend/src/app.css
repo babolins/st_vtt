@@ -176,6 +176,9 @@ table.grid input[type="text"] { width: 100%; }
   border-radius: 0;
   background: var(--bg-elev);
 }
+/* The border is an image, so the component's `border-color: var(--warn)` for a
+   stat under a debility never shows; box it in the warn ink instead. */
+:root[data-theme="paper"] .stat.dis { border-image-source: url('./textures/ink-box-warn.svg'); }
 :root[data-theme="paper"] .lbl { color: var(--fg); letter-spacing: .06em; text-transform: none; }
 /* Debilities are named in italic under the stat line, as on the playbook. */
 :root[data-theme="paper"] .deb { font-style: italic; }

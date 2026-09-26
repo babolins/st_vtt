@@ -15,6 +15,8 @@ import random
 from urllib.parse import quote
 
 INK = "#17150f"
+# --warn in the paper theme: a stat under a debility is boxed in this instead.
+WARN = "#86621a"
 
 
 def bites(rng, width, edge_y, depth, step, run):
@@ -71,7 +73,7 @@ def rule_tile(seed, width=320.0, bar=3.2, height=4.4):
     )
 
 
-def box_tile(seed, size=32.0, stroke=5.0, chamfer=8.0):
+def box_tile(seed, size=32.0, stroke=5.0, chamfer=8.0, ink=INK):
     """A chipped outline with chamfered corners, for border-image (9-slice).
 
     Avara is drawn on a square grid and the sheets' boxes follow it: the corners
@@ -101,7 +103,7 @@ def box_tile(seed, size=32.0, stroke=5.0, chamfer=8.0):
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{h:g}" height="{h:g}" viewBox="0 0 {h:g} {h:g}">'
         f"{wear_mask(h, h, chips)}"
-        f'<path d="{path}" fill="none" stroke="{INK}" stroke-width="{stroke:g}" mask="url(#wear)"/>'
+        f'<path d="{path}" fill="none" stroke="{ink}" stroke-width="{stroke:g}" mask="url(#wear)"/>'
         f"</svg>"
     )
 
@@ -113,4 +115,5 @@ if __name__ == "__main__":
     (here / "ink-rule.svg").write_text(rule_tile(7))
     (here / "ink-rule-alt.svg").write_text(rule_tile(23))
     (here / "ink-box.svg").write_text(box_tile(11))
-    print("wrote ink-rule.svg, ink-rule-alt.svg, ink-box.svg")
+    (here / "ink-box-warn.svg").write_text(box_tile(11, ink=WARN))
+    print("wrote ink-rule.svg, ink-rule-alt.svg, ink-box.svg, ink-box-warn.svg")
