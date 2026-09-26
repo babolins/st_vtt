@@ -71,12 +71,15 @@
 
 <style>
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5em, 1fr)); gap: .4em; margin: .25em 0; }
-  .stat { text-align: center; border: 1px solid var(--border); border-radius: 6px; padding: .3em; background: var(--bg); }
-  .stat.dis { border-color: var(--warn); }
-  .lbl { font-size: .75em; letter-spacing: .06em; color: var(--fg-muted); text-transform: uppercase; }
-  .val { font-size: 1.4em; font-weight: 700; }
+  .stat {
+    text-align: center; border: var(--stat-border-width) solid var(--border); border-radius: var(--radius-sm); padding: .3em;
+    border-image: var(--stat-border-image) 8 / var(--stat-border-width) round; background: var(--stat-bg);
+  }
+  .stat.dis { border-color: var(--warn); border-image-source: var(--stat-border-image-warn); }
+  .lbl { font-size: .75em; letter-spacing: .06em; color: var(--label-color); text-transform: var(--label-case); }
+  .val { font-size: 1.4em; font-weight: 700; font-family: var(--display); }
   .vitals { margin: .5em 0; gap: 1em; }
   .vital { display: inline-flex; align-items: center; gap: .3em; }
   .debils { gap: 1em; margin-bottom: .5em; }
-  .deb { display: inline-flex; align-items: center; gap: .3em; color: var(--fg); cursor: pointer; }
+  .deb { display: inline-flex; align-items: center; gap: .3em; color: var(--fg); cursor: pointer; font-style: var(--debility-style); }
 </style>

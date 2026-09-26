@@ -124,7 +124,7 @@
   main { grid-column: 2; grid-row: 2; overflow-y: auto; padding: 0 .75em .75em; }
   main > :global(:first-child) { margin-top: .75em; }
   aside { grid-column: 3; grid-row: 2; border-left: 1px solid var(--border); background: var(--bg-elev); min-height: 0; display: flex; flex-direction: column; }
-  .fab { display: none; position: fixed; right: 1em; bottom: 1em; border-radius: 999px; padding: .6em .9em; box-shadow: var(--shadow); z-index: 20; }
+  .fab { display: none; position: fixed; right: 1em; bottom: 1em; border-radius: var(--radius-pill); padding: .6em .9em; box-shadow: var(--shadow); z-index: 20; }
   .empty { padding: 1.5em; text-align: center; margin-bottom: .75em; }
   @media (max-width: 900px) {
     /* The rail becomes a strip under the header; the sheet takes the rest. */

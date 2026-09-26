@@ -146,7 +146,7 @@
   .warn { color: var(--warn); }
   label { display: inline-flex; gap: .3em; align-items: center; color: var(--fg); }
   .field { display: flex; flex-direction: column; gap: .2em; align-items: stretch; }
-  .lbl { min-width: 2.5em; }
+  .lbl { min-width: 2.5em; color: var(--label-color); }
   .opts { gap: .75em; }
   .total { border-top: 1px dashed var(--border); padding-top: .4em; }
 </style>

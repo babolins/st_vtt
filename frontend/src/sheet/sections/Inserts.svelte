@@ -98,7 +98,7 @@
 {/if}
 
 <style>
-  .insert { border: 1px solid var(--border); border-radius: 6px; padding: .5em .75em; margin-bottom: .5em; }
+  .insert { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5em .75em; margin-bottom: .5em; }
   .insert .top { margin-bottom: .25em; }
   .pick { padding: .25em 0; border-bottom: 1px solid var(--border); }
   .pick:last-child { border-bottom: 0; }

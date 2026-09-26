@@ -104,10 +104,10 @@
   .head { padding: .5em .75em; border-bottom: 1px solid var(--border); }
   .closer { display: none; }
   .log { flex: 1; overflow-y: auto; padding: .5em .75em; display: flex; flex-direction: column; gap: .5em; }
-  .msg { border-radius: 6px; }
+  .msg { border-radius: var(--radius-sm); }
   .msg.whisper { background: var(--accent-soft); padding: .3em .5em; }
   .msg.chat .meta, .msg.whisper .meta { gap: .4em; }
-  .req { display: flex; gap: .5em; align-items: center; justify-content: space-between; background: var(--bg-sunken); padding: .4em .6em; border-radius: 6px; }
+  .req { display: flex; gap: .5em; align-items: center; justify-content: space-between; background: var(--bg-sunken); padding: .4em .6em; border-radius: var(--radius-sm); }
   .typing { height: 1.3em; padding: 0 .75em; border-top: 1px solid var(--border); }
   .input { display: flex; gap: .4em; padding: .5em .75em; }
   .input input { flex: 1; }

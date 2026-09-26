@@ -25,7 +25,7 @@
 
 <style>
   .stepper { display: inline-flex; align-items: center; gap: .15em; }
-  .lbl { color: var(--fg-muted); font-size: .85em; margin-right: .25em; }
+  .lbl { color: var(--label-color); font-size: .85em; margin-right: .25em; }
   input { width: 3.2em; text-align: center; padding: .15em .2em; -moz-appearance: textfield; }
   input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .big input { font-size: 1.3em; width: 2.6em; font-weight: 600; }

@@ -223,7 +223,7 @@
   .opts { display: flex; flex-direction: column; gap: .25em; }
   .listlbl { min-width: 5em; }
   .lineRow { gap: .15em .4em; }
-  .chip { display: inline-flex; align-items: baseline; gap: .3em; padding: .1em .45em; border-radius: 6px; cursor: pointer; }
+  .chip { display: inline-flex; align-items: baseline; gap: .3em; padding: .1em .45em; border-radius: var(--radius-sm); cursor: pointer; }
   .chip.sel { background: var(--accent-soft); }
   .chip.ro { cursor: default; }
   .chip input { margin: 0; position: relative; top: .1em; }

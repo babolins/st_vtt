@@ -116,7 +116,7 @@
     }
     .group { display: none; }
     .place {
-      grid-template-columns: auto auto; width: auto; flex: none; border-left: 0; border-radius: 999px;
+      grid-template-columns: auto auto; width: auto; flex: none; border-left: 0; border-radius: var(--radius-pill);
       border: 1px solid var(--border); padding: .15em .7em;
     }
     .place.on { border-color: var(--accent); }

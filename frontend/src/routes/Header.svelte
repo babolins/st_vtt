@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api } from '../lib/api';
   import { app, isGm } from '../lib/state.svelte';
-  import { currentTheme, toggleTheme } from '../lib/theme';
+  import { currentTheme, nextTheme, THEME_GLYPH } from '../lib/theme';
   import { disconnect } from '../lib/ws';
   import GmBar from '../gm/GmBar.svelte';
 
@@ -34,7 +34,7 @@
     {#if isGm()}
       <button class="small" class:primary={gmOpen} onclick={() => (gmOpen = !gmOpen)}>GM tools</button>
     {/if}
-    <button class="ghost small" onclick={() => (theme = toggleTheme())} title="Toggle light/dark">{theme === 'dark' ? '☀' : '☾'}</button>
+    <button class="ghost small" onclick={() => (theme = nextTheme())} title="Theme: light, dark, paper">{THEME_GLYPH[theme]}</button>
     <button class="ghost small" onclick={logout} title="Log out">Log out</button>
   </div>
   {#if gmOpen && isGm()}
@@ -43,7 +43,10 @@
 </header>
 
 <style>
-  header { grid-column: 1 / -1; grid-row: 1; border-bottom: 1px solid var(--border); background: var(--bg-elev); }
+  header {
+    grid-column: 1 / -1; grid-row: 1; border-bottom: var(--header-border);
+    background: var(--bg-elev) var(--header-rule) left bottom / auto var(--heading-rule-height) repeat-x;
+  }
   .bar { padding: .4em .75em; }
   .title { font-size: 1.1em; }
   .presence { display: inline-flex; gap: .5em; flex-wrap: wrap; }
