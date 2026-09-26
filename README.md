@@ -38,6 +38,23 @@ Open `http://<your-machine>:8000/`. Players on the same LAN, VPN, or Tailscale
 network use the same URL. Pick your name on the login page; enter a password
 only if your user has one in the config.
 
+### Behind a reverse proxy
+
+To serve the app under a sub-path rather than at the root, build the frontend
+with `VITE_BASE` set to that path:
+
+```bash
+cd frontend && VITE_BASE=/stonetop/ npm run build
+```
+
+Every asset, `/api` and `/ws` URL the page requests then carries that prefix, so
+the proxy has to be mounted at exactly the same path. The server keeps its
+ordinary root-mounted routes, so the proxy must strip the prefix again before
+forwarding — `tailscale serve --set-path=/stonetop http://127.0.0.1:8000` does
+that, as does nginx's `location /stonetop/ { proxy_pass http://127.0.0.1:8000/; }`
+(mind the trailing slash). It must forward WebSocket upgrades too, or sheets
+stop updating live.
+
 Other commands:
 
 ```bash

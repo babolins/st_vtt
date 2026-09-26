@@ -1,0 +1,46 @@
+version: 2
+
+# Groups take minor and patch updates only; each major bump gets its own PR,
+# except for packages that must move together.
+updates:
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      python:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: monthly
+    groups:
+      # Each major of the plugin needs the matching Vite major, so they upgrade in one PR.
+      vite:
+        patterns: ["vite", "@sveltejs/vite-plugin-svelte"]
+      frontend:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directory: /.devcontainer
+    schedule:
+      interval: monthly
+    # The base image tag already floats within its image version; the Python version is changed by hand.
+    ignore:
+      - dependency-name: devcontainers/python
+    groups:
+      devcontainer:
+        patterns: ["*"]
+        update-types: [minor, patch]
