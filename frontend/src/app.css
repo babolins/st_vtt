@@ -169,8 +169,10 @@ table.grid input[type="text"] { width: 100%; }
 :root[data-theme="paper"] table.grid th { text-transform: none; letter-spacing: 0; }
 
 /* Stat boxes are rounded rectangles in heavier ink, numerals in the display
-   face -- the block across the top of every character sheet. */
-:root[data-theme="paper"] .stat {
+   face -- the block across the top of every character sheet. Only that block:
+   `.stat` is a common name (a peek's compact stats use it too), so the sheets
+   mark theirs `.statblock`. */
+:root[data-theme="paper"] .statblock .stat {
   border: 3px solid transparent;
   border-image: url('./textures/ink-box.svg') 8 / 3px round;
   border-radius: 0;
@@ -178,7 +180,7 @@ table.grid input[type="text"] { width: 100%; }
 }
 /* The border is an image, so the component's `border-color: var(--warn)` for a
    stat under a debility never shows; box it in the warn ink instead. */
-:root[data-theme="paper"] .stat.dis { border-image-source: url('./textures/ink-box-warn.svg'); }
+:root[data-theme="paper"] .statblock .stat.dis { border-image-source: url('./textures/ink-box-warn.svg'); }
 :root[data-theme="paper"] .lbl { color: var(--fg); letter-spacing: .06em; text-transform: none; }
 /* Debilities are named in italic under the stat line, as on the playbook. */
 :root[data-theme="paper"] .deb { font-style: italic; }

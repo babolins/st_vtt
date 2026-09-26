@@ -65,7 +65,7 @@
     </div>
 
     {#if def.stats.length}
-      <div class="stats">
+      <div class="stats statblock">
         {#each def.stats as s}
           <div class="stat" title={s.help}>
             <div class="lbl">{s.label}</div>

@@ -22,7 +22,7 @@
   }
 </script>
 
-<div class="stats">
+<div class="stats statblock">
   {#each content.pack.stats as s}
     {@const affected = content.pack.debilities.filter((d) => doc.debilities[d.id] && d.affects.includes(s.id))}
     <div class="stat" class:dis={affected.length > 0} title={affected.length ? `Disadvantage: ${affected.map((d) => d.label).join(', ')}` : ''}>
