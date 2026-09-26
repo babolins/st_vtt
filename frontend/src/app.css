@@ -19,7 +19,8 @@
   --radius-xs: 3px;       /* code, tick boxes */
   --radius-pill: 999px;   /* tags, pills, badges */
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --display: var(--font);
+  --display: var(--font);  /* headings and stat values */
+  --heading-weight: 600;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   /* Heavy rule under a heading; only the paper theme draws one. */
   --rule: transparent;
@@ -50,7 +51,7 @@ a { color: var(--accent); }
 /* [[Cerys]] in any note: a link to whoever that is. */
 a.entity { text-decoration: none; border-bottom: 1px dotted var(--accent); }
 a.entity:hover { border-bottom-style: solid; }
-h1, h2, h3, h4 { margin: 0; font-weight: 600; line-height: 1.25; }
+h1, h2, h3, h4 { margin: 0; font-family: var(--display); font-weight: var(--heading-weight); line-height: 1.25; }
 p { margin: 0 0 .5em; }
 p:last-child { margin-bottom: 0; }
 ul { margin: .25em 0; padding-left: 1.2em; }
@@ -135,13 +136,12 @@ table.grid input[type="text"] { width: 100%; }
   --radius-sm: 2px;
   --radius-xs: 2px;
   --radius-pill: 2px;
+  --heading-weight: 700;
   --font: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", P052, Georgia, serif;
   color-scheme: light;
 }
 /* A book serif sets smaller than the UI's sans at the same size. */
 :root[data-theme="paper"] body { font-size: 15px; line-height: 1.5; }
-:root[data-theme="paper"] h1,
-:root[data-theme="paper"] h2 { font-family: var(--display); font-weight: 700; }
 
 /* A section heading sits on a heavy rule -- the one move that does most of the
    work of making this read as a printed sheet rather than a web page. */
@@ -160,7 +160,7 @@ table.grid input[type="text"] { width: 100%; }
   background: var(--bg-elev) url('./textures/ink-rule.svg') left bottom / auto 4px repeat-x;
 }
 :root[data-theme="paper"] .toggle h2 { font-size: 1.3em; letter-spacing: .01em; }
-:root[data-theme="paper"] .toggle h3 { color: var(--fg); font-weight: 700; font-size: 1.05em; }
+:root[data-theme="paper"] .toggle h3 { color: var(--fg); font-size: 1.05em; }
 /* Print heads its sections as written, not in the spaced capitals a web app
    reaches for: headings follow the content pack's own casing. */
 :root[data-theme="paper"] .toggle h3,
@@ -182,7 +182,6 @@ table.grid input[type="text"] { width: 100%; }
 :root[data-theme="paper"] .lbl { color: var(--fg); letter-spacing: .06em; text-transform: none; }
 /* Debilities are named in italic under the stat line. */
 :root[data-theme="paper"] .deb { font-style: italic; }
-:root[data-theme="paper"] .val { font-family: var(--display); }
 
 /* Moves are not cards in print: each is a rule, a name in spaced capitals,
    and its text. */
@@ -203,4 +202,3 @@ table.grid input[type="text"] { width: 100%; }
   border-bottom: 0;
   background: var(--bg-elev) url('./textures/ink-rule-alt.svg') left bottom / auto 4px repeat-x;
 }
-:root[data-theme="paper"] .title { font-family: var(--display); }

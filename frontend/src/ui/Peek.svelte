@@ -100,7 +100,7 @@
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(3.2em, 1fr)); gap: .3em; margin: .2em 0 .5em; }
   .stat { text-align: center; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .2em; }
   .lbl { display: block; font-size: .7em; letter-spacing: .06em; color: var(--fg-muted); text-transform: uppercase; }
-  .val { font-size: 1.1em; font-weight: 700; }
+  .val { font-size: 1.1em; font-weight: 700; font-family: var(--display); }
   .vitals { display: flex; gap: .8em; flex-wrap: wrap; }
   .deb { color: var(--warn); }
   @media (max-width: 900px) {
