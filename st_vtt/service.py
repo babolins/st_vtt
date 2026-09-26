@@ -21,7 +21,7 @@ from .db import Database
 from .dice import DiceError
 from .patch import PatchError, apply_patch
 from .content import Move
-from .perms import Forbidden, GM_ONLY_PATHS, check_patch, strip_for_user, visible_to
+from .perms import HIDDEN_FIELDS, Forbidden, check_patch, is_hidden_path, strip_for_user, visible_to
 
 Render = Callable[[UserConfig], dict[str, Any] | None]
 
@@ -44,7 +44,7 @@ def db_of(app: FastAPI) -> Database:
 
 
 def character_view(user: UserConfig, row: dict[str, Any]) -> dict[str, Any]:
-    return {**row, "data": strip_for_user(user, row["data"])}
+    return {**row, "data": strip_for_user(user, "character", row["data"])}
 
 
 def list_characters(app: FastAPI, user: UserConfig) -> list[dict[str, Any]]:
@@ -80,7 +80,8 @@ def import_character(app: FastAPI, user: UserConfig, doc: dict[str, Any], owner:
     if app.state.config.user(owner) is None:
         raise ServiceError(f"unknown user {owner!r}")
     if not user.is_gm:
-        clean["gm_notes"] = ""
+        for field in HIDDEN_FIELDS["character"]:
+            clean[field] = ""
     row = db_of(app).insert_character(chars.new_id(), owner, clean)
     msg = db_of(app).add_message(None, "system", {"text": f"{user.name} imported {clean.get('name') or 'a character'} for {owner}."})
     return row, warnings, [lambda u: {"type": "character_created", "character": character_view(u, row)}, lambda u: {"type": "message", "message": msg}]
@@ -117,7 +118,7 @@ def record_visible(user: UserConfig, row: dict[str, Any]) -> bool:
 
 
 def record_view(user: UserConfig, row: dict[str, Any]) -> dict[str, Any]:
-    return {**row, "data": strip_for_user(user, row["data"])}
+    return {**row, "data": strip_for_user(user, "record", row["data"])}
 
 
 def list_records(app: FastAPI, user: UserConfig) -> list[dict[str, Any]]:
@@ -188,7 +189,7 @@ def shared_is_gm_only(app: FastAPI, sid: str | None) -> bool:
 
 
 def shared_view(user: UserConfig, row: dict[str, Any]) -> dict[str, Any]:
-    return {**row, "data": strip_for_user(user, row["data"])}
+    return {**row, "data": strip_for_user(user, "shared", row["data"])}
 
 
 def list_shared(app: FastAPI, user: UserConfig) -> list[dict[str, Any]]:
@@ -310,9 +311,7 @@ def patch_entity(app: FastAPI, user: UserConfig, entity: str, eid: str | None, p
         rev = db.save_record(eid, doc)
     else:
         rev = db.save_shared(eid, doc)
-    # A path the GM alone may see — not only /gm_notes: a record's /secret is
-    # exactly the field the table must not be sent.
-    gm_only = gm_sheet or any(path == p or path.startswith(p + "/") for p in GM_ONLY_PATHS)
+    gm_only = gm_sheet or is_hidden_path(entity, path)
 
     # Hiding a record has to withdraw it from the table's browsers, not just stop
     # sending updates: they already hold a copy. Revealing one has to deliver it.

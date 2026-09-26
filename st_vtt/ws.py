@@ -12,7 +12,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from . import service
 from .auth import WS_NOT_LOGGED_IN, ws_session
 from .config import UserConfig
-from .perms import GM_ONLY_PATHS
+from .perms import is_hidden_path
 
 log = logging.getLogger("st_vtt.ws")
 
@@ -152,14 +152,14 @@ EPHEMERAL = {"focus", "blur", "typing", "presence_sync"}
 
 def _gm_only_focus(app: FastAPI, focus: dict[str, Any]) -> bool:
     """Whether presence on this field should only be shown to GMs: a sheet or record
-    the table cannot see, or a field it is never sent (gm_notes, a record's secret).
+    the table cannot see, or one of its hidden fields (gm_notes, a record's secret).
     Presence carries no content, but it would still say that such a thing exists."""
     entity, eid, path = focus.get("entity"), focus.get("id"), focus.get("path")
     if entity == "shared" and service.shared_is_gm_only(app, eid):
         return True
     if entity == "record" and service.record_is_hidden(app, eid):
         return True
-    return isinstance(path, str) and any(path == p or path.startswith(p + "/") for p in GM_ONLY_PATHS)
+    return is_hidden_path(entity, path)
 
 
 async def handle_ephemeral(app: FastAPI, hub: Hub, ws: WebSocket, user: UserConfig, msg: dict[str, Any]) -> None:

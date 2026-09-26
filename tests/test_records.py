@@ -222,9 +222,19 @@ def test_check_patch_knows_records():
 
 
 def test_strip_for_user_drops_the_secret():
-    doc = {"name": "Urgben", "secret": "took the coin", "gm_notes": "x"}
-    assert strip_for_user(UserConfig(name="Alice"), doc) == {"name": "Urgben"}
-    assert strip_for_user(UserConfig(name="Gm", role="gm"), doc) == doc
+    doc = {"name": "Urgben", "secret": "took the coin"}
+    assert strip_for_user(UserConfig(name="Alice"), "record", doc) == {"name": "Urgben"}
+    assert strip_for_user(UserConfig(name="Gm", role="gm"), "record", doc) == doc
+
+
+def test_record_fields_are_the_gms_only_on_records():
+    # `secret` and `visibility` mean something on a record; elsewhere they are
+    # ordinary names a character or shared sheet may use.
+    player = UserConfig(name="Alice")
+    for path in ("/secret", "/visibility"):
+        check_patch(player, "character", "Alice", path)
+        check_patch(player, "shared", None, path)
+    assert strip_for_user(player, "character", {"secret": "x"}) == {"secret": "x"}
 
 
 # ------------------------------------------------------------------ events

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from .. import service
 from ..auth import current_user, require_gm
 from ..config import UserConfig
+from ..perms import strip_for_user
 from ._common import emit, http
 
 router = APIRouter(prefix="/shared", tags=["shared"])
@@ -53,9 +54,7 @@ def get_shared(sid: str, request: Request, user: UserConfig = Depends(current_us
 
 @router.get("/{sid}/export")
 def export_shared(sid: str, request: Request, user: UserConfig = Depends(current_user)) -> JSONResponse:
-    doc = dict(_visible_row(request, user, sid)["data"])
-    if not user.is_gm:
-        doc.pop("gm_notes", None)
+    doc = strip_for_user(user, "shared", _visible_row(request, user, sid)["data"])
     name = (doc.get("name") or "shared").replace('"', "")
     return JSONResponse(doc, headers={"Content-Disposition": f'attachment; filename="{name}.json"'})
 

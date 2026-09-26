@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from .. import service
 from ..auth import current_user, require_gm
 from ..config import UserConfig
+from ..perms import strip_for_user
 from ._common import emit, http
 
 router = APIRouter(prefix="/characters", tags=["characters"])
@@ -72,9 +73,7 @@ def export_character(cid: str, request: Request, user: UserConfig = Depends(curr
     row = request.app.state.db.get_character(cid)
     if row is None:
         raise HTTPException(404, "no such character")
-    doc = dict(row["data"])
-    if not user.is_gm:
-        doc.pop("gm_notes", None)
+    doc = strip_for_user(user, "character", row["data"])
     name = (doc.get("name") or "character").replace('"', "")
     return JSONResponse(doc, headers={"Content-Disposition": f'attachment; filename="{name}.json"'})
 
