@@ -132,7 +132,7 @@
   .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5em, 1fr)); gap: .4em; margin: .6em 0; }
   .fields label, .block { display: flex; flex-direction: column; gap: .15em; }
   .block { margin-top: .6em; }
-  .lbl { font-size: .85em; color: var(--fg-muted); }
+  .lbl { font-size: .85em; color: var(--label-color); }
   .ties { margin-top: .5em; display: flex; flex-direction: column; gap: .25em; }
   .tie { gap: .35em; }
   .ttype { font-size: .85em; color: var(--fg-muted); min-width: 6em; }

@@ -1,3 +1,8 @@
+/* Theme tokens. A theme is a block of these values and nothing else: the
+   components read them, and no theme styles a component's classes directly.
+   The defaults below are the light theme; `dark` and `paper` override them
+   further down. Structural tokens default to what the components did before
+   they became tokens, so a theme that leaves them alone changes nothing. */
 :root {
   --bg: #f6f3ee;
   --bg-elev: #ffffff;
@@ -20,10 +25,52 @@
   --radius-pill: 999px;   /* tags, pills, badges */
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --display: var(--font);  /* headings and stat values */
-  --heading-weight: 600;
+  --heading-weight: 600;   /* headings, table headers, move names */
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  /* Heavy rule under a heading; only the paper theme draws one. */
+  --font-size: 14px;
+  --line-height: 1.45;
+  /* Ink of the heaviest strokes; transparent where a theme draws none. */
   --rule: transparent;
+
+  /* A sheet: its frame, its title, and an image (or none) drawn as the rule
+     under its heading and the app's header, at --heading-rule-height. */
+  --sheet-border: var(--border);
+  --sheet-title-size: 1.1em;
+  --heading-rule: none;
+  --header-rule: none;
+  --heading-rule-height: 0px;
+  --header-border: 1px solid var(--border);
+  /* Section headings within a sheet; table headers share their colour. */
+  --section-size: .95em;
+  --section-color: var(--fg-muted);
+  --section-case: uppercase;
+  --section-tracking: .04em;
+  /* Small labels (STR, HP, Notes) and the names of marked debilities. */
+  --label-color: var(--fg-muted);
+  --label-case: uppercase;
+  --debility-style: normal;
+  /* The stat block. A border image, when set, replaces the plain border; it is
+     sliced 8 units in, like the 32-unit tiles in src/textures/ink.ts. */
+  --stat-bg: var(--bg);
+  --stat-border-width: 1px;
+  --stat-border-image: none;
+  --stat-border-image-warn: none;
+  /* A move on a sheet. The top border is separate so a theme can keep it as a
+     rule between moves and drop the rest of the card. */
+  --move-border: 1px solid var(--border);
+  --move-rule: 1px solid var(--border);
+  --move-bg: var(--bg);
+  --move-padding: .3em .6em;
+  --move-name-case: none;
+  --move-name-tracking: normal;
+  /* Small controls. `auto` leaves native checkboxes in the OS accent. */
+  --control-accent: auto;
+  --pip-border: var(--fg-muted);
+  --tag-bg: var(--bg-sunken);
+  --tag-border: none;
+  --badge-bg: var(--accent-soft);
+  --badge-fg: var(--accent);
+  --checklist-border: none;
   color-scheme: light;
 }
 :root[data-theme="dark"] {
@@ -45,7 +92,7 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
-body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--font); }
+body { background: var(--bg); color: var(--fg); font: var(--font-size)/var(--line-height) var(--font); }
 #app { height: 100%; }
 a { color: var(--accent); }
 /* [[Cerys]] in any note: a link to whoever that is. */
@@ -74,6 +121,7 @@ input[type="text"], input[type="number"], input[type="password"], select, textar
 }
 input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 input[type="number"] { width: 4.5em; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--control-accent); }
 textarea { width: 100%; min-height: 4em; resize: vertical; }
 input[readonly], textarea[readonly] { background: var(--bg-sunken); }
 label { color: var(--fg-muted); font-size: .85em; }
@@ -83,19 +131,19 @@ label { color: var(--fg-muted); font-size: .85em; }
 .grow { flex: 1; }
 .stack { display: flex; flex-direction: column; gap: .5em; }
 .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
-.tag { display: inline-block; background: var(--bg-sunken); border-radius: var(--radius-pill); padding: 0 .55em; font-size: .8em; color: var(--fg-muted); margin: .1em .15em .1em 0; }
+.tag { display: inline-block; background: var(--tag-bg); border: var(--tag-border); border-radius: var(--radius-pill); padding: 0 .55em; font-size: .8em; color: var(--fg-muted); margin: .1em .15em .1em 0; }
 .pill { display: inline-block; border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 0 .55em; font-size: .8em; }
-.badge { background: var(--accent-soft); color: var(--accent); border-radius: var(--radius-pill); padding: 0 .55em; font-size: .8em; font-weight: 600; }
+.badge { background: var(--badge-bg); color: var(--badge-fg); border-radius: var(--radius-pill); padding: 0 .55em; font-size: .8em; font-weight: 600; }
 .md p { margin: 0 0 .4em; }
 .md ul { margin: .2em 0 .4em; }
 hr { border: 0; border-top: 1px solid var(--border); margin: .6em 0; }
 table.grid { border-collapse: collapse; width: 100%; }
 table.grid th, table.grid td { border-bottom: 1px solid var(--border); padding: .2em .3em; text-align: left; vertical-align: top; }
-table.grid th { font-weight: 600; font-size: .85em; color: var(--fg-muted); }
+table.grid th { font-weight: var(--heading-weight); font-size: .85em; color: var(--section-color); }
 table.grid input[type="text"] { width: 100%; }
 .pips { display: inline-flex; gap: .15em; align-items: baseline; }
 /* The glyph says what the box means: diamond = bulk, circle = a use or ammo status, square = a tick. */
-.pip { width: 1.1em; height: 1.1em; border: 1.5px solid var(--fg-muted); border-radius: var(--radius-xs); background: transparent; padding: 0; cursor: pointer; flex: none; }
+.pip { width: 1.1em; height: 1.1em; border: 1.5px solid var(--pip-border); border-radius: var(--radius-xs); background: transparent; padding: 0; cursor: pointer; flex: none; }
 .pip.diamond { transform: rotate(45deg); }
 .pip.circle { border-radius: 50%; }
 .pip.on { background: var(--accent); border-color: var(--accent); }
@@ -112,11 +160,9 @@ table.grid input[type="text"] { width: 100%; }
 
 /* The paper theme: the app set like a printed sheet. Print is monochrome --
    serif text, black hairlines, boxes with no fill, and not a drop shadow or a
-   colour anywhere. What colour remains here is semantic only (a failed roll, a
-   debility) and desaturated to something a press could have run. Everything
-   below is either a token or an override of one structural detail print does
-   differently from screen. No font is bundled: the stack asks for the book
-   serifs most systems already have. */
+   colour anywhere. What colour remains is semantic only (a failed roll, a
+   debility) and desaturated to something a press could have run. No font is
+   bundled: the stack asks for the book serifs most systems already have. */
 :root[data-theme="paper"] {
   --bg: #e7dfcd;          /* the desk the sheet lies on */
   --bg-elev: #fbf7ed;     /* the sheet */
@@ -138,67 +184,53 @@ table.grid input[type="text"] { width: 100%; }
   --radius-pill: 2px;
   --heading-weight: 700;
   --font: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", P052, Georgia, serif;
+  /* A book serif sets smaller than the UI's sans at the same size. */
+  --font-size: 15px;
+  --line-height: 1.5;
   color-scheme: light;
-}
-/* A book serif sets smaller than the UI's sans at the same size. */
-:root[data-theme="paper"] body { font-size: 15px; line-height: 1.5; }
 
-/* A section heading sits on a heavy rule -- the one move that does most of the
-   work of making this read as a printed sheet rather than a web page. */
-:root[data-theme="paper"] .coll.top { border-color: var(--rule); }
-/* Heavy strokes in print do not take ink evenly: the bar under a
-   heading is eaten away along its underside, and the stat boxes are chipped all
-   round. Thin rules came out clean, so nothing else gets this. The textures are
-   tileable SVGs generated by the build (src/textures/ink.ts) rather than a
-   runtime filter -- no per-frame cost, and the same wear every reload. */
-:root[data-theme="paper"] .coll.top > .head {
-  border-bottom: 0;
-  padding-bottom: calc(.5em + 2px);
-  /* The colour carries as much as the texture: a sheet header that is (or
-     becomes) sticky has content scrolling under it, and a background of only
-     an image lets the page show straight through. */
-  background: var(--bg-elev) url('./textures/ink-rule.svg') left bottom / auto 4px repeat-x;
-}
-:root[data-theme="paper"] .toggle h2 { font-size: 1.3em; letter-spacing: .01em; }
-:root[data-theme="paper"] .toggle h3 { color: var(--fg); font-size: 1.05em; }
-/* Print heads its sections as written, not in the spaced capitals a web app
-   reaches for: headings follow the content pack's own casing. */
-:root[data-theme="paper"] .toggle h3,
-:root[data-theme="paper"] table.grid th { text-transform: none; letter-spacing: 0; }
-
-/* Stat boxes are rounded rectangles in heavier ink, numerals in the display
-   face -- the block across the top of every character sheet. Only that block:
-   `.stat` is a common name (a peek's compact stats use it too), so the sheets
-   mark theirs `.statblock`. */
-:root[data-theme="paper"] .statblock .stat {
-  border: 3px solid transparent;
-  border-image: url('./textures/ink-box.svg') 8 / 3px round;
-  border-radius: 0;
-  background: var(--bg-elev);
-}
-/* The border is an image, so the component's `border-color: var(--warn)` for a
-   stat under a debility never shows; box it in the warn ink instead. */
-:root[data-theme="paper"] .statblock .stat.dis { border-image-source: url('./textures/ink-box-warn.svg'); }
-:root[data-theme="paper"] .lbl { color: var(--fg); letter-spacing: .06em; text-transform: none; }
-/* Debilities are named in italic under the stat line. */
-:root[data-theme="paper"] .deb { font-style: italic; }
-
-/* Moves are not cards in print: each is a rule, a name in spaced capitals,
-   and its text. */
-:root[data-theme="paper"] .move { border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; padding: .45em 0 .35em; }
-:root[data-theme="paper"] .move .name { text-transform: uppercase; letter-spacing: .07em; font-weight: 700; }
-
-/* Boxes you tick: ink outline, ink fill, no rounding beyond the glyph. */
-:root[data-theme="paper"] .pip { border-color: var(--rule); }
-/* Native checkboxes and radios default to the OS accent (blue); print has none. */
-:root[data-theme="paper"] input[type="checkbox"],
-:root[data-theme="paper"] input[type="radio"] { accent-color: var(--fg); }
-
-:root[data-theme="paper"] .checklist { border: 1px solid var(--border); }
-:root[data-theme="paper"] .tag { background: transparent; border: 1px solid var(--border); }
-:root[data-theme="paper"] .badge { background: var(--accent); color: var(--accent-fg); }
-:root[data-theme="paper"] table.grid th { color: var(--fg); font-weight: 700; }
-:root[data-theme="paper"] header {
-  border-bottom: 0;
-  background: var(--bg-elev) url('./textures/ink-rule-alt.svg') left bottom / auto 4px repeat-x;
+  /* A sheet's heading sits on a heavy rule -- the one move that does most of
+     the work of making this read as a printed sheet rather than a web page.
+     Heavy strokes in print do not take ink evenly: the bar is eaten away along
+     its underside, and the stat boxes are chipped all round. Thin rules come out
+     clean, so nothing else is worn. The textures are tileable SVGs generated by
+     the build (src/textures/ink.ts): no runtime filter, no per-frame cost, and
+     the same wear on every reload. */
+  --sheet-border: var(--rule);
+  --sheet-title-size: 1.3em;
+  --heading-rule: url('./textures/ink-rule.svg');
+  --header-rule: url('./textures/ink-rule-alt.svg');
+  --heading-rule-height: 4px;
+  --header-border: 0;
+  /* Print heads its sections as written, not in the spaced capitals a web app
+     reaches for: headings follow the content pack's own casing. */
+  --section-size: 1.05em;
+  --section-color: var(--fg);
+  --section-case: none;
+  --section-tracking: 0;
+  --label-color: var(--fg);
+  --label-case: none;
+  --debility-style: italic;
+  /* Stat boxes in heavier, worn ink; a stat under a debility in the warn ink,
+     since a border image hides the border colour that marks it elsewhere. */
+  --stat-bg: var(--bg-elev);
+  --stat-border-width: 3px;
+  --stat-border-image: url('./textures/ink-box.svg');
+  --stat-border-image-warn: url('./textures/ink-box-warn.svg');
+  /* Moves are not cards in print: each is a rule, a name in spaced capitals,
+     and its text. */
+  --move-border: 0;
+  --move-rule: 1px solid var(--border);
+  --move-bg: transparent;
+  --move-padding: .45em 0 .35em;
+  --move-name-case: uppercase;
+  --move-name-tracking: .07em;
+  /* Native checkboxes default to the OS accent (blue); print has none. */
+  --control-accent: var(--fg);
+  --pip-border: var(--rule);
+  --tag-bg: transparent;
+  --tag-border: 1px solid var(--border);
+  --badge-bg: var(--accent);
+  --badge-fg: var(--accent-fg);
+  --checklist-border: 1px solid var(--border);
 }

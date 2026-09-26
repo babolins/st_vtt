@@ -65,7 +65,7 @@
     </div>
 
     {#if def.stats.length}
-      <div class="stats statblock">
+      <div class="stats">
         {#each def.stats as s}
           <div class="stat" title={s.help}>
             <div class="lbl">{s.label}</div>
@@ -119,8 +119,11 @@
   .head { padding: .5em 0; }
   .f { display: flex; flex-direction: column; gap: .15em; }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5em, 1fr)); gap: .4em; margin: .25em 0 .5em; }
-  .stat { text-align: center; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .3em; background: var(--bg); }
-  .lbl { font-size: .75em; letter-spacing: .06em; color: var(--fg-muted); text-transform: uppercase; }
+  .stat {
+    text-align: center; border: var(--stat-border-width) solid var(--border); border-radius: var(--radius-sm); padding: .3em;
+    border-image: var(--stat-border-image) 8 / var(--stat-border-width) round; background: var(--stat-bg);
+  }
+  .lbl { font-size: .75em; letter-spacing: .06em; color: var(--label-color); text-transform: var(--label-case); }
   .debils { gap: 1em; margin-bottom: .5em; }
-  .deb { display: inline-flex; align-items: center; gap: .3em; color: var(--fg); cursor: pointer; }
+  .deb { display: inline-flex; align-items: center; gap: .3em; color: var(--fg); cursor: pointer; font-style: var(--debility-style); }
 </style>

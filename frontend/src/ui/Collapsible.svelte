@@ -29,17 +29,20 @@
 
 <style>
   .coll { border-top: 1px solid var(--border); }
-  .coll.top { position: relative; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); box-shadow: var(--shadow); margin-bottom: .75em; }
+  .coll.top { position: relative; border: 1px solid var(--sheet-border); border-radius: var(--radius); background: var(--bg-elev); box-shadow: var(--shadow); margin-bottom: .75em; }
   .head { display: flex; align-items: center; gap: .5em; padding: .35em .5em; }
   /* A sheet's own header stays put while the sheet scrolls under it: the name,
      and whatever the sheet puts beside it, are needed at every depth. */
   .top > .head {
-    padding: .5em .75em; position: sticky; top: 0; z-index: 3;
-    background: var(--bg-elev); border-radius: var(--radius) var(--radius) 0 0;
+    padding: .5em .75em calc(.5em + var(--heading-rule-height) / 2); position: sticky; top: 0; z-index: 3;
+    border-radius: var(--radius) var(--radius) 0 0;
+    /* The colour carries as much as any rule image: content scrolls under this
+       header, and an image alone would let it show straight through. */
+    background: var(--bg-elev) var(--heading-rule) left bottom / auto var(--heading-rule-height) repeat-x;
   }
   .toggle { display: flex; align-items: center; gap: .5em; flex: 1; text-align: left; padding: .1em .2em; color: var(--fg); }
-  .toggle h3 { font-size: .95em; text-transform: uppercase; letter-spacing: .04em; color: var(--fg-muted); }
-  .toggle h2 { font-size: 1.1em; }
+  .toggle h3 { font-size: var(--section-size); text-transform: var(--section-case); letter-spacing: var(--section-tracking); color: var(--section-color); }
+  .toggle h2 { font-size: var(--sheet-title-size); }
   .chev { display: inline-block; transition: transform .15s; color: var(--fg-muted); }
   .chev.open { transform: rotate(90deg); }
   .sub { font-weight: normal; }

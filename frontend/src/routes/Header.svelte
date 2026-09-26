@@ -43,7 +43,10 @@
 </header>
 
 <style>
-  header { grid-column: 1 / -1; grid-row: 1; border-bottom: 1px solid var(--border); background: var(--bg-elev); }
+  header {
+    grid-column: 1 / -1; grid-row: 1; border-bottom: var(--header-border);
+    background: var(--bg-elev) var(--header-rule) left bottom / auto var(--heading-rule-height) repeat-x;
+  }
   .bar { padding: .4em .75em; }
   .title { font-size: 1.1em; }
   .presence { display: inline-flex; gap: .5em; flex-wrap: wrap; }

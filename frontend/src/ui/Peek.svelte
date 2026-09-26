@@ -99,10 +99,10 @@
   .linky { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(3.2em, 1fr)); gap: .3em; margin: .2em 0 .5em; }
   .stat { text-align: center; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .2em; }
-  .lbl { display: block; font-size: .7em; letter-spacing: .06em; color: var(--fg-muted); text-transform: uppercase; }
+  .lbl { display: block; font-size: .7em; letter-spacing: .06em; color: var(--label-color); text-transform: var(--label-case); }
   .val { font-size: 1.1em; font-weight: 700; font-family: var(--display); }
   .vitals { display: flex; gap: .8em; flex-wrap: wrap; }
-  .deb { color: var(--warn); }
+  .deb { color: var(--warn); font-style: var(--debility-style); }
   @media (max-width: 900px) {
     /* Narrow: a sheet from the bottom, not a column that squeezes the page. */
     .peek {
