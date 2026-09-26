@@ -659,6 +659,14 @@
           ],
           "default": null
         },
+        "themes": {
+          "description": "Free-form thematic grouping for browsing ('fighting', 'travel', 'talking'); the pack's own vocabulary, not the engine's.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Themes",
+          "type": "array"
+        },
         "tags": {
           "items": {
             "type": "string"

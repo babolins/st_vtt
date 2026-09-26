@@ -39,6 +39,9 @@ html, body { margin: 0; height: 100%; }
 body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--font); }
 #app { height: 100%; }
 a { color: var(--accent); }
+/* [[Cerys]] in any note: a link to whoever that is. */
+a.entity { text-decoration: none; border-bottom: 1px dotted var(--accent); }
+a.entity:hover { border-bottom-style: solid; }
 h1, h2, h3, h4 { margin: 0; font-weight: 600; line-height: 1.25; }
 p { margin: 0 0 .5em; }
 p:last-child { margin-bottom: 0; }

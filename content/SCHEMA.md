@@ -102,6 +102,7 @@ unique across the whole pack.
 | `tracks` | Boxes tracked on the move — see **Boxes**. |
 | `requires` | Level gate and/or prerequisite moves. Shown as a warning in the move picker, not enforced. |
 | `replaces` | Taking this move removes the named one. |
+| `themes` | Free-form groupings for browsing in the move finder (`"fighting"`, `"travel"`, …), in the pack's own words. Moves without any are grouped by where they come from. |
 | `insert` | Taking this move adds the named insert to the sheet (and removing it takes it away). |
 | `grants` | Taking this move lets you pick moves from other playbooks — see **Borrowing moves**. |
 | `options` | A checklist the move carries, with `min`/`max` picks — see **Moves that carry a checklist**. |

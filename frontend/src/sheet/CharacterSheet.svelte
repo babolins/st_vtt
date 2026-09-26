@@ -101,6 +101,17 @@
 
 <Collapsible id="char.{row.id}" title={doc.name || '(unnamed)'} level={2} subtitle="{pb?.name ?? doc.playbook} · {row.owner ?? 'unowned'}">
   {#snippet right()}
+    <!-- The numbers consulted constantly, kept on screen while the sheet scrolls
+         past: on a 4,400px sheet the stat block is otherwise long gone. -->
+    <span class="vitals small" title="HP, armor, level, XP">
+      <span class:hurt={doc.hp.current <= doc.hp.max / 3}>{doc.hp.current}/{doc.hp.max} hp</span>
+      {#if doc.armor}<span>{doc.armor} armor</span>{/if}
+      <span>lvl {doc.level}</span>
+      <span>{doc.xp} xp</span>
+      {#each app.content?.pack.debilities ?? [] as d}
+        {#if doc.debilities[d.id]}<span class="deb">{d.label}</span>{/if}
+      {/each}
+    </span>
     {#if isGm()}
       <select class="small" value={row.owner ?? ''} onchange={setOwner} title="Owner">
         <option value="">(nobody)</option>
@@ -143,6 +154,10 @@
 {/if}
 
 <style>
+  .vitals { display: inline-flex; gap: .55em; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+  .vitals .hurt { color: var(--bad); font-weight: 600; }
+  .vitals .deb { color: var(--warn); font-style: italic; }
+  @media (max-width: 700px) { .vitals { display: none; } }
   .checklist { background: var(--accent-soft); border-radius: 6px; padding: .5em .75em; margin: .25em 0 .5em; }
   .checklist ul { margin: .25em 0 .5em; }
 </style>

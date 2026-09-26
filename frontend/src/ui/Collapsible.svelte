@@ -31,7 +31,12 @@
   .coll { border-top: 1px solid var(--border); }
   .coll.top { position: relative; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); box-shadow: var(--shadow); margin-bottom: .75em; }
   .head { display: flex; align-items: center; gap: .5em; padding: .35em .5em; }
-  .top > .head { padding: .5em .75em; }
+  /* A sheet's own header stays put while the sheet scrolls under it: the name,
+     and whatever the sheet puts beside it, are needed at every depth. */
+  .top > .head {
+    padding: .5em .75em; position: sticky; top: 0; z-index: 3;
+    background: var(--bg-elev); border-radius: var(--radius) var(--radius) 0 0;
+  }
   .toggle { display: flex; align-items: center; gap: .5em; flex: 1; text-align: left; padding: .1em .2em; color: var(--fg); }
   .toggle h3 { font-size: .95em; text-transform: uppercase; letter-spacing: .04em; color: var(--fg-muted); }
   .toggle h2 { font-size: 1.1em; }

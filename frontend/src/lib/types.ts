@@ -37,6 +37,8 @@ export interface Move {
   id: string; name: string; trigger: string; text: string; roll: RollSpec | null;
   outcomes: Record<string, Outcome>; hold: Hold | null; tracks: Tracks;
   requires: Requires | null; tags: string[]; replaces: string | null;
+  /** how the pack groups this move for browsing ('fighting', 'travel'); may be empty */
+  themes: string[];
   /** taking this move adds the named insert to the sheet */
   insert: string | null;
   /** taking this move lets you pick moves from other playbooks */
@@ -106,6 +108,22 @@ export interface ContentPack {
   followers: FollowerRules; arcana: Arcanum[]; shared_sheets: SharedSheetDef[];
 }
 
+/** A person, faction or place the campaign remembers. Ties are typed from the
+ *  start: in real session notes an NPC is mostly who they are to someone else. */
+export interface Tie { type: string; to: string; note: string }
+export interface RecordDoc {
+  kind: string; name: string; pronouns: string; role: string; home: string; status: string;
+  tags: string[]; ties: Tie[]; notes: string;
+  /** events only: when in the table's own words, a hand-set order, and who was there */
+  when?: string; order?: number; involves?: string[];
+  /** GM only — the truth beside what the table believes. Absent for players. */
+  secret?: string;
+  /** 'table' or 'gm'; a 'gm' record is not sent to players at all. */
+  visibility: string;
+  created_by: string | null;
+}
+export interface RecordRow { id: string; kind: string; data: RecordDoc; revision: number; created_at: number; updated_at: number }
+
 // ---- documents
 
 export interface Follower {
@@ -154,5 +172,6 @@ export interface Message {
 }
 export interface StateResponse {
   me: User; campaign_name: string; users: User[]; online: string[];
-  characters: CharacterRow[]; shared: SharedRow[]; messages: Message[];
+  characters: CharacterRow[]; shared: SharedRow[];
+  records: RecordRow[]; messages: Message[];
 }

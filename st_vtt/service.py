@@ -21,7 +21,7 @@ from .db import Database
 from .dice import DiceError
 from .patch import PatchError, apply_patch
 from .content import Move
-from .perms import Forbidden, check_patch, strip_for_user, visible_to
+from .perms import HIDDEN_FIELDS, Forbidden, check_patch, is_hidden_path, strip_for_user, visible_to
 
 Render = Callable[[UserConfig], dict[str, Any] | None]
 
@@ -44,7 +44,7 @@ def db_of(app: FastAPI) -> Database:
 
 
 def character_view(user: UserConfig, row: dict[str, Any]) -> dict[str, Any]:
-    return {**row, "data": strip_for_user(user, row["data"])}
+    return {**row, "data": strip_for_user(user, "character", row["data"])}
 
 
 def list_characters(app: FastAPI, user: UserConfig) -> list[dict[str, Any]]:
@@ -80,7 +80,8 @@ def import_character(app: FastAPI, user: UserConfig, doc: dict[str, Any], owner:
     if app.state.config.user(owner) is None:
         raise ServiceError(f"unknown user {owner!r}")
     if not user.is_gm:
-        clean["gm_notes"] = ""
+        for field in HIDDEN_FIELDS["character"]:
+            clean[field] = ""
     row = db_of(app).insert_character(chars.new_id(), owner, clean)
     msg = db_of(app).add_message(None, "system", {"text": f"{user.name} imported {clean.get('name') or 'a character'} for {owner}."})
     return row, warnings, [lambda u: {"type": "character_created", "character": character_view(u, row)}, lambda u: {"type": "message", "message": msg}]
@@ -108,6 +109,62 @@ def set_owner(app: FastAPI, user: UserConfig, cid: str, owner: str | None) -> li
     return [lambda u: {"type": "character_owner", "id": cid, "owner": owner}]
 
 
+# --------------------------------------------------------------------- records
+
+
+def record_visible(user: UserConfig, row: dict[str, Any]) -> bool:
+    """A record hidden by the GM does not exist as far as the table is concerned."""
+    return user.is_gm or row["data"].get("visibility", "table") == "table"
+
+
+def record_view(user: UserConfig, row: dict[str, Any]) -> dict[str, Any]:
+    return {**row, "data": strip_for_user(user, "record", row["data"])}
+
+
+def list_records(app: FastAPI, user: UserConfig) -> list[dict[str, Any]]:
+    return [record_view(user, r) for r in db_of(app).list_records() if record_visible(user, r)]
+
+
+def record_is_hidden(app: FastAPI, rid: str | None) -> bool:
+    if not rid:
+        return False
+    row = db_of(app).get_record(rid)
+    return bool(row and row["data"].get("visibility", "table") != "table")
+
+
+def _record_render(row: dict[str, Any], kind: str) -> Render:
+    def render(u: UserConfig) -> dict[str, Any] | None:
+        if not record_visible(u, row):
+            return None
+        if kind == "record_deleted":
+            return {"type": kind, "id": row["id"]}
+        return {"type": kind, "record": record_view(u, row)}
+
+    return render
+
+
+def create_record(app: FastAPI, user: UserConfig, kind: str, name: str) -> tuple[dict[str, Any], list[Render]]:
+    if kind not in ("npc", "faction", "place", "event"):
+        raise ServiceError(f"unknown record kind {kind!r}")
+    if not name.strip():
+        raise ServiceError("a record needs a name")
+    doc = chars.new_record(kind, name, by=user.name)
+    row = db_of(app).insert_record(chars.new_id(), kind, doc)
+    return row, [_record_render(row, "record_created")]
+
+
+def delete_record(app: FastAPI, user: UserConfig, rid: str) -> list[Render]:
+    row = db_of(app).get_record(rid)
+    if row is None or not record_visible(user, row):
+        raise ServiceError("no such record", 404)
+    # Anyone may write one down; unmaking one the table can see is the GM's call,
+    # or the author's own.
+    if not user.is_gm and row["data"].get("created_by") != user.name:
+        raise ServiceError("only the GM, or whoever wrote it down, can delete this", 403)
+    db_of(app).delete_record(rid)
+    return [_record_render(row, "record_deleted")]
+
+
 # ---------------------------------------------------------------- shared sheets
 
 
@@ -132,7 +189,7 @@ def shared_is_gm_only(app: FastAPI, sid: str | None) -> bool:
 
 
 def shared_view(user: UserConfig, row: dict[str, Any]) -> dict[str, Any]:
-    return {**row, "data": strip_for_user(user, row["data"])}
+    return {**row, "data": strip_for_user(user, "shared", row["data"])}
 
 
 def list_shared(app: FastAPI, user: UserConfig) -> list[dict[str, Any]]:
@@ -223,9 +280,19 @@ def patch_entity(app: FastAPI, user: UserConfig, entity: str, eid: str | None, p
         if row is None:
             raise ServiceError("no such shared sheet", 404)
         owner = None
+    elif entity == "record":
+        if not eid:
+            raise ServiceError("missing record id")
+        row = db.get_record(eid)
+        if row is None:
+            raise ServiceError("no such record", 404)
+        owner = None
     else:
         raise ServiceError(f"unknown entity {entity!r}")
-    gm_sheet = entity == "shared" and not shared_visible(app, UserConfig(name="", role="player"), row)
+    anyone = UserConfig(name="", role="player")
+    gm_sheet = (entity == "shared" and not shared_visible(app, anyone, row)) or (
+        entity == "record" and not record_visible(anyone, row)
+    )
     try:
         check_patch(user, entity, owner, path, gm_only=gm_sheet)
     except Forbidden as e:
@@ -240,11 +307,27 @@ def patch_entity(app: FastAPI, user: UserConfig, entity: str, eid: str | None, p
         op, value = "set", result
     if entity == "character":
         rev = db.save_character(eid, doc)
+    elif entity == "record":
+        rev = db.save_record(eid, doc)
     else:
         rev = db.save_shared(eid, doc)
-    gm_only = path.startswith("/gm_notes") or gm_sheet
+    gm_only = gm_sheet or is_hidden_path(entity, path)
+
+    # Hiding a record has to withdraw it from the table's browsers, not just stop
+    # sending updates: they already hold a copy. Revealing one has to deliver it.
+    withdrawn = revealed = False
+    if entity == "record":
+        after_hidden = not record_visible(anyone, {"data": doc})
+        before_hidden = gm_sheet
+        withdrawn = after_hidden and not before_hidden
+        revealed = before_hidden and not after_hidden
+    after_row = db.get_record(eid) if entity == "record" else None
 
     def render(u: UserConfig) -> dict[str, Any] | None:
+        if not u.is_gm and withdrawn:
+            return {"type": "record_deleted", "id": eid}
+        if not u.is_gm and revealed and after_row is not None:
+            return {"type": "record_created", "record": record_view(u, after_row)}
         if gm_only and not u.is_gm:
             return None
         return {"type": "patch", "entity": entity, "id": eid, "path": path, "value": value, "op": op, "revision": rev, "by": user.name, "client": client, "merged": merged}

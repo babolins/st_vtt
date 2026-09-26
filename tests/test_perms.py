@@ -42,5 +42,5 @@ def test_visibility_and_strip():
     assert visible_to(alice, ["Alice"])
     assert not visible_to(bob, ["Alice"])
     assert visible_to(gm, ["Alice"])
-    assert "gm_notes" not in strip_for_user(alice, {"gm_notes": "x", "notes": "y"})
-    assert "gm_notes" in strip_for_user(gm, {"gm_notes": "x"})
+    assert "gm_notes" not in strip_for_user(alice, "character", {"gm_notes": "x", "notes": "y"})
+    assert "gm_notes" in strip_for_user(gm, "character", {"gm_notes": "x"})

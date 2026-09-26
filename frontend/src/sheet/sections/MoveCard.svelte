@@ -3,10 +3,8 @@
   import type { Patcher } from '../../lib/patch';
   import { openRoll } from '../../lib/dialogs.svelte';
   import { send } from '../../lib/ws';
-  import Markdown from '../../ui/Markdown.svelte';
-  import { renderInline } from '../../lib/markdown';
   import Tracks from '../../ui/Tracks.svelte';
-  import MoveOptions from './MoveOptions.svelte';
+  import MoveBody from '../../ui/MoveBody.svelte';
 
   let {
     move, characterId = null, sharedId = null, editable = false, tracks, ontrack, onremove, compact = false, canRoll = true,
@@ -39,19 +37,7 @@
   </div>
   {#if open}
     <div class="body">
-      {#if move.trigger}<p class="muted"><em>{@html renderInline(move.trigger)}</em></p>{/if}
-      {#if move.text}<Markdown text={move.text} />{/if}
-      {#if Object.keys(move.outcomes).length}
-        <dl class="outcomes">
-          {#each Object.entries(move.outcomes) as [tier, outcome]}
-            <dt>{tier}</dt><dd><Markdown text={outcome.text} /></dd>
-          {/each}
-        </dl>
-      {/if}
-      {#if move.options.length && doc && p}
-        <MoveOptions {move} {doc} {p} {editable} />
-      {/if}
-      {#if move.hold}<p class="small muted">Hold: <strong>{move.hold.name}</strong>{#if move.hold.note} — {move.hold.note}{/if}</p>{/if}
+      <MoveBody {move} {doc} {p} {editable} />
     </div>
   {/if}
 </div>
@@ -61,7 +47,4 @@
   .head { gap: .35em; }
   .name { font-weight: 600; padding: .1em .2em; color: var(--fg); text-align: left; }
   .body { padding: .2em 0 .3em; }
-  .outcomes { display: grid; grid-template-columns: auto 1fr; gap: .15em .6em; margin: .3em 0 0; }
-  .outcomes dt { font-weight: 600; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
-  .outcomes dd { margin: 0; }
 </style>

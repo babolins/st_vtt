@@ -28,5 +28,6 @@ def get_state(request: Request, user: UserConfig = Depends(current_user)) -> dic
         "online": app.state.hub.users,
         "characters": service.list_characters(app, user),
         "shared": service.list_shared(app, user),
+        "records": service.list_records(app, user),
         "messages": messages,
     }

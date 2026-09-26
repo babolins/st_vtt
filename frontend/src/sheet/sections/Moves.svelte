@@ -68,7 +68,7 @@
       id: `custom_${uid()}`, name: cName.trim(), trigger: cTrigger, text: cText,
       roll: cStat === '' ? null : { stat: cStat === 'nothing' ? null : cStat === 'choose' ? 'choose' : cStat, bonus: 0, label: null, modifiers: [] },
       outcomes: {}, hold: null, tracks: { marks: null, bulk: null, uses: null, statuses: [] },
-      requires: null, tags: ['custom'], replaces: null, insert: null, grants: null,
+      requires: null, themes: [], tags: ['custom'], replaces: null, insert: null, grants: null,
       options: [], min: null, max: null,
     };
     p('/custom_moves/-', m);

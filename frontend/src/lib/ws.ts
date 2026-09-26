@@ -85,7 +85,7 @@ function handle(ev: any): void {
     }
     case 'patch': {
       if (ev.client === clientId && !ev.merged) break; // we applied it optimistically; merged results must be re-applied
-      const target = ev.entity === 'character' ? app.characters[ev.id] : ev.entity === 'shared' ? app.shared[ev.id] : null;
+      const target = ev.entity === 'character' ? app.characters[ev.id] : ev.entity === 'shared' ? app.shared[ev.id] : ev.entity === 'record' ? app.records[ev.id] : null;
       if (!target) { refreshState().catch(() => {}); break; }
       try {
         applyPointer(target.data, ev.path, ev.value, ev.op);
@@ -120,6 +120,13 @@ function handle(ev: any): void {
     case 'shared_created':
     case 'shared_replaced':
       app.shared[ev.sheet.id] = ev.sheet;
+      break;
+    case 'record_created':
+    case 'record_updated':
+      app.records[ev.record.id] = ev.record;
+      break;
+    case 'record_deleted':
+      delete app.records[ev.id];
       break;
     case 'shared_deleted':
       delete app.shared[ev.id];

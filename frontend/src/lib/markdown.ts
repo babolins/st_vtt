@@ -10,8 +10,34 @@ export function renderInline(s: string | null | undefined): string {
   return s ? inline(s) : '';
 }
 
+/** Every [[name]] in a blob of text, for working out what mentions what. */
+export function linkedNames(text: string | null | undefined): string[] {
+  if (!text) return [];
+  return [...text.matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1].trim()).filter(Boolean);
+}
+
+/** Resolve a [[name]] to a place, or null. Set by lib/links.ts once state exists;
+ *  markdown stays free of app state, and unresolved links stay plain text — which
+ *  is also how a record the GM has hidden behaves for everyone else. */
+let resolveLink: ((name: string) => { href: string; title: string } | null) | null = null;
+export function setLinkResolver(fn: typeof resolveLink): void {
+  resolveLink = fn;
+}
+
+/** Runs on already-escaped text, so the captured name is escaped HTML: it is
+ *  emitted as-is, and decoded only to look the name up. */
+function links(s: string): string {
+  return s.replace(/\[\[([^\]]+)\]\]/g, (whole, raw) => {
+    const shown = String(raw).trim();
+    const name = shown.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+    const found = resolveLink?.(name);
+    if (!found) return shown;
+    return `<a class="entity" href="${esc(found.href)}" title="${esc(found.title)}">${shown}</a>`;
+  });
+}
+
 function inline(s: string): string {
-  return esc(s)
+  return links(esc(s))
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
     .replace(/_(.+?)_/g, '<em>$1</em>')
