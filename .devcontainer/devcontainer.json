@@ -1,0 +1,28 @@
+{
+  "name": "st_vtt",
+  "build": { "dockerfile": "Dockerfile" },
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "24" },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "containerEnv": {
+    // The uv cache and the workspace volume are on different filesystems, so hardlinks fail.
+    "UV_LINK_MODE": "copy"
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "forwardPorts": [8000, 5173],
+  "portsAttributes": {
+    "8000": { "label": "st-vtt serve" },
+    "5173": { "label": "Vite dev server" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "svelte.svelte-vscode"],
+      "settings": {
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+        "python.testing.pytestEnabled": true
+      }
+    }
+  },
+  "remoteUser": "vscode"
+}

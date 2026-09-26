@@ -9,7 +9,8 @@
     "allowJs": true,
     "checkJs": false,
     "isolatedModules": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["vite/client"]
   },
   "include": ["src/**/*.ts", "src/**/*.svelte"]
 }
