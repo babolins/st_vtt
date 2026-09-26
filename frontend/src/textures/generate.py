@@ -7,6 +7,9 @@ rules, by contrast, are clean -- so only heavy strokes get any of this.
 
 Deterministic (seeded): the texture is baked into the stylesheet, not computed
 in the browser, so there is nothing to run at render time and no filter cost.
+
+The wear is cut out of the ink with a mask rather than painted over it, so
+whatever lies under the stroke -- the sheet's own colour -- shows through.
 """
 import random
 from urllib.parse import quote
@@ -15,7 +18,7 @@ INK = "#17150f"
 
 
 def bites(rng, width, edge_y, depth, step, run):
-    """White polygons eating into an edge, in blocky steps like a worn plate."""
+    """Polygons eating into an edge, in blocky steps like a worn plate."""
     out = []
     x = 8.0  # leave the tile's seams solid so repeats do not show
     while x < width - 10:
@@ -44,16 +47,26 @@ def specks(rng, width, height, n, size):
     return out
 
 
+def wear_mask(width, height, shapes):
+    """A mask that keeps the ink everywhere except under `shapes`."""
+    return (
+        f'<mask id="wear" maskUnits="userSpaceOnUse" x="0" y="0" width="{width:g}" height="{height:g}">'
+        f'<rect width="{width:g}" height="{height:g}" fill="#fff"/>'
+        f'<g fill="#000">{"".join(shapes)}</g>'
+        f"</mask>"
+    )
+
+
 def rule_tile(seed, width=320.0, bar=3.2, height=4.4):
     """A heavy heading bar, worn along its underside."""
     rng = random.Random(seed)
     # Depth caps at a third of the bar: the ink thins there, it never breaks.
-    white = bites(rng, width, bar, 1.2, 4.0, 11.0) + specks(rng, width, bar, 9, 0.7)
+    worn = bites(rng, width, bar, 1.2, 4.0, 11.0) + specks(rng, width, bar, 9, 0.7)
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width:g}" height="{height:g}" '
         f'viewBox="0 0 {width:g} {height:g}">'
-        f'<rect width="{width:g}" height="{bar:g}" fill="{INK}"/>'
-        f'<g fill="#fff">{"".join(white)}</g>'
+        f"{wear_mask(width, height, worn)}"
+        f'<rect width="{width:g}" height="{bar:g}" fill="{INK}" mask="url(#wear)"/>'
         f"</svg>"
     )
 
@@ -87,8 +100,8 @@ def box_tile(seed, size=32.0, stroke=5.0, chamfer=8.0):
             chips.append(f'<rect x="{h - d + 0.2:.1f}" y="{along:.1f}" width="{d:.1f}" height="{w:.1f}"/>')
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{h:g}" height="{h:g}" viewBox="0 0 {h:g} {h:g}">'
-        f'<path d="{path}" fill="none" stroke="{INK}" stroke-width="{stroke:g}"/>'
-        f'<g fill="#fff">{"".join(chips)}</g>'
+        f"{wear_mask(h, h, chips)}"
+        f'<path d="{path}" fill="none" stroke="{INK}" stroke-width="{stroke:g}" mask="url(#wear)"/>'
         f"</svg>"
     )
 
