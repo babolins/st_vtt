@@ -283,5 +283,6 @@ class Database:
         return {
             "characters": self.list_characters(),
             "shared": self.list_shared(),
+            "records": self.list_records(),
             "messages": self.list_messages(limit=100000),
         }

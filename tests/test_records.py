@@ -107,6 +107,19 @@ def test_revealing_a_record_gives_it_back(alice, gm):
     assert alice.get(f"/api/records/{rid}").status_code == 200
 
 
+def test_the_campaign_export_keeps_every_record(alice, gm):
+    # The export is the GM's backup, so it holds what only the GM can see.
+    known = make(alice, "Cerys")
+    hidden = make(gm, "Brennan")
+    patch(gm, known, "/secret", "owes the Hillfolk")
+    patch(gm, hidden, "/visibility", "gm")
+
+    records = {r["id"]: r["data"] for r in gm.get("/api/export/campaign").json()["records"]}
+    assert set(records) == {known, hidden}
+    assert records[known]["secret"] == "owes the Hillfolk"
+    assert records[hidden]["visibility"] == "gm"
+
+
 # ------------------------------------------------------------------ over the wire
 
 
