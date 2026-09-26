@@ -2,7 +2,8 @@
   "name": "st_vtt",
   "build": { "dockerfile": "Dockerfile" },
   "features": {
-    "ghcr.io/devcontainers/features/node:1": { "version": "24" }
+    "ghcr.io/devcontainers/features/node:1": { "version": "24" },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   "containerEnv": {
     // The uv cache and the workspace volume are on different filesystems, so hardlinks fail.
