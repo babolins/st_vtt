@@ -6,8 +6,10 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
+from typing import Any
+
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .api import router as api_router
@@ -18,6 +20,17 @@ from .db import Database
 from .ws import Hub, websocket_endpoint
 
 log = logging.getLogger("st_vtt")
+
+
+class ImmutableStatic(StaticFiles):
+    """The bundle's files carry a content hash in their name, so a given URL's
+    bytes never change; telling the browser that saves it re-asking on every
+    load. index.html is the opposite case and is served `no-cache` below."""
+
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
 
 
 def create_app(config: Config | None = None) -> FastAPI:
@@ -46,14 +59,18 @@ def create_app(config: Config | None = None) -> FastAPI:
     static = config.static_path
     index = static / "index.html"
     if index.exists():
-        app.mount("/assets", StaticFiles(directory=static / "assets"), name="assets")
+        app.mount("/assets", ImmutableStatic(directory=static / "assets"), name="assets")
 
+        # index.html names the bundle by content hash, so it must never be served
+        # from a stale cache: a cached copy points at asset files that the next
+        # build deleted, and the app comes up blank. The hashed assets themselves
+        # are safe to keep forever, since a change to one changes its name.
         @app.get("/{path:path}", include_in_schema=False)
         def spa(path: str) -> FileResponse:
             candidate = static / path
             if path and candidate.is_file():
-                return FileResponse(candidate)
-            return FileResponse(index)
+                return FileResponse(candidate, headers={"Cache-Control": "no-cache"})
+            return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
     else:
         log.warning("frontend build not found at %s (run `npm run build` in frontend/)", static)
