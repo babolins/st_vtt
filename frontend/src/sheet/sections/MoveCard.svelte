@@ -43,7 +43,7 @@
 </div>
 
 <style>
-  .move { border: 1px solid var(--border); border-radius: 6px; padding: .3em .6em; margin: .3em 0; background: var(--bg); }
+  .move { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .3em .6em; margin: .3em 0; background: var(--bg); }
   .head { gap: .35em; }
   .name { font-weight: 600; padding: .1em .2em; color: var(--fg); text-align: left; }
   .body { padding: .2em 0 .3em; }

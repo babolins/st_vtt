@@ -103,7 +103,7 @@
 {/if}
 
 <style>
-  .opt { display: flex; gap: .5em; align-items: baseline; padding: .25em .5em; border-radius: 6px; cursor: pointer; color: var(--fg); font-size: 1em; }
+  .opt { display: flex; gap: .5em; align-items: baseline; padding: .25em .5em; border-radius: var(--radius-sm); cursor: pointer; color: var(--fg); font-size: 1em; }
   .opt.sel { background: var(--accent-soft); }
   .opt.ro, .opt.note { cursor: default; }
   .opt.note { padding-top: .45em; }

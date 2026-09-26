@@ -100,7 +100,7 @@
 </Collapsible>
 
 <style>
-  .arc { border: 1px solid var(--border); border-radius: 6px; padding: .5em .75em; margin: .4em 0; background: var(--bg); display: flex; flex-direction: column; gap: .4em; }
+  .arc { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5em .75em; margin: .4em 0; background: var(--bg); display: flex; flex-direction: column; gap: .4em; }
   :global(.aname) { font-weight: 600; width: 14em; }
   :global(.akind) { width: 6em; }
   .qs { display: flex; flex-direction: column; gap: .25em; }

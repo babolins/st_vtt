@@ -158,6 +158,6 @@
   .vitals .hurt { color: var(--bad); font-weight: 600; }
   .vitals .deb { color: var(--warn); font-style: italic; }
   @media (max-width: 700px) { .vitals { display: none; } }
-  .checklist { background: var(--accent-soft); border-radius: 6px; padding: .5em .75em; margin: .25em 0 .5em; }
+  .checklist { background: var(--accent-soft); border-radius: var(--radius-sm); padding: .5em .75em; margin: .25em 0 .5em; }
   .checklist ul { margin: .25em 0 .5em; }
 </style>

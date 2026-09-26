@@ -71,7 +71,7 @@
 
 <style>
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5em, 1fr)); gap: .4em; margin: .25em 0; }
-  .stat { text-align: center; border: 1px solid var(--border); border-radius: 6px; padding: .3em; background: var(--bg); }
+  .stat { text-align: center; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .3em; background: var(--bg); }
   .stat.dis { border-color: var(--warn); }
   .lbl { font-size: .75em; letter-spacing: .06em; color: var(--fg-muted); text-transform: uppercase; }
   .val { font-size: 1.4em; font-weight: 700; }

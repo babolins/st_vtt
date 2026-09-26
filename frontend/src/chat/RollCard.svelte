@@ -101,7 +101,7 @@
 <style>
   .showmove { padding: .1em .2em; margin-top: .2em; }
   .movebody { border-top: 1px solid var(--border); margin-top: .3em; padding-top: .3em; }
-  .rc { border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 6px; padding: .4em .6em; background: var(--bg); }
+  .rc { border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: var(--radius-sm); padding: .4em .6em; background: var(--bg); }
   .rc.hit { border-left-color: var(--ok); }
   .rc.mixed { border-left-color: var(--warn); }
   .rc.miss { border-left-color: var(--bad); }
@@ -109,7 +109,7 @@
   .main { gap: .5em; margin: .15em 0; }
   .label { font-weight: 600; }
   .total { font-size: 1.4em; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .tier { font-weight: 600; padding: 0 .5em; border-radius: 999px; background: var(--bg-sunken); }
+  .tier { font-weight: 600; padding: 0 .5em; border-radius: var(--radius-pill); background: var(--bg-sunken); }
   .hit .tier { color: var(--ok); } .mixed .tier { color: var(--warn); } .miss .tier { color: var(--bad); }
   .detail { display: flex; gap: .4em; flex-wrap: wrap; font-family: var(--mono); }
   .pill.warn { color: var(--warn); border-color: var(--warn); }

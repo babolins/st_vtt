@@ -80,7 +80,7 @@
 </Collapsible>
 
 <style>
-  .follower { border: 1px solid var(--border); border-radius: 6px; padding: .5em .75em; margin: .4em 0; background: var(--bg); }
+  .follower { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5em .75em; margin: .4em 0; background: var(--bg); }
   .top :global(.fname) { font-weight: 600; width: 14em; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: .35em .75em; margin-top: .35em; }
   .grid2 label { display: flex; flex-direction: column; gap: .1em; }

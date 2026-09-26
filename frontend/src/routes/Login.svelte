@@ -78,10 +78,10 @@
   .wrap { display: grid; place-items: center; min-height: 100%; padding: 1em; }
   .box { width: min(26em, 100%); padding: 1.5em; }
   .who { display: flex; flex-direction: column; gap: .25em; }
-  .opt { display: flex; gap: .5em; align-items: center; padding: .4em .6em; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; color: var(--fg); font-size: 1em; }
+  .opt { display: flex; gap: .5em; align-items: center; padding: .4em .6em; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; color: var(--fg); font-size: 1em; }
   .opt.sel { border-color: var(--accent); background: var(--accent-soft); }
   .opt input { margin: 0; }
   .tagline { font-weight: normal; font-family: var(--mono); }
   .err { color: var(--bad); }
-  .notice { background: var(--accent-soft); border-radius: 6px; padding: .5em .7em; display: flex; flex-wrap: wrap; gap: .4em; align-items: center; }
+  .notice { background: var(--accent-soft); border-radius: var(--radius-sm); padding: .5em .7em; display: flex; flex-wrap: wrap; gap: .4em; align-items: center; }
 </style>
