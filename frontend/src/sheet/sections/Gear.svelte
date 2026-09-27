@@ -8,7 +8,7 @@
   import Pips from '../../ui/Pips.svelte';
   import Stepper from '../../ui/Stepper.svelte';
 
-  let { doc, p, editable, pb }: { doc: CharacterDoc; p: Patcher; editable: boolean; pb: Playbook | undefined } = $props();
+  let { doc, p, editable, pb, characterId }: { doc: CharacterDoc; p: Patcher; editable: boolean; pb: Playbook | undefined; characterId: string } = $props();
   const content = $derived(app.content!);
   const items = $derived(doc.gear.items);
   // One budget: gear plus any load box marked on a possession.
@@ -36,7 +36,7 @@
   }
 </script>
 
-<Collapsible id="gear.{doc.name}" title="Gear" subtitle={content.pack.load ? `load ${load} (${label})` : `load ${load}`}>
+<Collapsible id="gear.{characterId}" title="Gear" subtitle={content.pack.load ? `load ${load} (${label})` : `load ${load}`}>
   {#snippet right()}
     {#if editable}<button class="small" onclick={add}>+ Item</button>{/if}
   {/snippet}

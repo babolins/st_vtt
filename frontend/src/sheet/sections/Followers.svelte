@@ -8,7 +8,7 @@
   import Pips from '../../ui/Pips.svelte';
   import Stepper from '../../ui/Stepper.svelte';
 
-  let { doc, p, editable }: { doc: CharacterDoc; p: Patcher; editable: boolean } = $props();
+  let { doc, p, editable, characterId }: { doc: CharacterDoc; p: Patcher; editable: boolean; characterId: string } = $props();
   const rules = $derived(app.content!.followers);
   const list = $derived(doc.followers ?? []);
 
@@ -21,7 +21,7 @@
   }
 </script>
 
-<Collapsible id="followers.{doc.name}" title="Followers" subtitle={list.length ? `${list.length}` : ''}>
+<Collapsible id="followers.{characterId}" title="Followers" subtitle={list.length ? `${list.length}` : ''}>
   {#snippet right()}
     {#if editable}<button class="small" onclick={add}>+ Follower</button>{/if}
   {/snippet}

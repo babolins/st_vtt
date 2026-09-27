@@ -18,7 +18,10 @@
   let { row }: { row: SharedRow } = $props();
   const def = $derived(app.content!.shared_sheets.find((t) => t.id === row.data.template));
   const doc = $derived(row.data);
+  // An instance is one sheet for life: every caller keys it on row.id.
+  // svelte-ignore state_referenced_locally
   const p = sharedPatcher(row.id);
+  // svelte-ignore state_referenced_locally
   setContext(SHEET, { entity: 'shared', id: row.id, p });
   const editable = true;
   let confirmDelete = $state(false);

@@ -9,6 +9,8 @@
   let reqLabel = $state('');
   let reqStat = $state<string>('');
   let confirmClear = $state(false);
+  // A starting choice for the form, not a binding to the content pack.
+  // svelte-ignore state_referenced_locally
   let newTemplate = $state(content.shared_sheets[0]?.id ?? '');
   let newName = $state('');
 

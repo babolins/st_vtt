@@ -6,6 +6,8 @@
 
   let { onclose }: { onclose: () => void } = $props();
   const content = $derived(app.content!);
+  // A starting choice for the form, not a binding to the content pack.
+  // svelte-ignore state_referenced_locally
   let playbook = $state(content.playbooks[0]?.id ?? '');
   let name = $state('');
   let owner = $state(app.me!.name);
