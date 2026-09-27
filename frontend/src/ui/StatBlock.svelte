@@ -9,6 +9,7 @@
   import type { Snippet } from 'svelte';
   import type { Stat } from '../lib/types';
   import { fmtMod } from '../lib/util';
+  import { balancedRows, placements } from '../lib/statrows';
 
   let { stats, value, warn, title }: {
     stats: S[];
@@ -22,11 +23,29 @@
   const valueCh = $derived(Math.max(1, ...stats.flatMap((s) => [fmtMod(s.min).length, fmtMod(s.max).length])));
   // Labels wrap between words, so only the longest word needs to fit on a line.
   const labelCh = $derived(Math.max(1, ...stats.flatMap((s) => s.label.split(/\s+/).map((w) => w.length))));
+
+  // How many boxes fit a row is the CSS's call (--box-w, from the counts above);
+  // two hidden probes report it in pixels, and the rows are balanced from there.
+  let width = $state(0);
+  let step = $state(0); // a box's minimum width plus the gap after it
+  let gap = $state(0);
+  const fit = $derived(step > 0 ? Math.floor((width + gap) / step) : stats.length);
+  const rows = $derived(balancedRows(stats.length, fit));
+  const places = $derived(placements(rows));
 </script>
 
-<div class="stats" style:--value-ch={valueCh} style:--label-ch={labelCh}>
-  {#each stats as s (s.id)}
-    <div class="stat" class:dis={warn?.(s)} title={title?.(s) ?? ''}>
+<div
+  class="stats" bind:clientWidth={width}
+  style:--value-ch={valueCh} style:--label-ch={labelCh}
+  style:grid-template-columns="repeat({2 * (rows[0] ?? 1)}, minmax(0, 1fr))"
+>
+  <span class="probe step" aria-hidden="true" bind:clientWidth={step}></span>
+  <span class="probe gap" aria-hidden="true" bind:clientWidth={gap}></span>
+  {#each stats as s, i (s.id)}
+    <div
+      class="stat" class:dis={warn?.(s)} title={title?.(s) ?? ''}
+      style:grid-row={places[i]?.row} style:grid-column="{places[i]?.column ?? 'auto'} / span 2"
+    >
       <div class="lbl">{s.label}</div>
       {@render value(s)}
     </div>
@@ -39,14 +58,20 @@
      side and a 1px border; a bold digit runs a little over 1ch at that size, and
      an uppercase label letter at .75em a little under it. Each estimate is
      rounded up, so a box is never narrower than what it holds -- unless the
-     whole row is narrower than one box (a phone), when the box takes the row. */
+     whole row is narrower than one box (a phone), when the box takes the row.
+     The grid has two tracks per box so a short row can start half a box in;
+     the script sets how many, and where each box goes. */
   .stats {
     --value-w: calc(var(--value-ch) * 1.45ch + .52em + 2px);
     --stepper-w: calc(var(--value-w) + 3.8em);
     --label-w: calc(var(--label-ch) * 1ch);
     --box-w: calc(max(var(--stepper-w), var(--label-w)) + .6em + 2 * var(--stat-border-width));
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(var(--box-w), 100%), 1fr)); gap: .4em; margin: .25em 0;
+    --gap: .4em;
+    display: grid; gap: var(--gap); margin: .25em 0; position: relative;
   }
+  .probe { position: absolute; visibility: hidden; height: 0; }
+  .probe.step { width: calc(var(--box-w) + var(--gap)); }
+  .probe.gap { width: var(--gap); }
   .stat {
     text-align: center; border: var(--stat-border-width) solid var(--border); border-radius: var(--radius-sm); padding: .3em;
     border-image: var(--stat-border-image) 8 / var(--stat-border-width) round; background: var(--stat-bg);
