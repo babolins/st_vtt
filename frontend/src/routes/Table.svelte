@@ -54,13 +54,19 @@
   <main>
     {#if route.kind === 'character'}
       {#if character}
-        <CharacterSheet row={character} />
+        <!-- Keyed so switching sheets remounts: the patcher, presence and text
+             drafts are all bound to the sheet the component was created for. -->
+        {#key character.id}
+          <CharacterSheet row={character} />
+        {/key}
       {:else}
         <div class="card empty"><p class="muted">That character is not on this table any more.</p></div>
       {/if}
     {:else if route.kind === 'shared'}
       {#if shared}
-        <SharedSheet row={shared} />
+        {#key shared.id}
+          <SharedSheet row={shared} />
+        {/key}
       {:else}
         <div class="card empty"><p class="muted">That sheet is not on this table any more.</p></div>
       {/if}

@@ -20,6 +20,8 @@
 
   // svelte-ignore state_referenced_locally
   let local = $state(value ?? '');
+  // The last value both sides agreed on; the effect below keeps it current.
+  // svelte-ignore state_referenced_locally
   let base = value ?? '';
   let focused = $state(false);
   let timer: ReturnType<typeof setTimeout> | null = null;

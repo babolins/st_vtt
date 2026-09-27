@@ -6,7 +6,9 @@
     id, title, open = true, level = 3, children, right, subtitle,
   }: { id: string; title: string; open?: boolean; level?: 2 | 3; children: Snippet; right?: Snippet; subtitle?: string } = $props();
 
-  let isOpen = $state(getPref(`collapse.${id}`, open));
+  // Follows the id (it can change, e.g. with a character's name); a toggle
+  // overrides it until then, and is saved under that id.
+  let isOpen = $derived(getPref(`collapse.${id}`, open));
   function toggle() {
     isOpen = !isOpen;
     setPref(`collapse.${id}`, isOpen);

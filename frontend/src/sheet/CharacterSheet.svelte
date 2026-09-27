@@ -23,7 +23,10 @@
   const doc = $derived(row.data);
   const pb = $derived(playbookOf(content, doc));
   const editable = $derived(canEdit(row));
+  // An instance is one character for life: every caller keys it on row.id.
+  // svelte-ignore state_referenced_locally
   const p = characterPatcher(row.id);
+  // svelte-ignore state_referenced_locally
   setContext(SHEET, { entity: 'character', id: row.id, p });
   let confirmDelete = $state(false);
 
@@ -143,8 +146,8 @@
 
   <Moves {doc} {p} {editable} {pb} characterId={row.id} />
   <Inserts {doc} {p} {editable} {pb} characterId={row.id} />
-  {#if inserts.includes('gear')}<Gear {doc} {p} {editable} {pb} />{/if}
-  {#if inserts.includes('followers')}<Followers {doc} {p} {editable} />{/if}
+  {#if inserts.includes('gear')}<Gear {doc} {p} {editable} {pb} characterId={row.id} />{/if}
+  {#if inserts.includes('followers')}<Followers {doc} {p} {editable} characterId={row.id} />{/if}
   {#if inserts.includes('arcana')}<Arcana {doc} {p} {editable} characterId={row.id} />{/if}
   <Notes {doc} {p} {editable} id={row.id} />
 </Collapsible>
