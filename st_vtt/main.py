@@ -65,10 +65,15 @@ def create_app(config: Config | None = None) -> FastAPI:
         # from a stale cache: a cached copy points at asset files that the next
         # build deleted, and the app comes up blank. The hashed assets themselves
         # are safe to keep forever, since a change to one changes its name.
+        # The path arrives percent-decoded, so `..%2f` is a real `../` by now: resolve
+        # it and serve nothing outside the build, or the config and database are a
+        # request away.
+        root = static.resolve()
+
         @app.get("/{path:path}", include_in_schema=False)
         def spa(path: str) -> FileResponse:
-            candidate = static / path
-            if path and candidate.is_file():
+            candidate = (static / path).resolve()
+            if path and candidate.is_relative_to(root) and candidate.is_file():
                 return FileResponse(candidate, headers={"Cache-Control": "no-cache"})
             return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
