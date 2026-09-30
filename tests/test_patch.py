@@ -69,3 +69,69 @@ def test_text_patch_merges_concurrent_edits():
     assert d2["notes"] == "hi"
     with pytest.raises(PatchError):
         apply_patch({"n": 3}, "/n", op="text_patch", patch=pa)
+
+
+def _gear():
+    return {"items": [{"id": "a", "name": "rope"}, {"id": "b", "name": "lamp"}, {"id": "c", "name": "axe"}]}
+
+
+def test_id_token_selects_by_id():
+    d = _gear()
+    assert get_pointer(d, "/items/@b/name") == "lamp"
+    apply_patch(d, "/items/@c/name", "hatchet")
+    apply_patch(d, "/items/@b", {"id": "b", "name": "lantern"})
+    assert [i["name"] for i in d["items"]] == ["rope", "lantern", "hatchet"]
+
+
+def test_id_token_survives_a_delete_above():
+    d = _gear()
+    apply_patch(d, "/items/@a", op="remove")
+    apply_patch(d, "/items/@c/name", "hatchet")
+    assert d["items"] == [{"id": "b", "name": "lamp"}, {"id": "c", "name": "hatchet"}]
+
+
+def test_append_then_address_by_id():
+    d = _gear()
+    apply_patch(d, "/items/-", {"id": "d", "name": ""})
+    apply_patch(d, "/items/@d/name", "salt")
+    assert d["items"][-1] == {"id": "d", "name": "salt"}
+
+
+def test_removing_a_missing_id_does_nothing():
+    d = _gear()
+    apply_patch(d, "/items/@b", op="remove")
+    assert apply_patch(d, "/items/@b", op="remove") is None
+    assert [i["id"] for i in d["items"]] == ["a", "c"]
+    # nor does removing something inside an item that is gone
+    d = {"followers": [{"id": "f", "members": [{"id": "m"}]}]}
+    apply_patch(d, "/followers/@f", op="remove")
+    apply_patch(d, "/followers/@f/members/@m", op="remove")
+    assert d == {"followers": []}
+
+
+def test_setting_under_a_missing_id_is_an_error():
+    d = _gear()
+    before = _gear()
+    for path in ("/items/@zzz/name", "/items/@zzz", "/missing/@zzz/name"):
+        with pytest.raises(PatchError):
+            apply_patch(d, path, "x")
+    with pytest.raises(PatchError):
+        get_pointer(d, "/items/@zzz")
+    assert d == before
+
+
+def test_text_patch_under_a_missing_id_is_an_error():
+    from diff_match_patch import diff_match_patch
+
+    dmp = diff_match_patch()
+    d = _gear()
+    with pytest.raises(PatchError):
+        apply_patch(d, "/items/@zzz/name", op="text_patch", patch=dmp.patch_toText(dmp.patch_make("", "hi")))
+    assert d == _gear()
+
+
+def test_id_token_is_a_plain_key_in_an_object():
+    d = {"m": {"@x": 1}}
+    assert get_pointer(d, "/m/@x") == 1
+    apply_patch(d, "/m/@y", 2)
+    assert d == {"m": {"@x": 1, "@y": 2}}
