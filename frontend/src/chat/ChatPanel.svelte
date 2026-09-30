@@ -46,7 +46,9 @@
     if (!t) return;
     text = '';
     setTyping(false);
-    await send({ type: 'chat', text: t }).catch(() => {});
+    await send({ type: 'chat', text: t }).catch(() => {
+      if (!text) text = t; // not sent: give it back, unless they have started another
+    });
   }
 
   function answerRequest(m: any) {

@@ -51,7 +51,19 @@ CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT
 );
+CREATE TABLE IF NOT EXISTS applied_refs (
+    user TEXT NOT NULL,
+    client TEXT NOT NULL,
+    ref INTEGER NOT NULL,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (user, client)
+);
 """
+
+# A browser's client id lasts one page load; forget ids unseen for this long.
+APPLIED_REFS_TTL = 30 * 24 * 3600
+
+Applied = tuple[str, str, int]
 
 
 class Database:
@@ -66,6 +78,7 @@ class Database:
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA synchronous=NORMAL")
             self._conn.executescript(SCHEMA)
+            self._conn.execute("DELETE FROM applied_refs WHERE updated_at < ?", (time.time() - APPLIED_REFS_TTL,))
             self._conn.commit()
 
     def close(self) -> None:
@@ -93,7 +106,7 @@ class Database:
             self._conn.commit()
         return self.get_record(rid)  # type: ignore[return-value]
 
-    def save_record(self, rid: str, doc: dict[str, Any]) -> int:
+    def save_record(self, rid: str, doc: dict[str, Any], applied: Applied | None = None) -> int:
         with self._lock:
             row = self._conn.execute("SELECT revision FROM records WHERE id=?", (rid,)).fetchone()
             rev = (row["revision"] if row else 0) + 1
@@ -101,6 +114,7 @@ class Database:
                 "UPDATE records SET data=?, name=?, revision=?, updated_at=? WHERE id=?",
                 (json.dumps(doc), doc.get("name"), rev, time.time(), rid),
             )
+            self._record_applied(applied)
             self._conn.commit()
         return rev
 
@@ -142,7 +156,7 @@ class Database:
             self._conn.commit()
         return self.get_character(cid)  # type: ignore[return-value]
 
-    def save_character(self, cid: str, doc: dict[str, Any]) -> int:
+    def save_character(self, cid: str, doc: dict[str, Any], applied: Applied | None = None) -> int:
         """Persist a modified document; returns the new revision."""
         with self._lock:
             cur = self._conn.execute(
@@ -152,6 +166,7 @@ class Database:
             if cur.rowcount == 0:
                 raise KeyError(cid)
             rev = self._conn.execute("SELECT revision FROM characters WHERE id=?", (cid,)).fetchone()[0]
+            self._record_applied(applied)
             self._conn.commit()
         return int(rev)
 
@@ -192,7 +207,7 @@ class Database:
             self._conn.commit()
         return self.get_shared(sid)  # type: ignore[return-value]
 
-    def save_shared(self, sid: str, doc: dict[str, Any]) -> int:
+    def save_shared(self, sid: str, doc: dict[str, Any], applied: Applied | None = None) -> int:
         with self._lock:
             cur = self._conn.execute(
                 "UPDATE shared_sheets SET data=?, name=?, revision=revision+1, updated_at=? WHERE id=?",
@@ -201,6 +216,7 @@ class Database:
             if cur.rowcount == 0:
                 raise KeyError(sid)
             rev = self._conn.execute("SELECT revision FROM shared_sheets WHERE id=?", (sid,)).fetchone()[0]
+            self._record_applied(applied)
             self._conn.commit()
         return int(rev)
 
@@ -277,6 +293,25 @@ class Database:
         with self._lock:
             self._conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?,?)", (key, value))
             self._conn.commit()
+
+    # ------------------------------------------------------------ applied refs
+    # The highest patch ref applied from each (user, client), written in the same commit as the
+    # patch itself, so a patch resent after a dropped connection (or a server restart) is known.
+
+    def applied_ref(self, user: str, client: str) -> int:
+        with self._lock:
+            row = self._conn.execute("SELECT ref FROM applied_refs WHERE user=? AND client=?", (user, client)).fetchone()
+        return int(row[0]) if row else 0
+
+    def _record_applied(self, applied: Applied | None) -> None:
+        """Call with the lock held, before committing."""
+        if applied is None:
+            return
+        self._conn.execute(
+            "INSERT INTO applied_refs (user, client, ref, updated_at) VALUES (?,?,?,?)"
+            " ON CONFLICT (user, client) DO UPDATE SET ref=max(ref, excluded.ref), updated_at=excluded.updated_at",
+            (*applied, time.time()),
+        )
 
     # ------------------------------------------------------------------ export
     def export_all(self) -> dict[str, Any]:

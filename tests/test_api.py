@@ -270,6 +270,105 @@ def test_websocket_roundtrip(app, gm, alice, bob):
         assert recv(wa)["users"] == ["Alice"]
 
 
+def _recv_until(ws, n):
+    """The next n events, skipping presence."""
+    out = []
+    while len(out) < n:
+        ev = json.loads(ws.receive_text())
+        if ev["type"] != "presence":
+            out.append(ev)
+    return out
+
+
+def test_conflicting_sets_reach_everyone_in_server_order(gm, alice, bob):
+    sid = sheet_id(alice)
+    with alice.websocket_connect("/ws") as wa, bob.websocket_connect("/ws") as wb:
+        wa.send_text(json.dumps({"type": "patch", "entity": "shared", "id": sid, "path": "/stats/stores", "value": 1, "ref": 1, "client": "a"}))
+        wb.send_text(json.dumps({"type": "patch", "entity": "shared", "id": sid, "path": "/stats/stores", "value": 2, "ref": 1, "client": "b"}))
+        seen_a = [e for e in _recv_until(wa, 3) if e["type"] == "patch"]
+        seen_b = [e for e in _recv_until(wb, 3) if e["type"] == "patch"]
+    # both clients see the same order, with the sender's ref, and the last is what was stored
+    order = [(e["client"], e["ref"], e["value"]) for e in seen_a]
+    assert order == [(e["client"], e["ref"], e["value"]) for e in seen_b]
+    assert sorted(order) == [("a", 1, 1), ("b", 1, 2)]
+    assert gm.get(f"/api/shared/{sid}").json()["data"]["stats"]["stores"] == order[-1][2]
+
+
+def test_resent_patch_is_acked_not_reapplied(gm, alice, bob):
+    sid = sheet_id(alice)
+    npc = {"type": "patch", "entity": "shared", "id": sid, "path": "/sections/npcs/-", "value": {"name": "Bandit"}, "client": "a"}
+
+    def npcs():
+        return [n["name"] for n in gm.get(f"/api/shared/{sid}").json()["data"]["sections"].get("npcs", [])]
+
+    assert alice.get("/api/state?client=a").json()["applied_ref"] == 0
+    with alice.websocket_connect("/ws") as wa:
+        wa.send_text(json.dumps({**npc, "ref": 3}))
+        assert [e["type"] for e in _recv_until(wa, 2)] == ["patch", "ack"]
+    assert npcs() == ["Bandit"]
+    assert alice.get("/api/state?client=a").json()["applied_ref"] == 3
+    # reconnected: the patch that was in flight is resent, and a new one follows
+    with alice.websocket_connect("/ws") as wa:
+        wa.send_text(json.dumps({**npc, "ref": 3}))
+        assert _recv_until(wa, 1) == [{"type": "ack", "ref": 3}]
+        wa.send_text(json.dumps({**npc, "ref": 4, "value": {"name": "Wolf"}}))
+        assert [e["type"] for e in _recv_until(wa, 2)] == ["patch", "ack"]
+    assert npcs() == ["Bandit", "Wolf"]
+    # refs are per user: another player cannot block this client by reusing its id
+    assert bob.get("/api/state?client=a").json()["applied_ref"] == 0
+    with bob.websocket_connect("/ws") as wb:
+        wb.send_text(json.dumps({**npc, "ref": 1, "value": {"name": "Crow"}}))
+        assert [e["type"] for e in _recv_until(wb, 2)] == ["patch", "ack"]
+    assert npcs() == ["Bandit", "Wolf", "Crow"]
+
+
+def test_applied_refs_survive_a_restart(config):
+    # The patch was saved, but the server went down before the ack reached the browser,
+    # so after the restart the browser resends it.
+    npc = {"type": "patch", "entity": "shared", "path": "/sections/npcs/-", "value": {"name": "Bandit"}, "ref": 7, "client": "a"}
+    app1 = create_app(config)
+    c1 = client_for(app1, "Alice")
+    sid = sheet_id(c1)
+    with c1.websocket_connect("/ws") as ws:
+        ws.send_text(json.dumps({**npc, "id": sid}))
+        assert [e["type"] for e in _recv_until(ws, 2)] == ["patch", "ack"]
+    app1.state.db.close()
+
+    app2 = create_app(config)
+    c2 = client_for(app2, "Alice")
+    assert c2.get("/api/state?client=a").json()["applied_ref"] == 7
+    with c2.websocket_connect("/ws") as ws:
+        ws.send_text(json.dumps({**npc, "id": sid}))
+        assert _recv_until(ws, 1) == [{"type": "ack", "ref": 7}]
+    assert [n["name"] for n in c2.get(f"/api/shared/{sid}").json()["data"]["sections"]["npcs"]] == ["Bandit"]
+    app2.state.db.close()
+
+
+def test_stale_applied_refs_are_forgotten(tmp_path):
+    from st_vtt.db import APPLIED_REFS_TTL, Database
+
+    db = Database(tmp_path / "t.db")
+    sid = db.insert_shared("s", "village", {})["id"]
+    db.save_shared(sid, {"n": 1}, ("Alice", "old", 3))
+    db.save_shared(sid, {"n": 2}, ("Alice", "new", 5))
+    db.save_shared(sid, {"n": 3}, ("Alice", "new", 4))  # never lowers it
+    with db._lock:
+        db._conn.execute("UPDATE applied_refs SET updated_at=updated_at-? WHERE client='old'", (APPLIED_REFS_TTL + 1,))
+        db._conn.commit()
+    db.close()
+    db = Database(tmp_path / "t.db")
+    assert (db.applied_ref("Alice", "old"), db.applied_ref("Alice", "new"), db.applied_ref("Bob", "new")) == (0, 5, 0)
+    db.close()
+
+
+def test_refused_patch_is_not_counted_as_applied(alice):
+    cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": "Bryn"}).json()["id"]
+    with alice.websocket_connect("/ws") as wa:
+        wa.send_text(json.dumps({"type": "patch", "entity": "character", "id": cid, "path": "", "op": "remove", "ref": 1, "client": "a"}))
+        assert _recv_until(wa, 1)[0]["type"] == "error"
+    assert alice.get("/api/state?client=a").json()["applied_ref"] == 0
+
+
 def test_unauthenticated_ws_rejected(app):
     c = raw_client(app)
     with pytest.raises(Exception):
