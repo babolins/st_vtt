@@ -10,11 +10,17 @@
   let gmOpen = $state(false);
 
   async function logout() {
+    if (app.unsaved && !confirm(`${app.unsaved} unsaved ${app.unsaved === 1 ? 'edit' : 'edits'} will be lost. Log out anyway?`)) return;
     await api.post('/api/logout');
     disconnect();
     app.me = null;
   }
+  function onbeforeunload(e: BeforeUnloadEvent) {
+    if (app.unsaved) e.preventDefault();
+  }
 </script>
+
+<svelte:window {onbeforeunload} />
 
 <header>
   <div class="row bar">
@@ -28,7 +34,7 @@
         </span>
       {/each}
     </span>
-    {#if !app.connected}<span class="pill bad">reconnecting…</span>{/if}
+    {#if !app.connected}<span class="pill bad">reconnecting…{app.unsaved ? ` · ${app.unsaved} unsaved` : ''}</span>{/if}
     <button class="small" onclick={onfind} title="Find a move (⌘K)">Moves</button>
     <button class="small" onclick={onnew}>+ Character</button>
     {#if isGm()}

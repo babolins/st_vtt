@@ -74,8 +74,7 @@
       modifiers: modifiers.length ? picks : null,
       label,
       gm_only: gmOnly,
-    }).catch(() => {});
-    onclose();
+    }).then(onclose, () => {}); // on failure (toasted), stay open to try again
   }
 </script>
 

@@ -174,4 +174,6 @@ export interface StateResponse {
   me: User; campaign_name: string; users: User[]; online: string[];
   characters: CharacterRow[]; shared: SharedRow[];
   records: RecordRow[]; messages: Message[];
+  /** highest ref from this client the server has applied (see lib/sync.ts) */
+  applied_ref?: number;
 }

@@ -11,6 +11,8 @@ export const app = $state({
   records: {} as Record<string, RecordRow>,
   messages: [] as Message[],
   connected: false,
+  /** patches waiting to be sent until reconnected */
+  unsaved: 0,
   loading: true,
   /** other clients' focused field, keyed by their client id */
   fieldPresence: {} as Record<string, { user: string; key: string }>,

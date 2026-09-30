@@ -264,8 +264,27 @@ def autocreate_shared(app: FastAPI) -> None:
 # --------------------------------------------------------------------- patches
 
 
-def patch_entity(app: FastAPI, user: UserConfig, entity: str, eid: str | None, path: str, value: Any = None, op: str = "set", client: str | None = None, patch: str | None = None) -> list[Render]:
+def applied_key(user: UserConfig, client: Any, ref: Any = 0) -> tuple[str, str, int] | None:
+    """Key for the applied-ref record, if the client sent a usable id and ref."""
+    if isinstance(client, str) and 0 < len(client) <= 64 and isinstance(ref, int) and not isinstance(ref, bool):
+        return (user.name, client, ref)
+    return None
+
+
+def applied_ref(app: FastAPI, user: UserConfig, client: Any) -> int:
+    """Highest patch ref from this user's `client` already applied (0 if none)."""
+    key = applied_key(user, client)
+    return db_of(app).applied_ref(key[0], key[1]) if key else 0
+
+
+def patch_entity(app: FastAPI, user: UserConfig, entity: str, eid: str | None, path: str, value: Any = None, op: str = "set", client: str | None = None, patch: str | None = None, ref: Any = None) -> list[Render]:
     db = db_of(app)
+    # A client resends patches that were in flight when its socket dropped. Any at or below its
+    # applied ref are already in: ack them without applying them again. (No await between this
+    # check and the save below, so another socket cannot slip in between.)
+    applied = applied_key(user, client, ref)
+    if applied and applied[2] <= db.applied_ref(applied[0], applied[1]):
+        return []
     if entity == "character":
         if not eid:
             raise ServiceError("missing character id")
@@ -306,11 +325,11 @@ def patch_entity(app: FastAPI, user: UserConfig, entity: str, eid: str | None, p
     if merged:
         op, value = "set", result
     if entity == "character":
-        rev = db.save_character(eid, doc)
+        rev = db.save_character(eid, doc, applied)
     elif entity == "record":
-        rev = db.save_record(eid, doc)
+        rev = db.save_record(eid, doc, applied)
     else:
-        rev = db.save_shared(eid, doc)
+        rev = db.save_shared(eid, doc, applied)
     gm_only = gm_sheet or is_hidden_path(entity, path)
 
     # Hiding a record has to withdraw it from the table's browsers, not just stop
@@ -330,7 +349,7 @@ def patch_entity(app: FastAPI, user: UserConfig, entity: str, eid: str | None, p
             return {"type": "record_created", "record": record_view(u, after_row)}
         if gm_only and not u.is_gm:
             return None
-        return {"type": "patch", "entity": entity, "id": eid, "path": path, "value": value, "op": op, "revision": rev, "by": user.name, "client": client, "merged": merged}
+        return {"type": "patch", "entity": entity, "id": eid, "path": path, "value": value, "op": op, "revision": rev, "by": user.name, "client": client, "ref": ref, "merged": merged}
 
     return [render]
 

@@ -15,9 +15,13 @@ def get_content(request: Request, user: UserConfig = Depends(current_user)) -> d
 
 
 @router.get("/state")
-def get_state(request: Request, user: UserConfig = Depends(current_user)) -> dict[str, Any]:
-    """Everything a client needs at load time."""
+def get_state(request: Request, client: str | None = None, user: UserConfig = Depends(current_user)) -> dict[str, Any]:
+    """Everything a client needs at load time.
+
+    `applied_ref` is the highest message ref from `client` already applied, read before
+    the data so the snapshot is sure to include those patches."""
     app = request.app
+    applied_ref = service.applied_ref(app, user, client)
     from ..perms import visible_to
 
     messages = [m for m in app.state.db.list_messages(limit=200) if visible_to(user, m.get("visibility"))]
@@ -30,4 +34,5 @@ def get_state(request: Request, user: UserConfig = Depends(current_user)) -> dic
         "shared": service.list_shared(app, user),
         "records": service.list_records(app, user),
         "messages": messages,
+        "applied_ref": applied_ref,
     }

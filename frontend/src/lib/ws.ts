@@ -1,6 +1,7 @@
 import { api, basePath } from './api';
-import { applyPointer } from './pointer';
+import { applyPointer, type PatchOp } from './pointer';
 import { app, loadState, toast } from './state.svelte';
+import { applyEcho, PatchQueue, type PatchEntry } from './sync';
 import type { Message, StateResponse } from './types';
 import { presenceKey } from './util';
 
@@ -9,22 +10,60 @@ export const clientId = Math.random().toString(36).slice(2, 10);
 let socket: WebSocket | null = null;
 let backoff = 500;
 let refCounter = 0;
-const pending = new Map<number, { resolve: () => void; reject: (e: Error) => void; entity?: string; id?: string }>();
+const pending = new Map<number, { resolve: () => void; reject: (e: Error) => void; patch: boolean }>();
+const patches = new PatchQueue();
+/** Open, and the outbox replayed: until then patches queue behind it and other messages are refused. */
+let synced = false;
 let closedByUs = false;
 
+function entityRow(entity: unknown, id: unknown) {
+  const key = String(id);
+  return entity === 'character' ? app.characters[key] : entity === 'shared' ? app.shared[key] : entity === 'record' ? app.records[key] : undefined;
+}
+
+function applyLocally(e: PatchEntry): void {
+  const target = entityRow(e.entity, e.id);
+  if (!target) return;
+  try { applyPointer(target.data, e.path, e.value, e.op); } catch (err) { console.warn('local patch failed', err); }
+}
+
+function countUnsaved(): void {
+  app.unsaved = patches.unsaved;
+}
+
+/** Load a fresh snapshot, then re-apply our patches it does not include yet. */
 export async function refreshState(): Promise<void> {
-  const s = await api.get<StateResponse>('/api/state');
+  const s = await api.get<StateResponse>(`/api/state?client=${clientId}`);
   loadState(s);
+  for (const e of patches.rebase(s.applied_ref ?? 0, s.me?.name)) applyLocally(e);
+  countUnsaved();
+}
+
+function transmit(ref: number, msg: Record<string, unknown>): void {
+  socket!.send(JSON.stringify({ ...msg, ref, client: clientId }));
+}
+
+function flushOutbox(): boolean {
+  if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+  for (const e of patches.drain()) {
+    patches.sent(e);
+    transmit(e.ref, e.msg);
+  }
+  countUnsaved();
+  return true;
 }
 
 export function connect(): void {
   closedByUs = false;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   socket = new WebSocket(`${proto}://${location.host}${basePath}/ws`);
+  const ws = socket;
   socket.onopen = async () => {
     backoff = 500;
     app.connected = true;
     try { await refreshState(); } catch (e) { console.error(e); }
+    if (socket !== ws) return; // dropped meanwhile; the next socket replays the outbox
+    synced = flushOutbox();
     sendEphemeral({ type: 'presence_sync' });
     for (const k of Object.keys(app.fieldPresence)) delete app.fieldPresence[k];
   };
@@ -32,8 +71,17 @@ export function connect(): void {
   socket.onclose = (ev) => {
     app.connected = false;
     socket = null;
-    for (const [, p] of pending) p.reject(new Error('disconnected'));
+    synced = false;
+    patches.disconnected();
+    countUnsaved();
+    let lost = false;
+    for (const [, p] of pending) {
+      if (p.patch) { p.resolve(); continue; } // back in the outbox
+      lost = true;
+      p.reject(new Error('disconnected'));
+    }
     pending.clear();
+    if (lost) toast('Not connected', 'error');
     if (ev.code === 4401 || ev.code === 4409) {
       app.loginNotice = ev.code === 4409 ? 'You were signed in on another device, so this one was signed out.' : 'Your session ended. Please sign in again.';
       app.me = null;
@@ -43,8 +91,11 @@ export function connect(): void {
   };
 }
 
+/** Log out: stop reconnecting and drop anything unsent. */
 export function disconnect(): void {
   closedByUs = true;
+  patches.clear();
+  countUnsaved();
   socket?.close();
 }
 
@@ -54,15 +105,39 @@ export function sendEphemeral(msg: Record<string, unknown>): void {
   socket.send(JSON.stringify({ ...msg, client: clientId }));
 }
 
+/** Send a message the server acks (chat, rolls, ...). Refused, with a toast, while not connected. */
 export function send(msg: Record<string, unknown>): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
+    if (!synced || !socket || socket.readyState !== WebSocket.OPEN) {
+      toast('Not connected', 'error');
       reject(new Error('not connected'));
       return;
     }
     const ref = ++refCounter;
-    pending.set(ref, { resolve, reject, entity: msg.entity as string, id: msg.id as string });
-    socket.send(JSON.stringify({ ...msg, ref, client: clientId }));
+    pending.set(ref, { resolve, reject, patch: false });
+    transmit(ref, msg);
+  });
+}
+
+/**
+ * Send a patch the caller has already applied locally (`value` is what it applied). While not
+ * connected it waits in the outbox to be replayed on reconnect. Resolves once acked or queued;
+ * never rejects (errors are toasted).
+ */
+export function sendPatch(msg: Record<string, unknown>, value: unknown): Promise<void> {
+  const e: PatchEntry = {
+    ref: ++refCounter, msg, entity: String(msg.entity), id: (msg.id as string | null) ?? null,
+    path: String(msg.path), op: msg.op as PatchOp, value, user: app.me?.name ?? '', overtaken: false,
+  };
+  if (!synced || !socket || socket.readyState !== WebSocket.OPEN) {
+    patches.queue(e);
+    countUnsaved();
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    pending.set(e.ref, { resolve, reject: () => resolve(), patch: true });
+    patches.sent(e);
+    transmit(e.ref, msg);
   });
 }
 
@@ -71,6 +146,7 @@ function handle(ev: any): void {
     case 'ack': {
       const p = pending.get(ev.ref);
       if (p) { pending.delete(ev.ref); p.resolve(); }
+      patches.settle(ev.ref);
       break;
     }
     case 'error': {
@@ -78,14 +154,18 @@ function handle(ev: any): void {
       if (p) {
         pending.delete(ev.ref);
         p.reject(new Error(ev.message));
-        if (p.entity) refreshState().catch(() => {});
+        if (patches.settle(ev.ref)) refreshState().catch(() => {});
       }
       toast(ev.message, 'error');
       break;
     }
     case 'patch': {
-      if (ev.client === clientId && !ev.merged) break; // we applied it optimistically; merged results must be re-applied
-      const target = ev.entity === 'character' ? app.characters[ev.id] : ev.entity === 'shared' ? app.shared[ev.id] : ev.entity === 'record' ? app.records[ev.id] : null;
+      if (ev.client === clientId) {
+        if (!applyEcho(patches.get(ev.ref), ev.merged)) break; // already shown, and nothing landed on top of it since
+      } else {
+        patches.overtake(ev.entity, ev.id, ev.path);
+      }
+      const target = entityRow(ev.entity, ev.id);
       if (!target) { refreshState().catch(() => {}); break; }
       try {
         applyPointer(target.data, ev.path, ev.value, ev.op);
