@@ -336,6 +336,10 @@ def patch_entity(app: FastAPI, user: UserConfig, entity: str, eid: str | None, p
     except Forbidden as e:
         raise ServiceError(str(e), 403) from e
     doc = row["data"]
+    if isinstance(value, dict) and not value.get("id") and (op == "list_add" or (op == "set" and path.endswith("/-"))):
+        # A tab still running the build from before list items were patched by id appends them
+        # without one. Give it one here, so it is saved and broadcast with it.
+        value = {**value, "id": chars.new_id()}
     try:
         result = apply_patch(doc, path, value, op, patch)
     except PatchError as e:

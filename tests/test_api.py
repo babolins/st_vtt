@@ -211,6 +211,22 @@ def test_old_documents_gain_list_ids_once(config, pack):
     app2.state.db.close()
 
 
+def test_an_item_appended_without_an_id_gets_one(gm, alice):
+    """As a tab still running the old build would append it."""
+    sid = sheet_id(gm)
+    with gm.websocket_connect("/ws") as wg:
+        wg.receive_json()  # presence
+        assert alice.post(f"/api/shared/{sid}/patch", json={"path": "/sections/assets/-", "value": {"name": "Cart"}}).status_code == 200
+        ev = wg.receive_json()
+    rows = gm.get(f"/api/shared/{sid}").json()["data"]["sections"]["assets"]
+    assert rows[-1]["name"] == "Cart" and rows[-1]["id"]
+    assert ev["value"] == rows[-1]  # the broadcast carries the id too
+    # the old build added ties with list_add
+    rid = alice.post("/api/records", json={"name": "Mab"}).json()["id"]
+    assert alice.post(f"/api/records/{rid}/patch", json={"path": "/ties", "op": "list_add", "value": {"type": "kin-of", "to": "x", "note": ""}}).status_code == 200
+    assert gm.get(f"/api/records/{rid}").json()["data"]["ties"][0]["id"]
+
+
 def test_chat_commands_and_visibility(gm, alice, bob):
     assert alice.post("/api/chat", json={"text": "hello"}).status_code == 200
     assert alice.post("/api/chat", json={"text": "/roll 2d6+1"}).status_code == 200
