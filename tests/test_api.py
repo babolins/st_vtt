@@ -355,6 +355,32 @@ def test_conflicting_sets_reach_everyone_in_server_order(gm, alice, bob):
     assert gm.get(f"/api/shared/{sid}").json()["data"]["stats"]["stores"] == order[-1][2]
 
 
+def test_two_people_removing_the_same_row_remove_one(gm, alice, bob):
+    sid = sheet_id(alice)
+    rows = alice.get(f"/api/shared/{sid}").json()["data"]["sections"]["resources"]
+    assert len(rows) == 2
+    path = f"/sections/resources/@{rows[0]['id']}"
+    with alice.websocket_connect("/ws") as wa, bob.websocket_connect("/ws") as wb:
+        wa.send_text(json.dumps({"type": "patch", "entity": "shared", "id": sid, "path": path, "op": "remove", "ref": 1, "client": "a"}))
+        wb.send_text(json.dumps({"type": "patch", "entity": "shared", "id": sid, "path": path, "op": "remove", "ref": 1, "client": "b"}))
+        seen = _recv_until(wa, 3) + _recv_until(wb, 3)
+    assert sorted(e["type"] for e in seen) == ["ack", "ack", "patch", "patch", "patch", "patch"]
+    assert gm.get(f"/api/shared/{sid}").json()["data"]["sections"]["resources"] == rows[1:]
+
+
+def test_an_edit_lands_on_its_row_after_a_row_above_is_removed(gm, alice, bob):
+    from diff_match_patch import diff_match_patch
+
+    dmp = diff_match_patch()
+    sid = sheet_id(alice)
+    first, second = alice.get(f"/api/shared/{sid}").json()["data"]["sections"]["resources"]
+    # Alice started typing in the second row before Bob removed the first; the server gets Bob's first.
+    edit = dmp.patch_toText(dmp.patch_make(second["notes"], "fresh water"))
+    assert bob.post(f"/api/shared/{sid}/patch", json={"path": f"/sections/resources/@{first['id']}", "op": "remove"}).status_code == 200
+    assert alice.post(f"/api/shared/{sid}/patch", json={"path": f"/sections/resources/@{second['id']}/notes", "op": "text_patch", "patch": edit}).status_code == 200
+    assert gm.get(f"/api/shared/{sid}").json()["data"]["sections"]["resources"] == [{**second, "notes": "fresh water"}]
+
+
 def test_resent_patch_is_acked_not_reapplied(gm, alice, bob):
     sid = sheet_id(alice)
     npc = {"type": "patch", "entity": "shared", "id": sid, "path": "/sections/npcs/-", "value": {"name": "Bandit"}, "client": "a"}
