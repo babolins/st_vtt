@@ -12,6 +12,8 @@
   import { SHEET, type SheetContext } from '../../lib/patch';
   import { presence } from '../../lib/presence.svelte';
   import { renderInline } from '../../lib/markdown';
+  import { at } from '../../lib/pointer';
+  import { uid } from '../../lib/util';
 
   let { section, value, editable, basePath, doc, p, idPrefix = '' }: {
     section: Section; value: unknown; editable: boolean; basePath: string;
@@ -71,16 +73,17 @@
     if (!editable) return;
     p(basePath, { origin, name });
   }
-  function setCell(i: number, col: string, v: unknown) {
-    p(`${basePath}/${i}/${col}`, v);
+  const rowPath = (row: { id: string }) => `${basePath}/${at(row.id)}`;
+  function setCell(row: { id: string }, col: string, v: unknown) {
+    p(`${rowPath(row)}/${col}`, v);
   }
   function addRow() {
-    const row: Record<string, unknown> = {};
+    const row: Record<string, unknown> = { id: uid() };
     for (const c of s.columns) row[c.id] = c.type === 'check' ? false : c.type === 'number' ? 0 : '';
     p(`${basePath}/-`, row);
   }
-  function removeRow(i: number) {
-    p(`${basePath}/${i}`, null, 'remove');
+  function removeRow(row: { id: string }) {
+    p(rowPath(row), null, 'remove');
   }
   function rollCell(row: Record<string, unknown>, col: { id: string; label: string }) {
     const expr = String(row[col.id] ?? '').trim();
@@ -185,30 +188,31 @@
       <table class="grid">
         <thead><tr>{#each s.columns as c}<th>{c.label}</th>{/each}{#if editable}<th></th>{/if}</tr></thead>
         <tbody>
-          {#each arr as row, i}
+          {#each arr as row (row.id)}
+            {@const rp = rowPath(row)}
             <tr>
               {#each s.columns as c}
                 <td>
                   {#if c.type === 'check'}
-                    <input type="checkbox" checked={!!row[c.id]} disabled={!editable} use:presence={pres(`${basePath}/${i}/${c.id}`)} onchange={(e) => setCell(i, c.id, (e.target as HTMLInputElement).checked)} />
+                    <input type="checkbox" checked={!!row[c.id]} disabled={!editable} use:presence={pres(`${rp}/${c.id}`)} onchange={(e) => setCell(row, c.id, (e.target as HTMLInputElement).checked)} />
                   {:else if c.type === 'number'}
-                    <input type="number" value={row[c.id] ?? 0} disabled={!editable} use:presence={pres(`${basePath}/${i}/${c.id}`)} onchange={(e) => setCell(i, c.id, Number((e.target as HTMLInputElement).value))} />
+                    <input type="number" value={row[c.id] ?? 0} disabled={!editable} use:presence={pres(`${rp}/${c.id}`)} onchange={(e) => setCell(row, c.id, Number((e.target as HTMLInputElement).value))} />
                   {:else if c.type === 'dice'}
                     <span class="row" style="gap:.3em;flex-wrap:nowrap">
-                      <DebouncedText class="kbd dice" value={String(row[c.id] ?? '')} path={`${basePath}/${i}/${c.id}`} readonly={!editable} placeholder="1d6" />
+                      <DebouncedText class="kbd dice" value={String(row[c.id] ?? '')} path={`${rp}/${c.id}`} readonly={!editable} placeholder="1d6" />
                       <button class="small primary" onclick={() => rollCell(row, c)} disabled={!String(row[c.id] ?? '').trim()}>Roll</button>
                     </span>
                   {:else if c.type === 'select'}
-                    <select value={row[c.id] ?? ''} disabled={!editable} use:presence={pres(`${basePath}/${i}/${c.id}`)} onchange={(e) => setCell(i, c.id, (e.target as HTMLSelectElement).value)}>
+                    <select value={row[c.id] ?? ''} disabled={!editable} use:presence={pres(`${rp}/${c.id}`)} onchange={(e) => setCell(row, c.id, (e.target as HTMLSelectElement).value)}>
                       <option value=""></option>
                       {#each c.options as o}<option value={o}>{o}</option>{/each}
                     </select>
                   {:else}
-                    <DebouncedText value={String(row[c.id] ?? '')} path={`${basePath}/${i}/${c.id}`} readonly={!editable} />
+                    <DebouncedText value={String(row[c.id] ?? '')} path={`${rp}/${c.id}`} readonly={!editable} />
                   {/if}
                 </td>
               {/each}
-              {#if editable}<td><button class="ghost small danger" onclick={() => removeRow(i)} title="Remove row">✕</button></td>{/if}
+              {#if editable}<td><button class="ghost small danger" onclick={() => removeRow(row)} title="Remove row">✕</button></td>{/if}
             </tr>
           {/each}
         </tbody>

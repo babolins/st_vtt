@@ -1,6 +1,7 @@
 <script lang="ts">
   import { app } from '../../lib/state.svelte';
   import { uid } from '../../lib/util';
+  import { at } from '../../lib/pointer';
   import type { CharacterDoc, Follower } from '../../lib/types';
   import type { Patcher } from '../../lib/patch';
   import Collapsible from '../../ui/Collapsible.svelte';
@@ -29,8 +30,8 @@
   <datalist id="follower-costs">{#each rules.costs as t}<option value={t}></option>{/each}</datalist>
   <datalist id="follower-instincts">{#each rules.instincts as t}<option value={t}></option>{/each}</datalist>
 
-  {#each list as f, i (f.id ?? i)}
-    {@const base = `/followers/${i}`}
+  {#each list as f (f.id)}
+    {@const base = `/followers/${at(f.id)}`}
     <div class="follower">
       <div class="row top">
         <DebouncedText class="fname" value={f.name} path={`${base}/name`} readonly={!editable} placeholder="Name" />
@@ -64,14 +65,15 @@
       {#if f.is_group}
         <div class="members">
           <span class="muted small">Members</span>
-          {#each f.members ?? [] as m, j}
+          {#each f.members ?? [] as m (m.id)}
+            {@const mbase = `${base}/members/${at(m.id)}`}
             <span class="row member">
-              <DebouncedText value={m.name} path={`${base}/members/${j}/name`} readonly={!editable} placeholder="Name" />
-              <Stepper label="HP" value={m.hp ?? 0} min={0} onchange={(v) => p(`${base}/members/${j}/hp`, v)} path={`${base}/members/${j}/hp`} disabled={!editable} />
-              {#if editable}<button class="ghost small danger" onclick={() => p(`${base}/members/${j}`, null, 'remove')}>✕</button>{/if}
+              <DebouncedText value={m.name} path={`${mbase}/name`} readonly={!editable} placeholder="Name" />
+              <Stepper label="HP" value={m.hp ?? 0} min={0} onchange={(v) => p(`${mbase}/hp`, v)} path={`${mbase}/hp`} disabled={!editable} />
+              {#if editable}<button class="ghost small danger" onclick={() => p(mbase, null, 'remove')}>✕</button>{/if}
             </span>
           {/each}
-          {#if editable}<button class="small" onclick={() => p(`${base}/members/-`, { name: '', hp: f.hp?.max ?? 3 })}>+ Member</button>{/if}
+          {#if editable}<button class="small" onclick={() => p(`${base}/members/-`, { id: uid(), name: '', hp: f.hp?.max ?? 3 })}>+ Member</button>{/if}
         </div>
       {/if}
     </div>

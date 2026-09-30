@@ -110,7 +110,7 @@ export interface ContentPack {
 
 /** A person, faction or place the campaign remembers. Ties are typed from the
  *  start: in real session notes an NPC is mostly who they are to someone else. */
-export interface Tie { type: string; to: string; note: string }
+export interface Tie { id: string; type: string; to: string; note: string }
 export interface RecordDoc {
   kind: string; name: string; pronouns: string; role: string; home: string; status: string;
   tags: string[]; ties: Tie[]; notes: string;
@@ -129,8 +129,9 @@ export interface RecordRow { id: string; kind: string; data: RecordDoc; revision
 export interface Follower {
   id: string; name: string; tags: string[]; hp: { current: number; max: number }; armor: number;
   damage_die: string; instinct: string; cost: string; loyalty: number; moves: string; gear: string;
-  notes: string; is_group: boolean; members: { name: string; hp: number }[]; fields: Record<string, unknown>;
+  notes: string; is_group: boolean; members: FollowerMember[]; fields: Record<string, unknown>;
 }
+export interface FollowerMember { id: string; name: string; hp: number }
 export interface ArcanumInstance extends Omit<Arcanum, 'id'> {
   id: string; ref: string | null; answers: Record<string, string>; state: Record<string, number | boolean>; notes: string;
 }
