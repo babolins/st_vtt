@@ -166,6 +166,51 @@ def test_auto_create_once(config):
     app2.state.db.close()
 
 
+def test_old_documents_gain_list_ids_once(config, pack):
+    from st_vtt import characters as chars
+    from st_vtt.db import Database
+
+    def without_ids(doc):
+        if isinstance(doc, dict):
+            return {k: without_ids(v) for k, v in doc.items() if k != "id"}
+        return [without_ids(x) for x in doc] if isinstance(doc, list) else doc
+
+    # Documents as they were before list items had ids, written before the app first starts.
+    char = chars.new_character(pack, pack.playbooks[0], "Old")
+    char["gear"]["items"] = [{"name": "rope", "bulk": 1}, {"name": "lamp", "bulk": 1}]
+    char["followers"] = [{"name": "Hob", "is_group": True, "members": [{"name": "a", "hp": 3}]}]
+    char["sections"]["relationships"] = [{"who": "Mab", "what": "owes me", "close": False}]
+    village = pack.shared_sheets[0]
+    sheet = without_ids(chars.new_shared_sheet(pack, village))
+    record = chars.new_record("npc", "Mab")
+    record["ties"] = [{"type": "kin-of", "to": "x", "note": ""}]
+    db = Database(config.database_path)
+    db.insert_character("c1", "Alice", without_ids(char))
+    db.insert_shared("s1", village.id, sheet)
+    db.insert_record("r1", "npc", record)
+    db.set_meta(f"auto_created:{village.id}", "1")
+    db.close()
+
+    app1 = create_app(config)
+    rows = {"c": app1.state.db.get_character("c1"), "s": app1.state.db.get_shared("s1"), "r": app1.state.db.get_record("r1")}
+    c = rows["c"]["data"]
+    assert all(i["id"] for i in c["gear"]["items"]) and c["followers"][0]["id"] and c["followers"][0]["members"][0]["id"]
+    assert c["sections"]["relationships"][0]["id"]
+    assert all(r["id"] for r in rows["s"]["data"]["sections"]["resources"])
+    assert rows["r"]["data"]["ties"][0]["id"]
+    # and nothing else changed
+    assert without_ids(c) == without_ids(char)
+    assert without_ids(rows["s"]["data"]) == sheet
+    assert without_ids(rows["r"]["data"]) == without_ids(record)
+    app1.state.db.close()
+
+    app2 = create_app(config)  # a second start leaves them alone
+    assert app2.state.db.get_character("c1") == rows["c"]
+    assert app2.state.db.get_shared("s1") == rows["s"]
+    assert app2.state.db.get_record("r1") == rows["r"]
+    app2.state.db.close()
+
+
 def test_chat_commands_and_visibility(gm, alice, bob):
     assert alice.post("/api/chat", json={"text": "hello"}).status_code == 200
     assert alice.post("/api/chat", json={"text": "/roll 2d6+1"}).status_code == 200

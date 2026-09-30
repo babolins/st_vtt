@@ -422,6 +422,8 @@ class Section(Strict):
             seen.add(oid)
         if self.type == "table" and not self.columns:
             raise ValueError(f"table section {self.id!r} needs columns")
+        if self.type == "table" and any(c.id == "id" for c in self.columns):
+            raise ValueError(f"table section {self.id!r}: no column may be called 'id' (each row keeps its own id there)")
         if self.type == "names" and not self.lists:
             raise ValueError(f"names section {self.id!r} needs lists")
         if self.type == "pips" and not self.max:

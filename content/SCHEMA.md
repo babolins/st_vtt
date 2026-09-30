@@ -326,7 +326,8 @@ and sub-picks are all keyed by section and option id.
 Table columns: `{"id", "label", "type"}` with type `text` (default), `number`,
 `check`, `select` (with `options`), or `dice`. A `dice` cell holds a dice
 expression such as `1d8+1` and gets a Roll button; the roll is labelled with
-the row's first text column, so an NPC table rolls "Bandit · Damage".
+the row's first text column, so an NPC table rolls "Bandit · Damage". No
+column may be called `id`: each row keeps its own id there.
 
 ## `inserts`
 

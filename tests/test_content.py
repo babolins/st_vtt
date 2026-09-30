@@ -436,3 +436,10 @@ def test_a_move_with_options_may_not_be_named_after_a_section(tmp_path):
         "moves": [{"id": "clash", "name": "Clash"}],
     }])
     assert pack.playbooks[0].moves[0].id == "clash"
+
+
+def test_table_column_called_id_rejected(tmp_path):
+    src = _write_pack(tmp_path, playbooks=[{"id": "pb", "name": "PB", "hp_max": 10, "sections": [
+        {"id": "crew", "title": "Crew", "type": "table", "columns": [{"id": "id", "label": "Id"}]}]}])
+    with pytest.raises(ContentError, match="no column may be called 'id'"):
+        load_content(src)

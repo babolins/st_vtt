@@ -51,6 +51,7 @@ def create_app(config: Config | None = None) -> FastAPI:
     app.state.pack_json = pack.model_dump(mode="json", by_alias=True)
     app.state.db = Database(config.database_path)
     app.state.hub = Hub()
+    service.migrate_list_ids(app)
     service.autocreate_shared(app)
 
     app.include_router(api_router)
