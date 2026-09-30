@@ -1,6 +1,7 @@
 <script lang="ts">
   import { app } from '../../lib/state.svelte';
   import { uid } from '../../lib/util';
+  import { at } from '../../lib/pointer';
   import type { ArcanumInstance, CharacterDoc } from '../../lib/types';
   import type { Patcher } from '../../lib/patch';
   import Collapsible from '../../ui/Collapsible.svelte';
@@ -43,8 +44,8 @@
     {/if}
   {/snippet}
 
-  {#each list as a, i (a.id ?? i)}
-    {@const base = `/arcana/${i}`}
+  {#each list as a (a.id)}
+    {@const base = `/arcana/${at(a.id)}`}
     {@const custom = !a.ref}
     <div class="arc">
       <div class="row top">

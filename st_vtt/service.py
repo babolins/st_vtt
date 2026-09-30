@@ -247,6 +247,7 @@ def import_shared(app: FastAPI, user: UserConfig, sid: str, doc: dict[str, Any])
     merged["template"] = row["template"]
     for k in ("id", "revision"):
         merged.pop(k, None)
+    chars.ensure_list_ids(pack_of(app), merged, "shared")
     db_of(app).save_shared(sid, merged)
     return [_shared_render(app, db_of(app).get_shared(sid), "shared_replaced")]
 
@@ -259,6 +260,24 @@ def autocreate_shared(app: FastAPI) -> None:
         if tpl.auto_create and not db.get_meta(f"auto_created:{tpl.id}"):
             db.insert_shared(chars.new_id(), tpl.id, chars.new_shared_sheet(pack, tpl))
             db.set_meta(f"auto_created:{tpl.id}", "1")
+
+
+def migrate_list_ids(app: FastAPI) -> None:
+    """Give ids to list items in documents made before items were patched by id (once per campaign)."""
+    db = db_of(app)
+    if db.get_meta("migrated:list_ids"):
+        return
+    pack = pack_of(app)
+    for row in db.list_characters():
+        if chars.ensure_list_ids(pack, row["data"], "character"):
+            db.save_character(row["id"], row["data"])
+    for row in db.list_shared():
+        if chars.ensure_list_ids(pack, row["data"], "shared"):
+            db.save_shared(row["id"], row["data"])
+    for row in db.list_records():
+        if chars.ensure_list_ids(pack, row["data"], "record"):
+            db.save_record(row["id"], row["data"])
+    db.set_meta("migrated:list_ids", "1")
 
 
 # --------------------------------------------------------------------- patches
@@ -317,6 +336,10 @@ def patch_entity(app: FastAPI, user: UserConfig, entity: str, eid: str | None, p
     except Forbidden as e:
         raise ServiceError(str(e), 403) from e
     doc = row["data"]
+    if isinstance(value, dict) and not value.get("id") and (op == "list_add" or (op == "set" and path.endswith("/-"))):
+        # A tab still running the build from before list items were patched by id appends them
+        # without one. Give it one here, so it is saved and broadcast with it.
+        value = {**value, "id": chars.new_id()}
     try:
         result = apply_patch(doc, path, value, op, patch)
     except PatchError as e:

@@ -6,6 +6,11 @@ Ops:
   list_add     {"path", "value"}   idempotent membership add on a list (created if missing)
   list_remove  {"path", "value"}   idempotent membership remove
   text_patch   {"path", "patch"}   apply a diff-match-patch patch to the string at path
+
+Inside a list, a token `@<id>` selects the element whose "id" is <id>, so an edit still lands on
+the right item after someone else inserts or deletes one above it. A missing id is an error,
+except that removing an item that is already gone, or anything inside one, does nothing (so two
+people deleting the same row delete one row).
 """
 
 from __future__ import annotations
@@ -30,9 +35,20 @@ def split_pointer(path: str) -> list[str]:
     return [p.replace("~1", "/").replace("~0", "~") for p in path[1:].split("/")]
 
 
+def _by_id(container: list[Any], token: str) -> int | None:
+    """Position of the element an `@<id>` token names, or None if there is none."""
+    want = token[1:]
+    return next((i for i, el in enumerate(container) if isinstance(el, dict) and el.get("id") == want), None)
+
+
 def _index(container: Any, token: str, *, for_set: bool) -> int:
     if not isinstance(container, list):
         raise PatchError("expected list")
+    if token.startswith("@"):
+        i = _by_id(container, token)
+        if i is None:
+            raise PatchError(f"no list item with id {token[1:]!r}")
+        return i
     if token == "-":
         if not for_set:
             raise PatchError("'-' only valid when appending")
@@ -82,9 +98,13 @@ def apply_patch(doc: Any, path: str, value: Any = None, op: str = "set", patch: 
             if tok not in node or node[tok] is None:
                 if op == "remove":
                     raise PatchError(f"missing key {tok!r}")
+                if nxt.startswith("@"):
+                    raise PatchError(f"no list item with id {nxt[1:]!r}")
                 node[tok] = [] if nxt == "-" or nxt.isdigit() else {}
             node = node[tok]
         elif isinstance(node, list):
+            if op == "remove" and tok.startswith("@") and _by_id(node, tok) is None:
+                return None  # what it would have removed went with the item
             node = node[_index(node, tok, for_set=False)]
         else:
             raise PatchError(f"cannot descend into scalar at {tok!r}")
@@ -103,6 +123,8 @@ def apply_patch(doc: Any, path: str, value: Any = None, op: str = "set", patch: 
                 node.append(value)
             else:
                 node[i] = value
+        elif last.startswith("@") and _by_id(node, last) is None:
+            return None  # already gone
         else:
             del node[_index(node, last, for_set=False)]
     else:

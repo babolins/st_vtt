@@ -43,9 +43,14 @@ def test_a_record_needs_a_name(alice):
 
 def test_ties_are_a_list_anyone_may_add_to(alice, bob):
     rid = make(alice, "Dilwen")
-    tie = {"type": "sidekick-of", "to": "glenys", "note": "best friend"}
-    assert patch(bob, rid, "/ties", tie, op="list_add").status_code == 200
-    assert alice.get(f"/api/records/{rid}").json()["data"]["ties"] == [tie]
+    tie = {"id": "t1", "type": "sidekick-of", "to": "glenys", "note": "best friend"}
+    other = {"id": "t2", "type": "kin-of", "to": "mab", "note": ""}
+    assert patch(bob, rid, "/ties/-", tie).status_code == 200
+    assert patch(alice, rid, "/ties/-", other).status_code == 200
+    assert alice.get(f"/api/records/{rid}").json()["data"]["ties"] == [tie, other]
+    # removed by id, so a tie someone else added meanwhile stays
+    assert patch(bob, rid, "/ties/@t1", None, op="remove").status_code == 200
+    assert alice.get(f"/api/records/{rid}").json()["data"]["ties"] == [other]
 
 
 def test_author_or_gm_may_delete(alice, bob, gm):

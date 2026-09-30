@@ -1,6 +1,6 @@
 """Document construction from a content pack."""
 
-from st_vtt.characters import default_section_value, new_character, new_shared_sheet, validate_import
+from st_vtt.characters import default_section_value, ensure_list_ids, new_character, new_shared_sheet, validate_import
 from st_vtt.content import ContentPack
 
 
@@ -63,7 +63,7 @@ def test_section_start_seeds_a_new_sheet():
         }],
     }])
     doc = new_shared_sheet(pack, pack.shared_sheets[0])
-    assert doc["sections"]["resources"] == [{"resource": "Farming"}, {"resource": "Distilling"}]
+    assert [{k: v for k, v in r.items() if k != "id"} for r in doc["sections"]["resources"]] == [{"resource": "Farming"}, {"resource": "Distilling"}]
     # the seed is copied, not shared between sheets
     doc["sections"]["resources"].append({"resource": "Mill"})
     assert len(new_shared_sheet(pack, pack.shared_sheets[0])["sections"]["resources"]) == 2
@@ -102,3 +102,73 @@ def test_a_new_sheet_has_somewhere_to_keep_a_moves_picks():
         "shared_sheets": [{"id": "village", "name": "Village"}],
     }).shared_sheets[0])
     assert shared["moves"]["options"] == {}
+
+
+def _table_pack() -> ContentPack:
+    """`crew` is a table on one playbook and a checklist on the other; `hirelings` is a table on an insert."""
+    table = {"id": "crew", "title": "Crew", "type": "table", "columns": [{"id": "name", "label": "Name"}],
+             "start": [{"name": "Bryn"}, {"name": "Mab"}]}
+    checklist = {"id": "crew", "title": "Crew", "type": "checklist", "options": [{"id": "cook", "label": "Cook"}]}
+    return _pack(
+        inserts=[{"id": "band", "name": "Band", "sections": [
+            {"id": "hirelings", "title": "Hirelings", "type": "table", "columns": [{"id": "name", "label": "Name"}]}]}],
+        playbooks=[{"id": "pb", "name": "PB", "hp_max": 10, "sections": [table]},
+                   {"id": "pb2", "name": "PB2", "hp_max": 10, "sections": [checklist]}],
+    )
+
+
+def test_table_start_rows_get_ids():
+    pack = _table_pack()
+    rows = new_character(pack, pack.playbooks[0], "Pedr")["sections"]["crew"]
+    assert [r["name"] for r in rows] == ["Bryn", "Mab"]
+    assert all(isinstance(r["id"], str) and r["id"] for r in rows)
+    assert rows[0]["id"] != rows[1]["id"]
+    assert "id" not in pack.playbooks[0].sections[0].start[0]  # the pack's copy is untouched
+
+
+def test_ensure_list_ids_fills_missing_and_duplicate_ids():
+    pack = _table_pack()
+    doc = new_character(pack, pack.playbooks[0], "Pedr")
+    doc["gear"]["items"] = [{"id": "g1", "name": "rope"}, {"id": "g1", "name": "rope"}, {"name": "lamp"}, "junk"]
+    doc["followers"] = [{"name": "Hob", "members": [{"name": "a"}, {"name": "b", "id": 7}]}]
+    doc["arcana"] = [{"name": "ring", "id": ""}]
+    doc["custom_moves"] = [{"id": "custom_x", "name": "Mine"}]
+    doc["sections"]["crew"] = [{"name": "Bryn"}]
+    doc["sections"]["hirelings"] = [{"name": "Dafydd"}]  # insert not taken: rows kept, still need ids
+    assert ensure_list_ids(pack, doc, "character") is True
+    items = doc["gear"]["items"]
+    assert items[0]["id"] == "g1" and items[1]["id"] not in ("g1", "") and isinstance(items[2]["id"], str)
+    assert items[3] == "junk"
+    members = doc["followers"][0]["members"]
+    assert doc["followers"][0]["id"] and all(isinstance(m["id"], str) for m in members)
+    assert doc["arcana"][0]["id"]
+    assert doc["custom_moves"][0]["id"] == "custom_x"
+    assert doc["sections"]["crew"][0]["id"] and doc["sections"]["hirelings"][0]["id"]
+    assert ensure_list_ids(pack, doc, "character") is False  # and only once
+
+
+def test_ensure_list_ids_leaves_other_sections_alone():
+    pack = _table_pack()
+    doc = new_character(pack, pack.playbooks[1], "Pedr")
+    doc["sections"]["crew"] = ["cook"]  # the checklist `crew`, sharing a table's id
+    assert ensure_list_ids(pack, doc, "character") is False
+    assert doc["sections"]["crew"] == ["cook"]
+
+
+def test_ensure_list_ids_on_records_and_shared_sheets():
+    pack = _pack(shared_sheets=[{"id": "v", "sections": [
+        {"id": "npcs", "title": "NPCs", "type": "table", "columns": [{"id": "name", "label": "Name"}]}]}])
+    rec = {"ties": [{"type": "kin-of", "to": "x", "note": ""}]}
+    assert ensure_list_ids(pack, rec, "record") is True and rec["ties"][0]["id"]
+    sheet = new_shared_sheet(pack, pack.shared_sheets[0])
+    sheet["sections"]["npcs"] = [{"name": "Wolf"}]
+    assert ensure_list_ids(pack, sheet, "shared") is True and sheet["sections"]["npcs"][0]["id"]
+
+
+def test_import_gives_list_items_ids():
+    pack = _table_pack()
+    doc = new_character(pack, pack.playbooks[0], "Pedr")
+    doc["gear"]["items"] = [{"name": "rope"}]
+    doc["sections"]["crew"] = [{"name": "Bryn"}]
+    clean, _ = validate_import(pack, doc)
+    assert clean["gear"]["items"][0]["id"] and clean["sections"]["crew"][0]["id"]

@@ -166,6 +166,67 @@ def test_auto_create_once(config):
     app2.state.db.close()
 
 
+def test_old_documents_gain_list_ids_once(config, pack):
+    from st_vtt import characters as chars
+    from st_vtt.db import Database
+
+    def without_ids(doc):
+        if isinstance(doc, dict):
+            return {k: without_ids(v) for k, v in doc.items() if k != "id"}
+        return [without_ids(x) for x in doc] if isinstance(doc, list) else doc
+
+    # Documents as they were before list items had ids, written before the app first starts.
+    char = chars.new_character(pack, pack.playbooks[0], "Old")
+    char["gear"]["items"] = [{"name": "rope", "bulk": 1}, {"name": "lamp", "bulk": 1}]
+    char["followers"] = [{"name": "Hob", "is_group": True, "members": [{"name": "a", "hp": 3}]}]
+    char["sections"]["relationships"] = [{"who": "Mab", "what": "owes me", "close": False}]
+    village = pack.shared_sheets[0]
+    sheet = without_ids(chars.new_shared_sheet(pack, village))
+    record = chars.new_record("npc", "Mab")
+    record["ties"] = [{"type": "kin-of", "to": "x", "note": ""}]
+    db = Database(config.database_path)
+    db.insert_character("c1", "Alice", without_ids(char))
+    db.insert_shared("s1", village.id, sheet)
+    db.insert_record("r1", "npc", record)
+    db.set_meta(f"auto_created:{village.id}", "1")
+    db.close()
+
+    app1 = create_app(config)
+    rows = {"c": app1.state.db.get_character("c1"), "s": app1.state.db.get_shared("s1"), "r": app1.state.db.get_record("r1")}
+    c = rows["c"]["data"]
+    assert all(i["id"] for i in c["gear"]["items"]) and c["followers"][0]["id"] and c["followers"][0]["members"][0]["id"]
+    assert c["sections"]["relationships"][0]["id"]
+    assert all(r["id"] for r in rows["s"]["data"]["sections"]["resources"])
+    assert rows["r"]["data"]["ties"][0]["id"]
+    # and nothing else changed
+    assert without_ids(c) == without_ids(char)
+    assert without_ids(rows["s"]["data"]) == sheet
+    assert without_ids(rows["r"]["data"]) == without_ids(record)
+    app1.state.db.close()
+
+    app2 = create_app(config)  # a second start leaves them alone
+    assert app2.state.db.get_character("c1") == rows["c"]
+    assert app2.state.db.get_shared("s1") == rows["s"]
+    assert app2.state.db.get_record("r1") == rows["r"]
+    app2.state.db.close()
+
+
+def test_an_item_appended_without_an_id_gets_one(gm, alice):
+    """As a tab still running the old build would append it."""
+    sid = sheet_id(gm)
+    with gm.websocket_connect("/ws") as wg:
+        wg.receive_json()  # presence
+        assert alice.post(f"/api/shared/{sid}/patch", json={"path": "/sections/assets/-", "value": {"name": "Cart"}}).status_code == 200
+        ev = wg.receive_json()
+    rows = gm.get(f"/api/shared/{sid}").json()["data"]["sections"]["assets"]
+    assert rows[-1]["name"] == "Cart" and rows[-1]["id"]
+    assert ev["value"] == rows[-1]  # the broadcast carries the id too
+    # the old build added ties with list_add
+    rid = alice.post("/api/records", json={"name": "Mab"}).json()["id"]
+    assert alice.post(f"/api/records/{rid}/patch", json={"path": "/ties", "op": "list_add", "value": {"type": "kin-of", "to": "x", "note": ""}}).status_code == 200
+    assert gm.get(f"/api/records/{rid}").json()["data"]["ties"][0]["id"]
+
+
 def test_chat_commands_and_visibility(gm, alice, bob):
     assert alice.post("/api/chat", json={"text": "hello"}).status_code == 200
     assert alice.post("/api/chat", json={"text": "/roll 2d6+1"}).status_code == 200
@@ -292,6 +353,32 @@ def test_conflicting_sets_reach_everyone_in_server_order(gm, alice, bob):
     assert order == [(e["client"], e["ref"], e["value"]) for e in seen_b]
     assert sorted(order) == [("a", 1, 1), ("b", 1, 2)]
     assert gm.get(f"/api/shared/{sid}").json()["data"]["stats"]["stores"] == order[-1][2]
+
+
+def test_two_people_removing_the_same_row_remove_one(gm, alice, bob):
+    sid = sheet_id(alice)
+    rows = alice.get(f"/api/shared/{sid}").json()["data"]["sections"]["resources"]
+    assert len(rows) == 2
+    path = f"/sections/resources/@{rows[0]['id']}"
+    with alice.websocket_connect("/ws") as wa, bob.websocket_connect("/ws") as wb:
+        wa.send_text(json.dumps({"type": "patch", "entity": "shared", "id": sid, "path": path, "op": "remove", "ref": 1, "client": "a"}))
+        wb.send_text(json.dumps({"type": "patch", "entity": "shared", "id": sid, "path": path, "op": "remove", "ref": 1, "client": "b"}))
+        seen = _recv_until(wa, 3) + _recv_until(wb, 3)
+    assert sorted(e["type"] for e in seen) == ["ack", "ack", "patch", "patch", "patch", "patch"]
+    assert gm.get(f"/api/shared/{sid}").json()["data"]["sections"]["resources"] == rows[1:]
+
+
+def test_an_edit_lands_on_its_row_after_a_row_above_is_removed(gm, alice, bob):
+    from diff_match_patch import diff_match_patch
+
+    dmp = diff_match_patch()
+    sid = sheet_id(alice)
+    first, second = alice.get(f"/api/shared/{sid}").json()["data"]["sections"]["resources"]
+    # Alice started typing in the second row before Bob removed the first; the server gets Bob's first.
+    edit = dmp.patch_toText(dmp.patch_make(second["notes"], "fresh water"))
+    assert bob.post(f"/api/shared/{sid}/patch", json={"path": f"/sections/resources/@{first['id']}", "op": "remove"}).status_code == 200
+    assert alice.post(f"/api/shared/{sid}/patch", json={"path": f"/sections/resources/@{second['id']}/notes", "op": "text_patch", "patch": edit}).status_code == 200
+    assert gm.get(f"/api/shared/{sid}").json()["data"]["sections"]["resources"] == [{**second, "notes": "fresh water"}]
 
 
 def test_resent_patch_is_acked_not_reapplied(gm, alice, bob):

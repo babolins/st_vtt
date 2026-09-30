@@ -58,6 +58,8 @@ def new_character(pack: ContentPack, playbook: Playbook, name: str) -> dict[str,
 def default_section_value(sec: Section) -> Any:
     """The value a freshly created sheet gets for `sec`: its `start`, else empty for its type."""
     if sec.start is not None:
+        if sec.type == "table":  # rows are patched by id: /sections/<id>/@<row id>/<column>
+            return [{"id": new_id(), **copy.deepcopy(row)} for row in sec.start]
         return copy.deepcopy(sec.start)
     if sec.type == "lines":
         return {line.id: None for line in sec.lines}
@@ -176,6 +178,58 @@ def level_cost(pack: ContentPack, level: int) -> int:
     return level_up_cost(pack.pack.xp.level_up_cost, level)
 
 
+def table_section_ids(pack: ContentPack, entity: str) -> set[str]:
+    """Ids of every table section in the pack a character (or shared sheet) could have."""
+    owners = [*pack.playbooks, *pack.inserts] if entity == "character" else pack.shared_sheets
+    return {sec.id for o in owners for sec in o.sections if sec.type == "table"}
+
+
+def _fill_ids(items: Any) -> bool:
+    """Give each object in a list a unique string id; True if any changed. Other elements are skipped."""
+    if not isinstance(items, list):
+        return False
+    changed = False
+    seen: set[str] = set()
+    for el in items:
+        if not isinstance(el, dict):
+            continue
+        iid = el.get("id")
+        if not isinstance(iid, str) or not iid or iid in seen:
+            el["id"] = iid = new_id()
+            changed = True
+        seen.add(iid)
+    return changed
+
+
+def ensure_list_ids(pack: ContentPack, doc: dict[str, Any], entity: str) -> bool:
+    """Give an id to every item of the lists that patches address by id (`/gear/items/@<id>/name`).
+
+    In place; True if anything changed. Sheets made before items were addressed by id, and imports,
+    can lack them, and a copy-pasted item can share one. Table sections are looked up across the
+    whole pack, not just this sheet's playbook and inserts: a dropped insert keeps its rows, and they
+    need ids if it is taken again. A section id can name a table in one playbook and something else
+    in another, which is harmless because only tables store lists of objects (the rest store option
+    ids, scalars or objects), and only objects get ids.
+    """
+    lists: list[Any] = []
+    if entity == "character":
+        gear = doc.get("gear")
+        followers = doc.get("followers")
+        lists += [gear.get("items") if isinstance(gear, dict) else None, followers, doc.get("arcana"), doc.get("custom_moves")]
+        if isinstance(followers, list):
+            lists += [f.get("members") for f in followers if isinstance(f, dict)]
+    elif entity == "record":
+        lists.append(doc.get("ties"))
+    if entity in ("character", "shared"):
+        sections = doc.get("sections")
+        if isinstance(sections, dict):
+            lists += [sections.get(sid) for sid in table_section_ids(pack, entity)]
+    changed = False
+    for items in lists:
+        changed = _fill_ids(items) or changed
+    return changed
+
+
 def validate_import(pack: ContentPack, doc: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Coerce an imported character into a well-formed document.
 
@@ -209,6 +263,7 @@ def validate_import(pack: ContentPack, doc: dict[str, Any]) -> tuple[dict[str, A
     merged.pop("id", None)
     merged.pop("owner", None)
     merged.pop("revision", None)
+    ensure_list_ids(pack, merged, "character")
     return merged, warnings
 
 

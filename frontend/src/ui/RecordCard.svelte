@@ -11,7 +11,9 @@
   import { app, isGm, records, toast } from '../lib/state.svelte';
   import { recordPatcher } from '../lib/patch';
   import { peek } from '../lib/router.svelte';
-  import type { RecordRow } from '../lib/types';
+  import type { RecordRow, Tie } from '../lib/types';
+  import { at } from '../lib/pointer';
+  import { uid } from '../lib/util';
   import DebouncedText from './DebouncedText.svelte';
   import Markdown from './Markdown.svelte';
   import { mentionsOf } from '../lib/links.svelte';
@@ -34,7 +36,8 @@
 
   async function addTie() {
     if (!tieType.trim() || !tieTo) return;
-    await p('/ties', { type: tieType.trim(), to: tieTo, note: '' }, 'list_add');
+    const tie: Tie = { id: uid(), type: tieType.trim(), to: tieTo, note: '' };
+    await p('/ties/-', tie);
     tieType = '';
     tieTo = '';
   }
@@ -56,12 +59,12 @@
 
   <div class="ties">
     <span class="lbl">Ties</span>
-    {#each doc.ties as t, i}
+    {#each doc.ties as t (t.id)}
       <div class="row tie">
         <span class="ttype">{t.type.replace(/-/g, ' ')}</span>
         <button class="linky" onclick={() => peek(app.characters[t.to] ? { kind: 'character', id: t.to } : { kind: 'record', id: t.to })}>{nameOf(t.to)}</button>
-        <DebouncedText value={t.note} onchange={(v) => p(`/ties/${i}/note`, v)} placeholder="how so?" class="tnote" />
-        <button class="ghost small danger" title="Remove tie" onclick={() => p('/ties', doc.ties.filter((_, j) => j !== i))}>✕</button>
+        <DebouncedText value={t.note} onchange={(v) => p(`/ties/${at(t.id)}/note`, v)} placeholder="how so?" class="tnote" />
+        <button class="ghost small danger" title="Remove tie" onclick={() => p(`/ties/${at(t.id)}`, null, 'remove')}>✕</button>
       </div>
     {/each}
     <div class="row addtie">
