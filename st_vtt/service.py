@@ -505,7 +505,8 @@ def apply_outcome(app: FastAPI, user: UserConfig, message_id: int, index: int, c
     """
     db = db_of(app)
     msg = db.get_message(message_id)
-    if msg is None or msg["kind"] != "roll":
+    # A roll this user can't see is not there: no "already applied by" to say it exists.
+    if msg is None or msg["kind"] != "roll" or not visible_to(user, msg.get("visibility")):
         raise ServiceError("no such roll", 404)
     payload = msg["payload"]
     actions = payload.get("actions") or []

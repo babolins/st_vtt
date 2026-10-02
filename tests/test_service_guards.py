@@ -154,3 +154,18 @@ _BAD_REQUESTS = {
 @pytest.mark.parametrize(("caller", "call", "expected"), _BAD_REQUESTS.values(), ids=_BAD_REQUESTS.keys())
 def test_a_bad_request_is_refused(app, world, caller, call, expected):  # noqa: F811
     _check(app, world, caller, call, expected)
+
+
+def test_a_roll_you_cannot_see_is_not_there(app, world):  # noqa: F811
+    """A GM-only roll is hidden from players: they can't apply its outcomes, and the refusal
+    must not confirm it exists, not even by saying who already applied one."""
+    secret = app.state.db.add_message("Gm", "roll", {"actions": [{"kind": "xp"}], "character_id": world.cid}, ["Gm"])["id"]
+    def refused():
+        with pytest.raises(service.ServiceError) as ei:
+            service.apply_outcome(app, ALICE, secret, 0)
+        return ei.value.status, str(ei.value)
+
+    assert refused() == (404, "no such roll")
+    service.apply_outcome(app, GM, secret, 0)
+    assert refused() == (404, "no such roll")  # not "already applied by Gm"
+    assert app.state.db.get_character(world.cid)["data"]["xp"] == world.doc["xp"] + 1
