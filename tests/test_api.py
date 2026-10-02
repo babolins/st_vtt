@@ -3,10 +3,11 @@ import json
 import anyio
 import pytest
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from conftest import ROOT
 from st_vtt import service
-from st_vtt.auth import COOKIE
+from st_vtt.auth import COOKIE, WS_NOT_LOGGED_IN
 from st_vtt.main import create_app
 from st_vtt.ws import websocket_endpoint
 
@@ -521,6 +522,18 @@ def test_stale_applied_refs_are_forgotten(tmp_path):
     db.close()
 
 
+def test_campaign_export_has_every_message(tmp_path):
+    from st_vtt.db import Database
+
+    db = Database(tmp_path / "t.db")
+    for i in range(3):
+        db.add_message("Alice", "chat", {"text": str(i)})
+    assert [m["payload"]["text"] for m in db.list_messages(limit=None)] == ["0", "1", "2"]
+    assert [m["payload"]["text"] for m in db.list_messages(limit=2)] == ["1", "2"]
+    assert len(db.export_all()["messages"]) == 3
+    db.close()
+
+
 def test_refused_patch_is_not_counted_as_applied(alice):
     cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": "Bryn"}).json()["id"]
     with alice.websocket_connect("/ws") as wa:
@@ -531,9 +544,10 @@ def test_refused_patch_is_not_counted_as_applied(alice):
 
 def test_unauthenticated_ws_rejected(app):
     c = raw_client(app)
-    with pytest.raises(Exception):
+    with pytest.raises(WebSocketDisconnect) as ei:
         with c.websocket_connect("/ws"):
             pass
+    assert ei.value.code == WS_NOT_LOGGED_IN
 
 
 def test_a_message_the_server_cannot_read_leaves_the_socket_open(alice):

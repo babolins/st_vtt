@@ -85,8 +85,12 @@ class _Term:
     value: int = 0
 
 
+# How deep a {reference} may expand into one holding another, so one that names itself ends.
+MAX_REF_DEPTH = 3
+
+
 def _parse(expr: str, refs: Mapping[str, str | int] | None, depth: int = 0) -> list[_Term]:
-    if depth > 3:
+    if depth > MAX_REF_DEPTH:
         raise DiceError("reference expansion too deep")
     refs = refs or {}
     terms: list[_Term] = []

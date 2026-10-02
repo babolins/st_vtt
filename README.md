@@ -211,8 +211,19 @@ is stopped, or use `Export campaign`.
 ```bash
 uv run pyright                   # type checking
 uv run pytest                    # backend tests
+uv run st-vtt validate content/example
 cd frontend && npm run dev       # Vite dev server on :5173 proxying to :8000
-cd frontend && npm run check     # svelte-check
+cd frontend && npm run check     # svelte-check (type checking)
+cd frontend && npm test          # frontend tests (vitest)
+cd frontend && npm run build     # production build into frontend/dist
+```
+
+CI runs all of these except the dev server. It also fails if
+`content/schema.json` is out of date with the models in `st_vtt/content.py`;
+after changing them, regenerate it:
+
+```bash
+uv run st-vtt schema -o content/schema.json
 ```
 
 Layout:
@@ -224,12 +235,23 @@ content/         schema.json, SCHEMA.md, example/ pack
 tests/           pytest suite
 ```
 
-The backend is small and document-oriented: characters and shared sheets are
-JSON documents in SQLite. Clients send JSON-Pointer patches over one WebSocket;
-the server checks permissions, applies, persists, and broadcasts. Scalar fields
-are last-write-wins; text fields send diff-match-patch patches that the server
-merges; list membership uses idempotent `list_add` / `list_remove` ops.
-Focus, blur, and typing events are broadcast but never stored.
+The backend is small and document-oriented: characters, shared sheets and
+records are JSON documents in SQLite. `st_vtt/service.py` holds every
+operation, shared by the REST routes (`st_vtt/api/`) and the WebSocket
+(`st_vtt/ws.py`); each returns per-user renders, so GM-only data never reaches
+a player. Clients send JSON-Pointer patches over one WebSocket; the server
+checks permissions, applies, persists, and broadcasts. Scalar fields are
+last-write-wins; text fields send diff-match-patch patches that the server
+merges; list membership uses idempotent `list_add` / `list_remove` ops; list
+items are addressed by id (`@<id>`), not position. Focus, blur, and typing
+events are broadcast but never stored.
+
+A client shows its own patches at once and sends each with a numbered `ref`.
+Patches made while offline, or in flight when the socket drops, wait in an
+outbox and are replayed in order on reconnect. The server records the highest
+ref it has applied from each client (`applied_refs`, saved in the same commit
+as the patch), and acks a replayed ref without applying it again. The
+client-side rules are in `frontend/src/lib/sync.ts`.
 
 ## License
 

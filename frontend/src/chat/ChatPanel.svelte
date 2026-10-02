@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { app, isGm } from '../lib/state.svelte';
-  import { send, sendEphemeral } from '../lib/ws';
+  import { send, sendEphemeral, TYPING_RESEND_MS } from '../lib/ws';
   import { timeShort } from '../lib/util';
   import { openRoll } from '../lib/dialogs.svelte';
   import { myCharacters } from '../lib/state.svelte';
@@ -25,7 +25,7 @@
   function onInput() {
     if (!text.trim()) { setTyping(false); return; }
     const t = Date.now();
-    if (t - lastTyping > 2000) { lastTyping = t; sendEphemeral({ type: 'typing', active: true }); }
+    if (t - lastTyping > TYPING_RESEND_MS) { lastTyping = t; sendEphemeral({ type: 'typing', active: true }); }
   }
   function setTyping(active: boolean) {
     lastTyping = active ? Date.now() : 0;

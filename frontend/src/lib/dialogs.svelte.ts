@@ -1,3 +1,5 @@
+// Dialogs any component can open: set the request here and the dialog, mounted once in the Table route, shows.
+
 import type { Move } from './types';
 
 export interface RollRequest {

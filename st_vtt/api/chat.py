@@ -1,3 +1,5 @@
+"""The chat log: messages, rolls, shared moves, roll requests and applying a roll's outcome."""
+
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -11,6 +13,9 @@ from ..perms import visible_to
 from ._common import emit, http
 
 router = APIRouter(tags=["chat"])
+
+# The most messages one request for older chat history may return.
+MAX_MESSAGE_PAGE = 500
 
 
 class ChatBody(BaseModel):
@@ -50,7 +55,7 @@ class ApplyBody(BaseModel):
 
 @router.get("/messages")
 def list_messages(request: Request, before: int | None = None, limit: int = 100, user: UserConfig = Depends(current_user)) -> list[dict]:
-    msgs = request.app.state.db.list_messages(limit=min(limit, 500), before=before)
+    msgs = request.app.state.db.list_messages(limit=min(limit, MAX_MESSAGE_PAGE), before=before)
     return [m for m in msgs if visible_to(user, m.get("visibility"))]
 
 

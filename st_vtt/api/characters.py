@@ -1,3 +1,9 @@
+"""Characters: create, import, export, patch, reassign and delete.
+
+Each route is a thin wrapper over `st_vtt.service`; whatever it changes is also
+broadcast to every connected client.
+"""
+
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request

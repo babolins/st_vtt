@@ -1,3 +1,7 @@
+"""Shared sheets: the village, a GM screen, anything the table edits together. Creating,
+replacing and deleting one is the GM's job; editing it is anyone's, unless it is GM-only.
+"""
+
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
