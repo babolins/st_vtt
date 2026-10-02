@@ -647,6 +647,21 @@ def test_stale_applied_refs_are_forgotten(tmp_path):
     db.close()
 
 
+def test_a_page_of_older_messages(alice):
+    for i in range(3):
+        alice.post("/api/chat", json={"text": str(i)})
+
+    def texts(r):
+        return [m["payload"]["text"] for m in r.json()]
+
+    assert texts(alice.get("/api/messages?limit=2")) == ["1", "2"]
+    newest = alice.get("/api/messages").json()[-1]["id"]
+    assert texts(alice.get(f"/api/messages?before={newest}&limit=1")) == ["1"]
+    # SQLite reads a negative LIMIT as none at all, which handed back the whole history.
+    for bad in (0, -1):
+        assert alice.get(f"/api/messages?limit={bad}").status_code == 422
+
+
 def test_campaign_export_has_every_message(tmp_path):
     from st_vtt.db import Database
 
