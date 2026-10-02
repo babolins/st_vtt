@@ -51,3 +51,12 @@ pythonVersion = "3.12"
 # another release may format differently.
 line-length = 120
 target-version = "py312"
+
+[tool.ruff.lint]
+# Mistakes, not style: pyflakes (unused imports and variables, undefined names, ...) and
+# import order, which `ruff check --fix` sorts.
+select = ["F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests import pytest fixtures by name and take them as parameters of the same name.
+"tests/*" = ["F811"]

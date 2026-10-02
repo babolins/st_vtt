@@ -5,7 +5,6 @@ and the model doesn't know turns every new custom move into "unknown move".
 """
 
 import pytest
-
 from test_api import alice, app, bob, gm  # noqa: F401
 
 
