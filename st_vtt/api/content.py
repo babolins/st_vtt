@@ -21,11 +21,14 @@ def get_content(request: Request, user: UserConfig = Depends(current_user)) -> d
 
 
 @router.get("/state")
-def get_state(request: Request, client: str | None = None, user: UserConfig = Depends(current_user)) -> dict[str, Any]:
+async def get_state(
+    request: Request, client: str | None = None, user: UserConfig = Depends(current_user)
+) -> dict[str, Any]:
     """Everything a client needs at load time.
 
     `applied_ref` is the highest message ref from `client` already applied, read before
-    the data so the snapshot is sure to include those patches."""
+    the data so the snapshot is sure to include those patches. `async` for the same reason
+    as `emit`: it reads who is online from the hub, which belongs to the event loop."""
     app = request.app
     applied_ref = service.applied_ref(app, user, client)
     messages = [m for m in app.state.db.list_messages(limit=STATE_MESSAGES) if visible_to(user, m.get("visibility"))]

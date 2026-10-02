@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import anyio
@@ -60,6 +61,27 @@ def test_login_rules(app):
     assert c.get("/api/me").json() is None
     users = c.get("/api/users").json()
     assert {u["name"]: u["has_password"] for u in users} == {"Gm": False, "Alice": False, "Bob": True}
+
+
+def test_the_hub_is_only_read_on_the_event_loop(app, alice, monkeypatch):
+    # The loop changes the hub's dicts as sockets come and go; a plain `def` route runs on a
+    # worker thread, where iterating them can meet "dictionary changed size during iteration".
+    from st_vtt.ws import Hub
+
+    on_loop = []
+    users = Hub.users.fget
+
+    def checked(self):
+        try:
+            asyncio.get_running_loop()
+            on_loop.append(True)
+        except RuntimeError:
+            on_loop.append(False)
+        return users(self)
+
+    monkeypatch.setattr(Hub, "users", property(checked))
+    assert alice.get("/api/state").status_code == 200
+    assert on_loop and all(on_loop)
 
 
 def test_state_and_content(alice):
