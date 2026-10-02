@@ -47,26 +47,24 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(text)
             return 0
-        if cmd == "serve":
-            cfg = load_config(args.config)
-            load_content(cfg.content_path)  # fail fast with a readable error
-            import uvicorn
+        # serve, the default
+        cfg = load_config(args.config)
+        load_content(cfg.content_path)  # fail fast with a readable error
+        import uvicorn
 
-            if args.reload:
-                import os
+        if args.reload:
+            import os
 
-                os.environ["ST_VTT_CONFIG"] = str(Path(args.config).resolve())
-                uvicorn.run("st_vtt.main:create_app", factory=True, host=cfg.host, port=cfg.port, reload=True)
-            else:
-                from .main import create_app
+            os.environ["ST_VTT_CONFIG"] = str(Path(args.config).resolve())
+            uvicorn.run("st_vtt.main:create_app", factory=True, host=cfg.host, port=cfg.port, reload=True)
+        else:
+            from .main import create_app
 
-                uvicorn.run(create_app(cfg), host=cfg.host, port=cfg.port)
-            return 0
+            uvicorn.run(create_app(cfg), host=cfg.host, port=cfg.port)
+        return 0
     except (ConfigError, ContentError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
-    parser.print_help()
-    return 2
 
 
 if __name__ == "__main__":
