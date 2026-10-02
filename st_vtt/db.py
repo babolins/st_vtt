@@ -242,12 +242,15 @@ class Database:
             mid = cur.lastrowid
         return {"id": mid, "ts": ts, "author": author, "kind": kind, "payload": payload, "visibility": visibility}
 
-    def list_messages(self, limit: int = 200, before: int | None = None) -> list[dict[str, Any]]:
+    def list_messages(self, limit: int | None = 200, before: int | None = None) -> list[dict[str, Any]]:
+        """The latest `limit` messages (every one, for None) older than message `before`, oldest first."""
+        # SQLite reads a negative LIMIT as no limit.
+        bound = -1 if limit is None else limit
         with self._lock:
             if before is None:
-                rows = self._conn.execute("SELECT * FROM messages ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+                rows = self._conn.execute("SELECT * FROM messages ORDER BY id DESC LIMIT ?", (bound,)).fetchall()
             else:
-                rows = self._conn.execute("SELECT * FROM messages WHERE id<? ORDER BY id DESC LIMIT ?", (before, limit)).fetchall()
+                rows = self._conn.execute("SELECT * FROM messages WHERE id<? ORDER BY id DESC LIMIT ?", (before, bound)).fetchall()
         out = [
             {
                 "id": r["id"],
@@ -319,5 +322,5 @@ class Database:
             "characters": self.list_characters(),
             "shared": self.list_shared(),
             "records": self.list_records(),
-            "messages": self.list_messages(limit=100000),
+            "messages": self.list_messages(limit=None),
         }

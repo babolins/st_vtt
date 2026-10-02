@@ -5,10 +5,28 @@ import { applyEcho, PatchQueue, type PatchEntry } from './sync';
 import type { ServerEvent, StateResponse } from './types';
 import { presenceKey } from './util';
 
+/**
+ * The socket: connecting and reconnecting, sending, and applying what the server broadcasts.
+ * Optimistic patches and their replay after a dropped connection are kept in `sync.ts`.
+ */
+
+// Close codes the server sends (st_vtt/auth.py): both mean signing in again.
+const WS_NOT_LOGGED_IN = 4401;
+const WS_SIGNED_IN_ELSEWHERE = 4409;
+// Reconnect after a drop: wait this long, doubling on each failure up to the maximum.
+const RECONNECT_MS = 500;
+const RECONNECT_MAX_MS = 10_000;
+/** Chat messages kept in memory; older ones scroll off. */
+const KEEP_MESSAGES = 500;
+/** A chat input resends `typing` at most this often while someone types... */
+export const TYPING_RESEND_MS = 2000;
+/** ...and others show it for this long after the last one, so it outlasts the gap. */
+const TYPING_SHOWN_MS = 2 * TYPING_RESEND_MS;
+
 export const clientId = Math.random().toString(36).slice(2, 10);
 
 let socket: WebSocket | null = null;
-let backoff = 500;
+let backoff = RECONNECT_MS;
 let refCounter = 0;
 const pending = new Map<number, { resolve: () => void; reject: (e: Error) => void; patch: boolean }>();
 const patches = new PatchQueue();
@@ -60,7 +78,7 @@ export function connect(): void {
   socket = new WebSocket(`${proto}://${location.host}${basePath}/ws`);
   const ws = socket;
   socket.onopen = async () => {
-    backoff = 500;
+    backoff = RECONNECT_MS;
     app.connected = true;
     try { await refreshState(); } catch (e) { console.error(e); }
     if (socket !== ws) return; // dropped meanwhile; the next socket replays the outbox
@@ -83,14 +101,14 @@ export function connect(): void {
     }
     pending.clear();
     if (lost) toast('Not connected', 'error');
-    if (ev.code === 4401 || ev.code === 4409) {
-      app.loginNotice = ev.code === 4409 ? 'You were signed in on another device, so this one was signed out.' : 'Your session ended. Please sign in again.';
+    if (ev.code === WS_NOT_LOGGED_IN || ev.code === WS_SIGNED_IN_ELSEWHERE) {
+      app.loginNotice = ev.code === WS_SIGNED_IN_ELSEWHERE ? 'You were signed in on another device, so this one was signed out.' : 'Your session ended. Please sign in again.';
       app.me = null;
       return;
     }
     if (!closedByUs) {
       reconnectTimer = setTimeout(connect, backoff);
-      backoff = Math.min(backoff * 2, 10000);
+      backoff = Math.min(backoff * 2, RECONNECT_MAX_MS);
     }
   };
 }
@@ -183,7 +201,7 @@ function handle(ev: ServerEvent): void {
       break;
     }
     case 'message':
-      app.messages = [...app.messages.slice(-499), ev.message];
+      app.messages = [...app.messages.slice(1 - KEEP_MESSAGES), ev.message];
       break;
     case 'message_updated': {
       const m = ev.message;
@@ -225,7 +243,7 @@ function handle(ev: ServerEvent): void {
       else app.fieldPresence[ev.client] = { user: ev.user, key: presenceKey(ev.entity, ev.id, ev.path) };
       break;
     case 'typing':
-      if (ev.active) app.typing[ev.user] = Date.now() + 4000;
+      if (ev.active) app.typing[ev.user] = Date.now() + TYPING_SHOWN_MS;
       else delete app.typing[ev.user];
       break;
   }

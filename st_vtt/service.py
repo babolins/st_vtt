@@ -286,9 +286,14 @@ def migrate_list_ids(app: FastAPI) -> None:
 # --------------------------------------------------------------------- patches
 
 
+# A browser's client id is at most 8 characters (`clientId` in frontend/src/lib/ws.ts);
+# anything longer than this is not one.
+MAX_CLIENT_ID = 64
+
+
 def applied_key(user: UserConfig, client: Any, ref: Any = 0) -> tuple[str, str, int] | None:
     """Key for the applied-ref record, if the client sent a usable id and ref."""
-    if isinstance(client, str) and 0 < len(client) <= 64 and isinstance(ref, int) and not isinstance(ref, bool):
+    if isinstance(client, str) and 0 < len(client) <= MAX_CLIENT_ID and isinstance(ref, int) and not isinstance(ref, bool):
         return (user.name, client, ref)
     return None
 

@@ -1,7 +1,9 @@
+"""Sign in and out, and who is signed in. See `st_vtt.auth` for sessions and cookies."""
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from ..auth import COOKIE, WS_SIGNED_IN_ELSEWHERE, authenticate, get_config, make_token, new_session_id, session_from_token, session_key
+from ..auth import COOKIE, COOKIE_MAX_AGE, WS_SIGNED_IN_ELSEWHERE, authenticate, get_config, make_token, new_session_id, session_from_token, session_key
 from ..config import Config, UserConfig
 
 router = APIRouter(tags=["auth"])
@@ -15,6 +17,10 @@ class LoginBody(BaseModel):
 
 def _user_json(u: UserConfig) -> dict:
     return {"name": u.name, "role": u.role, "has_password": u.has_password}
+
+
+def _set_session_cookie(response: Response, cfg: Config, user: UserConfig, sid: str) -> None:
+    response.set_cookie(COOKIE, make_token(cfg, user, sid), httponly=True, samesite="lax", max_age=COOKIE_MAX_AGE)
 
 
 @router.get("/users")
@@ -31,7 +37,7 @@ async def login(body: LoginBody, request: Request, response: Response, cfg: Conf
         current = session_from_token(cfg, db, request.cookies.get(COOKIE))
         if current and current[0].name == user.name:
             # Same browser signing in again: keep its session (other tabs stay connected).
-            response.set_cookie(COOKIE, make_token(cfg, user, current[1]), httponly=True, samesite="lax", max_age=60 * 60 * 24 * 365)
+            _set_session_cookie(response, cfg, user, current[1])
             return _user_json(user)
         if hub.sessions_of(user.name):
             if not body.force:
@@ -39,7 +45,7 @@ async def login(body: LoginBody, request: Request, response: Response, cfg: Conf
             hub.kick(user.name, WS_SIGNED_IN_ELSEWHERE)
     sid = new_session_id()
     db.set_meta(session_key(user), sid)
-    response.set_cookie(COOKIE, make_token(cfg, user, sid), httponly=True, samesite="lax", max_age=60 * 60 * 24 * 365)
+    _set_session_cookie(response, cfg, user, sid)
     return _user_json(user)
 
 

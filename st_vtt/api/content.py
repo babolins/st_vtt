@@ -1,3 +1,5 @@
+"""The content pack, and the snapshot a client loads before its WebSocket takes over."""
+
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -5,8 +7,12 @@ from fastapi import APIRouter, Depends, Request
 from .. import service
 from ..auth import current_user
 from ..config import UserConfig
+from ..perms import visible_to
 
 router = APIRouter(tags=["content"])
+
+# How much chat history a client loads with its snapshot.
+STATE_MESSAGES = 200
 
 
 @router.get("/content")
@@ -22,9 +28,7 @@ def get_state(request: Request, client: str | None = None, user: UserConfig = De
     the data so the snapshot is sure to include those patches."""
     app = request.app
     applied_ref = service.applied_ref(app, user, client)
-    from ..perms import visible_to
-
-    messages = [m for m in app.state.db.list_messages(limit=200) if visible_to(user, m.get("visibility"))]
+    messages = [m for m in app.state.db.list_messages(limit=STATE_MESSAGES) if visible_to(user, m.get("visibility"))]
     return {
         "me": {"name": user.name, "role": user.role},
         "campaign_name": app.state.config.campaign_name,

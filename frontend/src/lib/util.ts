@@ -1,8 +1,15 @@
+// Small helpers for the sheet and chat: content-pack lookups, formatting, files.
+
 import type { ContentPack, InsertDef, Move, Playbook, CharacterDoc } from './types';
 
 export function levelUpCost(formula: string, level: number): number {
   if (!/^[0-9+\-*/() level]*$/.test(formula)) return Infinity;
   try { return Math.floor(Function('level', `return (${formula});`)(level)); } catch { return Infinity; }
+}
+
+/** One line to pick a move by: its trigger, or the start of its text when it has none. */
+export function movePreview(m: Move): string {
+  return m.trigger || m.text.slice(0, 120);
 }
 
 export function fmtMod(n: number): string {

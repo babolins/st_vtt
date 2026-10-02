@@ -3,7 +3,7 @@
   // become. Each brings its own sections and moves; `gear`, `followers` and `arcana` are engine
   // sections and are rendered by their own components instead.
   import { app } from '../../lib/state.svelte';
-  import { moveIndex, packInserts } from '../../lib/util';
+  import { moveIndex, movePreview, packInserts } from '../../lib/util';
   import type { CharacterDoc, InsertDef, Move, Playbook } from '../../lib/types';
   import type { Patcher } from '../../lib/patch';
   import Collapsible from '../../ui/Collapsible.svelte';
@@ -85,7 +85,7 @@
               <div class="row pick">
                 <div class="grow">
                   <strong>{m.name}</strong> {#if why}<span class="tag warn">{why}</span>{/if}
-                  <div class="muted small">{m.trigger || m.text.slice(0, 120)}</div>
+                  <div class="muted small">{movePreview(m)}</div>
                 </div>
                 <button class="small" onclick={() => p('/moves/taken', m.id, 'list_add')}>Take</button>
               </div>
