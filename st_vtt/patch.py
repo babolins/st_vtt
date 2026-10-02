@@ -41,9 +41,7 @@ def _by_id(container: list[Any], token: str) -> int | None:
     return next((i for i, el in enumerate(container) if isinstance(el, dict) and el.get("id") == want), None)
 
 
-def _index(container: Any, token: str, *, for_set: bool) -> int:
-    if not isinstance(container, list):
-        raise PatchError("expected list")
+def _index(container: list[Any], token: str, *, for_set: bool) -> int:
     if token.startswith("@"):
         i = _by_id(container, token)
         if i is None:

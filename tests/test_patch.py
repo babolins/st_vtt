@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from st_vtt.patch import PatchError, apply_patch, get_pointer
@@ -135,3 +137,62 @@ def test_id_token_is_a_plain_key_in_an_object():
     assert get_pointer(d, "/m/@x") == 1
     apply_patch(d, "/m/@y", 2)
     assert d == {"m": {"@x": 1, "@y": 2}}
+
+
+def _doc():
+    return {"items": [{"id": "a", "n": 1}], "n": 3, "notes": "hi"}
+
+
+@pytest.mark.parametrize(
+    ("path", "kwargs", "message"),
+    [
+        ("", {"op": "remove"}, "cannot remove root"),
+        ("", {"value": ["not", "an", "object"]}, "root replacement must be an object"),
+        ("/n", {"value": 4, "op": "replace"}, "unknown op 'replace'"),
+        ("/notes", {"op": "text_patch"}, "text_patch needs a patch"),
+        ("/notes", {"op": "text_patch", "patch": "garbage"}, "bad text patch: Invalid patch string: garbage"),
+        ("/items/-", {"op": "remove"}, "'-' only valid when appending"),
+        ("/items/-/n", {"value": 2}, "'-' only valid when appending"),
+        ("/items/first", {"value": 2}, "bad list index 'first'"),
+        ("/items/-1", {"value": 2}, "list index out of range: -1"),
+        ("/items/1", {"op": "remove"}, "list index out of range: 1"),
+        ("/missing", {"op": "remove"}, "missing key 'missing'"),
+        ("/missing/x", {"op": "remove"}, "missing key 'missing'"),
+        ("/n/x/y", {"value": 2}, "cannot descend into scalar at 'x'"),
+        ("/n/x", {"value": 2}, "cannot set 'x' on a scalar"),
+        ("/n/x", {"op": "remove"}, "cannot set 'x' on a scalar"),
+    ],
+)
+def test_apply_patch_refuses(path, kwargs, message):
+    d = _doc()
+    with pytest.raises(PatchError, match=re.escape(message)):
+        apply_patch(d, path, **kwargs)
+    assert d == _doc()
+
+
+@pytest.mark.parametrize(
+    ("path", "message"),
+    [
+        ("/items/-", "'-' only valid when appending"),
+        ("/items/first", "bad list index 'first'"),
+        ("/items/1", "list index out of range: 1"),
+        ("/n/x", "cannot descend into scalar at 'x'"),
+        ("n", "pointer must start with '/'"),
+    ],
+)
+def test_get_pointer_refuses(path, message):
+    with pytest.raises(PatchError, match=re.escape(message)):
+        get_pointer(_doc(), path)
+
+
+def test_the_empty_pointer_is_the_root():
+    d = _doc()
+    assert get_pointer(d, "") is d
+    assert apply_patch(d, "", {"name": "Bryn"}) is d
+    assert d == {"name": "Bryn"}
+
+
+def test_remove_a_key():
+    d = {"moves": {"hold": {"Focus": 2, "Luck": 1}}}
+    assert apply_patch(d, "/moves/hold/Focus", op="remove") is None
+    assert d == {"moves": {"hold": {"Luck": 1}}}
