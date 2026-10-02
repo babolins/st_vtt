@@ -155,6 +155,37 @@ def test_gm_only_shared_sheet(app, gm, alice, bob):
     assert gm.get("/api/export/campaign").json()["shared"][0]["template"] == "village"
 
 
+def test_a_gm_only_sheet_is_never_announced_to_players(gm, alice):
+    def recv(ws):
+        return json.loads(ws.receive_text())
+
+    with alice.websocket_connect("/ws") as wa, gm.websocket_connect("/ws") as wg:
+        recv(wa); recv(wa); recv(wg)  # presence
+
+        # A sheet the table can see is announced to it, with a line in chat.
+        assert gm.post("/api/shared", json={"template": "village", "name": "Barrier Pass"}).status_code == 200
+        for ws in (wa, wg):
+            assert recv(ws)["type"] == "shared_created"
+            assert recv(ws)["type"] == "message"
+
+        # One behind the screen is not, at any point in its life.
+        sid = gm.post("/api/shared", json={"template": "gm_screen", "name": "Behind the screen"}).json()["id"]
+        assert recv(wg)["sheet"]["id"] == sid
+        assert_ping_is_next(wg, wa, wg)
+
+        assert gm.post(f"/api/shared/{sid}/import", json={"notes": "the plan"}).status_code == 200
+        assert recv(wg)["type"] == "shared_replaced"
+        assert_ping_is_next(wg, wa, wg)
+
+        # Nor is the GM's presence on it.
+        wg.send_text(json.dumps({"type": "focus", "entity": "shared", "id": sid, "path": "/notes", "client": "cg"}))
+        assert_ping_is_next(wg, wa, wg)
+
+        assert gm.delete(f"/api/shared/{sid}").status_code == 200
+        assert recv(wg) == {"type": "shared_deleted", "id": sid}
+        assert_ping_is_next(wg, wa, wg)
+
+
 def test_auto_create_once(config):
     app1 = create_app(config)
     c = client_for(app1, "Gm")
@@ -341,6 +372,16 @@ def _recv_until(ws, n):
         if ev["type"] != "presence":
             out.append(ev)
     return out
+
+
+def assert_ping_is_next(speaker, *listeners):
+    """`speaker` says ping in chat, and that must be the next thing each listener hears: so
+    nothing reached them in between. Events go out in order, so this holds for whatever a REST
+    call or `speaker` itself did before it; not for something sent on another socket."""
+    speaker.send_text(json.dumps({"type": "chat", "text": "ping"}))
+    for ws in listeners:
+        ev = json.loads(ws.receive_text())
+        assert ev["type"] == "message" and ev["message"]["payload"]["text"] == "ping", ev
 
 
 def test_conflicting_sets_reach_everyone_in_server_order(gm, alice, bob):
@@ -680,10 +721,10 @@ def test_declared_modifier_options(config):
     app.state.db.close()
 
 
-def _roll_until(client, cid, move_id, tier, tries=40):
+def _roll_until(client, cid, move_id, tier, tries=40, gm_only=False):
     """Roll a move until it lands on `tier`; returns the chat message."""
     for _ in range(tries):
-        client.post("/api/roll", json={"character_id": cid, "move_id": move_id})
+        client.post("/api/roll", json={"character_id": cid, "move_id": move_id, "gm_only": gm_only})
         msg = client.get("/api/messages").json()[-1]
         if msg["payload"]["tier"] == tier:
             return msg
@@ -740,6 +781,26 @@ def test_only_someone_who_may_edit_the_sheet_can_apply(gm, alice, bob):
     denied = bob.post(f"/api/messages/{msg['id']}/apply", json={"index": 0})
     assert denied.status_code == 403
     assert gm.post(f"/api/messages/{msg['id']}/apply", json={"index": 0}).status_code == 200
+
+
+def test_applying_a_whispered_rolls_outcome_updates_it_for_its_audience_only(gm, alice, bob):
+    cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": "Bryn"}).json()["id"]
+    msg = _roll_until(alice, cid, "trailsense", "10+", gm_only=True)
+    assert msg["visibility"] == ["Alice", "Gm"]
+
+    def recv(ws):
+        return json.loads(ws.receive_text())
+
+    with alice.websocket_connect("/ws") as wa, bob.websocket_connect("/ws") as wb, gm.websocket_connect("/ws") as wg:
+        recv(wa); recv(wa); recv(wa); recv(wb); recv(wb); recv(wg)  # presence
+        assert alice.post(f"/api/messages/{msg['id']}/apply", json={"index": 0}).status_code == 200
+        for ws in (wa, wg):
+            assert recv(ws)["path"] == "/moves/hold/Focus"
+            ev = recv(ws)
+            assert ev["type"] == "message_updated" and ev["message"]["payload"]["applied"]["0"]["by"] == "Alice"
+        # Bryn's sheet is the table's to see; the roll card it came from is not.
+        assert recv(wb)["path"] == "/moves/hold/Focus"
+        assert_ping_is_next(wb, wa, wb, wg)
 
 
 def test_shared_sheet_outcomes_touch_the_shared_sheet(gm):
