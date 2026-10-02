@@ -16,16 +16,25 @@ export function presence(node: HTMLElement, opts: PresenceOpts | undefined) {
   node.addEventListener('focusin', onFocus);
   node.addEventListener('focusout', onBlur);
 
+  // The badge sits in the input's offsetParent, at the input's offset. A layout
+  // change can move the input without resizing it (stat boxes rebalancing onto
+  // two rows), but then the parent resizes, so both are watched. An input moved
+  // inside a parent that keeps its size is not caught.
+  let watched: Element | null = null;
   function place() {
-    if (!badge) return;
     const parent = node.offsetParent as HTMLElement | null;
-    if (!parent) return;
+    if (parent !== watched) {
+      if (watched) ro.unobserve(watched);
+      if (parent) ro.observe(parent);
+      watched = parent;
+    }
+    if (!badge || !parent) return;
     if (badge.parentElement !== parent) parent.appendChild(badge);
     badge.style.left = `${node.offsetLeft + node.offsetWidth - badge.offsetWidth - 2}px`;
     badge.style.top = `${node.offsetTop - 9}px`;
   }
   const ro = new ResizeObserver(place);
-  ro.observe(node);
+  ro.observe(node); // its first callback finds the parent to watch
 
   const stop = $effect.root(() => {
     $effect(() => {
