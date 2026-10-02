@@ -471,7 +471,12 @@ def post_chat(app: FastAPI, user: UserConfig, text: str, to: list[str] | None = 
             to = [parts[0]]
             text = parts[1]
         elif cmd in ("gm",):
+            if not rest:
+                raise ServiceError("usage: /gm <message>")
             to = gm_names(app)
+            if not to:
+                # Or `to` would be empty, which is the whole table.
+                raise ServiceError("there is no GM to send this to")
             text = rest
         else:
             raise ServiceError(f"unknown command /{cmd}")

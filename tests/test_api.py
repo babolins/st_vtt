@@ -340,6 +340,23 @@ def test_chat_commands_and_visibility(gm, alice, bob):
     assert [m["kind"] for m in alice.get("/api/messages").json()] == ["system"]
 
 
+def test_a_note_to_the_gm_needs_a_gm_and_a_note(alice, config, tmp_path):
+    assert alice.post("/api/chat", json={"text": "/gm"}).status_code == 400
+    assert alice.post("/api/chat", json={"text": "/gm the key is under the mat"}).status_code == 200
+    m = alice.get("/api/messages").json()[-1]
+    assert m["kind"] == "whisper" and m["visibility"] == ["Alice", "Gm"]
+
+    # With nobody to whisper to, it used to go to the whole table.
+    players_only = [u for u in config.users if not u.is_gm]
+    app = create_app(config.model_copy(update={"users": players_only, "database": str(tmp_path / "no_gm.db")}))
+    try:
+        a = client_for(app, "Alice")
+        assert a.post("/api/chat", json={"text": "/gm the key is under the mat"}).status_code == 400
+        assert a.get("/api/messages").json() == []
+    finally:
+        app.state.db.close()
+
+
 def test_a_whisper_reaches_its_recipients_by_their_names(gm, alice, bob):
     # Matched as /w matches them, so the message names (and is shown to) the real user.
     assert alice.post("/api/chat", json={"text": "psst", "to": ["bob", "Bob"]}).status_code == 200
