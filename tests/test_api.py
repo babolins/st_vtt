@@ -186,6 +186,17 @@ def test_gm_only_shared_sheet(app, gm, alice, bob):
     assert gm.get("/api/export/campaign").json()["shared"][0]["template"] == "village"
 
 
+def test_a_sheet_whose_template_is_gone_is_the_gms(app, gm, alice):
+    # Its template could have been the GM screen: with nothing to say otherwise, the table
+    # doesn't see it.
+    sid = app.state.db.insert_shared("orphan", "renamed_away", {"name": "Behind the screen", "notes": "plans"})["id"]
+    assert sid in [x["id"] for x in gm.get("/api/shared").json()]
+    assert sid not in [x["id"] for x in alice.get("/api/shared").json()]
+    assert alice.get(f"/api/shared/{sid}").status_code == 404
+    assert alice.post(f"/api/shared/{sid}/patch", json={"path": "/notes", "value": "x"}).status_code == 403
+    assert service.shared_is_gm_only(app, sid)
+
+
 def test_a_gm_only_sheet_is_never_announced_to_players(gm, alice):
     def recv(ws):
         return json.loads(ws.receive_text())
