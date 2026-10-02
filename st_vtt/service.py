@@ -14,8 +14,7 @@ from typing import Any, Callable
 from fastapi import FastAPI
 
 from . import characters as chars
-from . import dice
-from . import rolls
+from . import dice, rolls
 from .config import UserConfig
 from .content import ContentPack, Move
 from .db import Applied, Database

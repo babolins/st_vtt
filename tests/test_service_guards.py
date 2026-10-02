@@ -9,10 +9,10 @@ import re
 from types import SimpleNamespace
 
 import pytest
+from test_api import app  # noqa: F401
 
 from st_vtt import service
 from st_vtt.config import UserConfig
-from test_api import app  # noqa: F401
 
 GM = UserConfig(name="Gm", role="gm")
 ALICE = UserConfig(name="Alice")

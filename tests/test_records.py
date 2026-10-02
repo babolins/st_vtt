@@ -11,10 +11,10 @@ import json
 
 import pytest
 from fastapi.testclient import TestClient
+from test_api import alice, app, assert_ping_is_next, bob, client_for, gm  # noqa: F401
 
 from st_vtt.config import UserConfig
 from st_vtt.perms import Forbidden, check_patch, strip_for_user
-from test_api import app, alice, assert_ping_is_next, bob, client_for, gm  # noqa: F401
 
 
 def make(client: TestClient, name: str, kind: str = "npc") -> str:

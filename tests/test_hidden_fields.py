@@ -8,9 +8,9 @@ to create one. A leak is invisible on screen, so this is the test that notices.
 import json
 
 import pytest
+from test_api import alice, app, gm  # noqa: F401
 
 from st_vtt.perms import HIDDEN_FIELDS
-from test_api import alice, app, gm  # noqa: F401
 
 SENTINEL = "only-the-gm-knows-this"
 BASE = {"character": "/api/characters", "shared": "/api/shared", "record": "/api/records"}

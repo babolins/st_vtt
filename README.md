@@ -213,6 +213,7 @@ is stopped, or use `Export campaign`.
 ```bash
 uv run pyright                   # type checking
 uv run ruff format st_vtt tests  # format the backend (CI checks it)
+uv run ruff check st_vtt tests   # unused code and import order; --fix sorts imports
 uv run pytest                    # backend tests
 uv run st-vtt validate content/example
 cd frontend && npm run dev       # Vite dev server on :5173 proxying to :8000

@@ -5,15 +5,14 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
-
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from .api import router as api_router
 from . import service
+from .api import router as api_router
 from .auth import campaign_secret
 from .config import Config, load_config
 from .content import load_content

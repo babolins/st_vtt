@@ -8,8 +8,8 @@ truth for the schema; `content/schema.json` is generated from them.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from collections.abc import Iterable, Iterator
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
