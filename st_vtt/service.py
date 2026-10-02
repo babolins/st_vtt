@@ -503,10 +503,13 @@ def do_roll(app: FastAPI, user: UserConfig, spec: dict[str, Any]) -> list[Render
     """Roll dice or a move.
 
     spec: {expr, label} or {character_id | shared_id, move_id?, stat?, advantage?,
-    disadvantage?, bonus?, modifiers?, label?}; plus gm_only. A `shared_id` rolls
-    against that shared sheet's own stats (Defenses, Population, ...).
+    disadvantage?, bonus?, modifiers?, label?}; plus gm_only, and request_id when the roll
+    answers the GM's request. A `shared_id` rolls against that shared sheet's own stats
+    (Defenses, Population, ...).
     """
     pack = pack_of(app)
+    # Checked before any dice are thrown, so a refused answer leaves no roll in the chat.
+    request = _open_request(app, user, spec["request_id"]) if spec.get("request_id") is not None else None
     doc = None
     stat_source: dict[str, str] | None = None
     cid = spec.get("character_id")
@@ -565,7 +568,24 @@ def do_roll(app: FastAPI, user: UserConfig, spec: dict[str, Any]) -> list[Render
     vis = sorted(set([user.name, *gm_names(app)])) if spec.get("gm_only") else None
     payload["gm_only"] = bool(spec.get("gm_only"))
     msg = db_of(app).add_message(user.name, "roll", payload, vis)
-    return [_message_render(msg)]
+    if request is None:
+        return [_message_render(msg)]
+    request["payload"]["answered"] = {"by": user.name, "roll": msg["id"]}
+    db_of(app).update_message(request["id"], request["payload"])
+    return [_message_render(msg), _message_update_render(request)]
+
+
+def _open_request(app: FastAPI, user: UserConfig, request_id: Any) -> dict[str, Any]:
+    """The roll request `user` is answering. Like an outcome, it can be answered once."""
+    msg = db_of(app).get_message(request_id) if isinstance(request_id, int) else None
+    if msg is None or msg["kind"] != "request" or not visible_to(user, msg.get("visibility")):
+        raise ServiceError("no such request", 404)
+    payload = msg["payload"]
+    if payload.get("to") != user.name:
+        raise ServiceError(f"that request is for {payload.get('to')}", 403)
+    if payload.get("answered"):
+        raise ServiceError(f"already answered by {payload['answered']['by']}")
+    return msg
 
 
 def apply_outcome(
@@ -734,15 +754,42 @@ def share_move(app: FastAPI, user: UserConfig, character_id: str | None, move_id
     return [_message_render(msg)]
 
 
-def request_roll(app: FastAPI, user: UserConfig, target: str, label: str, stat: str | None) -> list[Render]:
+def request_roll(
+    app: FastAPI, user: UserConfig, target: str, label: str, stat: str | None, move_id: str | None = None
+) -> list[Render]:
+    """Ask a player to roll. Naming a move means they roll that move, with its outcomes; without one,
+    the label alone says what the roll is for."""
     if not user.is_gm:
         raise ServiceError("GM only", 403)
     if app.state.config.user(target) is None:
         raise ServiceError(f"unknown user {target!r}")
     if stat is not None and stat not in pack_of(app).stat_ids():
         raise ServiceError(f"unknown stat {stat!r}")
-    msg = db_of(app).add_message(user.name, "request", {"to": target, "label": label or "a roll", "stat": stat})
+    # The label is what the player reads in the chat, so a stand-in like "a roll" would only be noise.
+    label = label.strip()
+    if not label:
+        raise ServiceError("say what the roll is for")
+    if move_id is not None:
+        move = _requested_move(app, target, move_id)
+        if move is None:
+            raise ServiceError(f"unknown move {move_id!r}")
+        if move.roll is None:
+            raise ServiceError(f"move {move_id!r} has nothing to roll")
+    payload = {"to": target, "label": label, "stat": stat, "move_id": move_id}
+    msg = db_of(app).add_message(user.name, "request", payload)
     return [_message_render(msg)]
+
+
+def _requested_move(app: FastAPI, target: str, move_id: str) -> Move | None:
+    """A move from the pack, or a custom one on a sheet the target owns."""
+    pack = pack_of(app)
+    move = pack.find_move(move_id)
+    if move is not None:
+        return move
+    for row in db_of(app).list_characters():
+        if row.get("owner") == target and (custom := _custom_move(pack, row["data"], move_id)):
+            return custom
+    return None
 
 
 def clear_chat(app: FastAPI, user: UserConfig) -> list[Render]:

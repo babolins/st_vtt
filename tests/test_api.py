@@ -420,6 +420,19 @@ def test_request_roll_gm_only(gm, alice):
     assert m["kind"] == "request" and m["payload"]["to"] == "Alice"
 
 
+def test_request_for_a_move_answered_over_http(gm, alice):
+    cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": "Bryn"}).json()["id"]
+    gm.post("/api/request_roll", json={"user": "Alice", "label": "Brawl", "move_id": "brawl"}).raise_for_status()
+    req = alice.get("/api/messages").json()[-1]
+    assert req["payload"]["move_id"] == "brawl"
+    roll = {"character_id": cid, "move_id": "brawl", "request_id": req["id"]}
+    assert alice.post("/api/roll", json=roll).status_code == 200
+    assert alice.post("/api/roll", json=roll).status_code == 400
+    msgs = alice.get("/api/messages").json()
+    answered = next(m for m in msgs if m["id"] == req["id"])["payload"]["answered"]
+    assert answered == {"by": "Alice", "roll": msgs[-1]["id"]}
+
+
 def test_websocket_roundtrip(app, gm, alice, bob):
     cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": "Bryn"}).json()["id"]
 
@@ -835,12 +848,26 @@ def test_request_roll_over_the_socket_is_gm_only(gm, alice):
         assert wg.receive_json() == {"type": "error", "message": "unknown user 'Nobody'", "ref": 2}
 
         wg.send_text(
-            json.dumps({"type": "request_roll", "user": "Alice", "label": "Take a Risk", "stat": "wis", "ref": 3})
+            json.dumps(
+                {
+                    "type": "request_roll",
+                    "user": "Alice",
+                    "label": "Take a Risk",
+                    "stat": "wis",
+                    "move_id": "take_a_risk",
+                    "ref": 3,
+                }
+            )
         )
         for ws in (wa, wg):
             ev = ws.receive_json()
             assert ev["type"] == "message" and ev["message"]["kind"] == "request"
-            assert ev["message"]["payload"] == {"to": "Alice", "label": "Take a Risk", "stat": "wis"}
+            assert ev["message"]["payload"] == {
+                "to": "Alice",
+                "label": "Take a Risk",
+                "stat": "wis",
+                "move_id": "take_a_risk",
+            }
         assert wg.receive_json() == {"type": "ack", "ref": 3}
 
 

@@ -35,6 +35,7 @@ class RollBody(BaseModel):
     bonus: int = 0
     modifiers: dict[str, int] | None = None
     gm_only: bool = False
+    request_id: int | None = None
 
 
 class ShareMoveBody(BaseModel):
@@ -46,6 +47,7 @@ class RequestRollBody(BaseModel):
     user: str
     label: str = ""
     stat: str | None = None
+    move_id: str | None = None
 
 
 class ApplyBody(BaseModel):
@@ -94,7 +96,7 @@ async def post_share_move(body: ShareMoveBody, request: Request, user: UserConfi
 
 @router.post("/request_roll")
 async def post_request_roll(body: RequestRollBody, request: Request, user: UserConfig = Depends(require_gm)) -> dict:
-    renders = service.request_roll(request.app, user, body.user, body.label, body.stat)
+    renders = service.request_roll(request.app, user, body.user, body.label, body.stat, body.move_id)
     emit(request, renders)
     return {"ok": True}
 
