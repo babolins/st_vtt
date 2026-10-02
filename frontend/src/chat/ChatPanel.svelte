@@ -9,6 +9,7 @@
   import MoveChatCard from './MoveChatCard.svelte';
   import DiceBar from './DiceBar.svelte';
   import Markdown from '../ui/Markdown.svelte';
+  import { requestableMoves } from '../lib/moveindex';
   import type { RequestMessage } from '../lib/types';
 
   let { onclose }: { onclose: () => void } = $props();
@@ -66,7 +67,19 @@
 
   function answerRequest(m: RequestMessage) {
     const mine = myCharacters();
-    openRoll({ characterId: mine[0]?.id ?? null, move: null, stat: m.payload.stat ?? null, label: m.payload.label });
+    const { move_id, stat, label } = m.payload;
+    // Roll a requested move on the character that has it; a table move needs no character to find it.
+    const find = (rows: typeof mine) =>
+      requestableMoves(app.content!, rows).find((e) => e.move.id === move_id)?.move ?? null;
+    const row = (move_id && mine.find((r) => find([r]))) || mine[0];
+    openRoll({
+      characterId: row?.id ?? null,
+      move: move_id ? find(row ? [row] : []) : null,
+      // No stat named leaves it to the move, or to the player; null would mean +nothing.
+      stat: stat ?? undefined,
+      label,
+      requestId: m.id,
+    });
   }
 </script>
 
@@ -92,7 +105,9 @@
               <em>{m.payload.label}</em>{#if m.payload.stat}
                 (+{m.payload.stat.toUpperCase()}){/if}</span
             >
-            {#if m.payload.to === app.me?.name}
+            {#if m.payload.answered}
+              <span class="muted small">✓ rolled</span>
+            {:else if m.payload.to === app.me?.name}
               <button class="small primary" onclick={() => answerRequest(m)}>Roll</button>
             {/if}
           </div>

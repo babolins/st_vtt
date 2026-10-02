@@ -80,6 +80,7 @@
       modifiers: modifiers.length ? picks : null,
       label,
       gm_only: gmOnly,
+      request_id: req.requestId ?? null,
     }).then(onclose, () => {}); // on failure (toasted), stay open to try again
   }
 </script>

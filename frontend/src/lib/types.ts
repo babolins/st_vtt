@@ -503,7 +503,15 @@ export type ChatMessage = MessageBase & { kind: 'chat' | 'system'; payload: { te
 export type WhisperMessage = MessageBase & { kind: 'whisper'; payload: { text: string; to: string[] } };
 export type RequestMessage = MessageBase & {
   kind: 'request';
-  payload: { to: string; label: string; stat: string | null };
+  payload: {
+    to: string;
+    label: string;
+    stat: string | null;
+    /** the move to roll, when the request names one; without it the label says what the roll is for */
+    move_id?: string | null;
+    /** set by the roll that answers it; a request is answered once */
+    answered?: { by: string; roll: number };
+  };
 };
 export type RollMessage = MessageBase & { kind: 'roll'; payload: RollPayload };
 export type MoveMessage = MessageBase & { kind: 'move'; payload: MoveSharePayload };
