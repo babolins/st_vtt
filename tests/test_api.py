@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import anyio
@@ -62,6 +63,27 @@ def test_login_rules(app):
     assert {u["name"]: u["has_password"] for u in users} == {"Gm": False, "Alice": False, "Bob": True}
 
 
+def test_the_hub_is_only_read_on_the_event_loop(app, alice, monkeypatch):
+    # The loop changes the hub's dicts as sockets come and go; a plain `def` route runs on a
+    # worker thread, where iterating them can meet "dictionary changed size during iteration".
+    from st_vtt.ws import Hub
+
+    on_loop = []
+    users = Hub.users.fget
+
+    def checked(self):
+        try:
+            asyncio.get_running_loop()
+            on_loop.append(True)
+        except RuntimeError:
+            on_loop.append(False)
+        return users(self)
+
+    monkeypatch.setattr(Hub, "users", property(checked))
+    assert alice.get("/api/state").status_code == 200
+    assert on_loop and all(on_loop)
+
+
 def test_state_and_content(alice):
     st = alice.get("/api/state").json()
     assert st["me"] == {"name": "Alice", "role": "player"}
@@ -119,6 +141,20 @@ def test_character_lifecycle_and_perms(gm, alice, bob):
     assert any("made_up_move" in w for w in r.json()["warnings"])
 
 
+@pytest.mark.parametrize("name", ["Łucja 🐺", 'Bryn "the Bold"\r\nX-Evil: 1'])
+def test_export_any_name(alice, gm, name):
+    # Headers go out as Latin-1, so a name outside it used to fail the export with a 500.
+    cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": name}).json()["id"]
+    sid = sheet_id(gm)
+    gm.post(f"/api/shared/{sid}/patch", json={"path": "/name", "value": name})
+    for r in (alice.get(f"/api/characters/{cid}/export"), alice.get(f"/api/shared/{sid}/export")):
+        assert r.status_code == 200
+        assert r.json()["name"] == name
+        disposition = r.headers["content-disposition"]
+        assert disposition.startswith("attachment; filename=")
+        assert "\n" not in disposition and "x-evil" not in r.headers
+
+
 def sheet_id(c, template="village"):
     return next(x["id"] for x in c.get("/api/shared").json() if x["template"] == template)
 
@@ -170,6 +206,17 @@ def test_gm_only_shared_sheet(app, gm, alice, bob):
     assert gm.delete(f"/api/shared/{sid}").status_code == 200
     assert [x["template"] for x in gm.get("/api/shared").json()] == ["village"]
     assert gm.get("/api/export/campaign").json()["shared"][0]["template"] == "village"
+
+
+def test_a_sheet_whose_template_is_gone_is_the_gms(app, gm, alice):
+    # Its template could have been the GM screen: with nothing to say otherwise, the table
+    # doesn't see it.
+    sid = app.state.db.insert_shared("orphan", "renamed_away", {"name": "Behind the screen", "notes": "plans"})["id"]
+    assert sid in [x["id"] for x in gm.get("/api/shared").json()]
+    assert sid not in [x["id"] for x in alice.get("/api/shared").json()]
+    assert alice.get(f"/api/shared/{sid}").status_code == 404
+    assert alice.post(f"/api/shared/{sid}/patch", json={"path": "/notes", "value": "x"}).status_code == 403
+    assert service.shared_is_gm_only(app, sid)
 
 
 def test_a_gm_only_sheet_is_never_announced_to_players(gm, alice):
@@ -313,6 +360,23 @@ def test_chat_commands_and_visibility(gm, alice, bob):
     assert bob.delete("/api/messages").status_code == 403
     assert gm.delete("/api/messages").status_code == 200
     assert [m["kind"] for m in alice.get("/api/messages").json()] == ["system"]
+
+
+def test_a_note_to_the_gm_needs_a_gm_and_a_note(alice, config, tmp_path):
+    assert alice.post("/api/chat", json={"text": "/gm"}).status_code == 400
+    assert alice.post("/api/chat", json={"text": "/gm the key is under the mat"}).status_code == 200
+    m = alice.get("/api/messages").json()[-1]
+    assert m["kind"] == "whisper" and m["visibility"] == ["Alice", "Gm"]
+
+    # With nobody to whisper to, it used to go to the whole table.
+    players_only = [u for u in config.users if not u.is_gm]
+    app = create_app(config.model_copy(update={"users": players_only, "database": str(tmp_path / "no_gm.db")}))
+    try:
+        a = client_for(app, "Alice")
+        assert a.post("/api/chat", json={"text": "/gm the key is under the mat"}).status_code == 400
+        assert a.get("/api/messages").json() == []
+    finally:
+        app.state.db.close()
 
 
 def test_a_whisper_reaches_its_recipients_by_their_names(gm, alice, bob):
@@ -625,6 +689,21 @@ def test_stale_applied_refs_are_forgotten(tmp_path):
     db.close()
 
 
+def test_a_page_of_older_messages(alice):
+    for i in range(3):
+        alice.post("/api/chat", json={"text": str(i)})
+
+    def texts(r):
+        return [m["payload"]["text"] for m in r.json()]
+
+    assert texts(alice.get("/api/messages?limit=2")) == ["1", "2"]
+    newest = alice.get("/api/messages").json()[-1]["id"]
+    assert texts(alice.get(f"/api/messages?before={newest}&limit=1")) == ["1"]
+    # SQLite reads a negative LIMIT as none at all, which handed back the whole history.
+    for bad in (0, -1):
+        assert alice.get(f"/api/messages?limit={bad}").status_code == 422
+
+
 def test_campaign_export_has_every_message(tmp_path):
     from st_vtt.db import Database
 
@@ -918,6 +997,32 @@ def test_single_session_lock(app):
     # logout invalidates the session for every copy of the cookie
     assert a3.post("/api/logout").status_code == 200
     assert a3.get("/api/me").json() is None
+
+
+@pytest.mark.parametrize("single_session", [True, False])
+def test_logging_out_closes_that_sessions_sockets(app, gm, single_session):
+    # Other tabs of the browser that signed out kept a working socket, and could go on editing.
+    app.state.config.single_session = single_session
+    a1 = client_for(app, "Alice")
+    with a1.websocket_connect("/ws") as tab:
+        tab.receive_json()  # presence
+        if single_session:
+            assert a1.post("/api/logout").status_code == 200
+            gm.post("/api/chat", json={"text": "an open socket would hear this"})
+            with pytest.raises(WebSocketDisconnect) as ei:
+                _recv_until(tab, 1)
+            assert ei.value.code == WS_NOT_LOGGED_IN
+            return
+        a2 = client_for(app, "Alice")  # another browser: a session of its own
+        with a2.websocket_connect("/ws") as other:
+            other.receive_json()
+            assert a1.post("/api/logout").status_code == 200
+            gm.post("/api/chat", json={"text": "an open socket would hear this"})
+            with pytest.raises(WebSocketDisconnect) as ei:
+                _recv_until(tab, 1)
+            assert ei.value.code == WS_NOT_LOGGED_IN
+            other.send_json({"type": "chat", "text": "still here", "ref": 1})
+            assert _recv_until(other, 1)[0]["type"] == "message"
 
 
 def test_multiple_sessions_when_disabled(config):

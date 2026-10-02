@@ -46,3 +46,16 @@ def test_real_rng_bounds():
     for _ in range(50):
         r = dice.roll("2d6")
         assert 2 <= r.total <= 12
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "1" * 5000,  # past Python's limit on digits, which raised a ValueError, not a DiceError
+        "+".join(["100d6"] * 2),  # each group in bounds, too many dice all told
+        "{a}+{a}",  # ...or once references are expanded
+    ],
+)
+def test_size_limits_are_dice_errors(bad):
+    with pytest.raises(dice.DiceError):
+        dice.roll(bad, refs={"a": "60d6"})

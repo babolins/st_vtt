@@ -192,8 +192,9 @@ def shared_template(app: FastAPI, row: dict[str, Any]):
 
 
 def shared_visible(app: FastAPI, user: UserConfig, row: dict[str, Any]) -> bool:
+    """A sheet whose template the pack no longer has is the GM's: it may have been a GM screen."""
     tpl = shared_template(app, row)
-    return user.is_gm or tpl is None or tpl.visibility == "table"
+    return user.is_gm or (tpl is not None and tpl.visibility == "table")
 
 
 def shared_is_gm_only(app: FastAPI, sid: str | None) -> bool:
@@ -201,10 +202,7 @@ def shared_is_gm_only(app: FastAPI, sid: str | None) -> bool:
     if not sid:
         return False
     row = db_of(app).get_shared(sid)
-    if row is None:
-        return False
-    tpl = shared_template(app, row)
-    return bool(tpl and tpl.visibility == "gm")
+    return row is not None and not shared_visible(app, UserConfig(name="", role="player"), row)
 
 
 def shared_view(user: UserConfig, row: dict[str, Any]) -> dict[str, Any]:
@@ -473,7 +471,12 @@ def post_chat(app: FastAPI, user: UserConfig, text: str, to: list[str] | None = 
             to = [parts[0]]
             text = parts[1]
         elif cmd in ("gm",):
+            if not rest:
+                raise ServiceError("usage: /gm <message>")
             to = gm_names(app)
+            if not to:
+                # Or `to` would be empty, which is the whole table.
+                raise ServiceError("there is no GM to send this to")
             text = rest
         else:
             raise ServiceError(f"unknown command /{cmd}")

@@ -45,6 +45,23 @@ describe('rendering a link', () => {
     );
   });
 
+  it('shows a name as written, not as emphasis', () => {
+    const link = '<a class="entity" href="#/n/abc" title="Record">';
+    setLinkResolver((name) => (name === 'Brennan' ? null : { href: '#/n/abc', title: 'Record' }));
+    expect(renderInline('[[Old_Man_Jenkins]]')).toBe(`${link}Old_Man_Jenkins</a>`);
+    expect(renderInline('[[*Star*]]')).toBe(`${link}*Star*</a>`);
+    // An underscore in a name used to pair with one after it, across the end of the link.
+    expect(renderInline('[[Mab_Two]] met snake_case')).toBe(`${link}Mab_Two</a> met snake_case`);
+    expect(renderInline('[[Brennan]] _and_ co')).toBe('Brennan <em>and</em> co');
+  });
+
+  it('emphasises a link as a whole', () => {
+    setLinkResolver(() => ({ href: '#/n/abc', title: 'Record' }));
+    expect(renderInline('**[[Cerys]]**')).toBe(
+      '<strong><a class="entity" href="#/n/abc" title="Record">Cerys</a></strong>',
+    );
+  });
+
   it('does not disturb ordinary emphasis', () => {
     setLinkResolver(() => null);
     expect(renderInline('**bold** and *thin*')).toBe('<strong>bold</strong> and <em>thin</em>');

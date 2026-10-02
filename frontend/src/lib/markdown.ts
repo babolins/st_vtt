@@ -24,28 +24,37 @@ export function setLinkResolver(fn: typeof resolveLink): void {
   resolveLink = fn;
 }
 
+// While emphasis is worked out, each [[link]] stands in as one of these around its number, so
+// a name is shown as written and an underscore in it can't pair with one outside the link.
+const HOLD = '\uE000';
+const HOLD_END = '\uE001';
+
 /** Runs on already-escaped text, so the captured name is escaped HTML: it is
  *  emitted as-is, and decoded only to look the name up. */
-function links(s: string): string {
-  return s.replace(/\[\[([^\]]+)\]\]/g, (whole, raw) => {
-    const shown = String(raw).trim();
-    const name = shown
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"');
-    const found = resolveLink?.(name);
-    if (!found) return shown;
-    return `<a class="entity" href="${esc(found.href)}" title="${esc(found.title)}">${shown}</a>`;
-  });
+function link(raw: string): string {
+  const shown = raw.trim();
+  const name = shown
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"');
+  const found = resolveLink?.(name);
+  if (!found) return shown;
+  return `<a class="entity" href="${esc(found.href)}" title="${esc(found.title)}">${shown}</a>`;
 }
 
 function inline(s: string): string {
-  return links(esc(s))
+  const held: string[] = [];
+  const text = esc(s.replaceAll(HOLD, '').replaceAll(HOLD_END, '')).replace(/\[\[([^\]]+)\]\]/g, (_, raw) => {
+    held.push(link(String(raw)));
+    return `${HOLD}${held.length - 1}${HOLD_END}`;
+  });
+  return text
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
     .replace(/_(.+?)_/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code>$1</code>');
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(new RegExp(`${HOLD}(\\d+)${HOLD_END}`, 'g'), (_, i) => held[Number(i)]);
 }
 
 export function render(md: string | null | undefined): string {

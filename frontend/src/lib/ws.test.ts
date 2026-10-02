@@ -204,6 +204,92 @@ describe('connecting', () => {
   });
 });
 
+describe('events that arrive while the table loads', () => {
+  const other = (over: Record<string, unknown>) => ({
+    type: 'patch',
+    entity: 'character',
+    id: 'c1',
+    op: 'set',
+    client: 'other',
+    ref: 9,
+    merged: false,
+    ...over,
+  });
+
+  /** Drop and reconnect, with the snapshot held until the returned resolver is called. */
+  async function reconnecting() {
+    (await online()).drop();
+    const load = deferred<StateResponse>();
+    get.mockImplementationOnce(() => load.promise);
+    await vi.advanceTimersByTimeAsync(10_000);
+    const s = latest();
+    const opening = s.open();
+    return {
+      s,
+      finish: async (snap: StateResponse) => {
+        load.resolve(snap);
+        await opening;
+      },
+    };
+  }
+
+  it('keeps an edit saved after the snapshot was read', async () => {
+    const { s, finish } = await reconnecting();
+    s.receive(other({ path: '/hp/current', value: 8, revision: 1 }));
+    await finish(snapshot());
+    expect(hp()).toBe(8);
+    expect(app.characters.c1.revision).toBe(1);
+  });
+
+  it('does not apply twice an edit the snapshot already has', async () => {
+    const withRope = () =>
+      snapshot({
+        characters: [
+          {
+            id: 'c1',
+            owner: 'Alice',
+            revision: 1,
+            data: { name: 'Bryn', gear: { items: [{ id: 'g1', name: 'rope' }] } },
+          },
+        ] as any,
+      });
+    const rope = other({ path: '/gear/items/-', value: { id: 'g1', name: 'rope' }, revision: 1 });
+    const items = () => (app.characters.c1.data as any).gear.items;
+
+    let { s, finish } = await reconnecting();
+    s.receive(rope); // arrives before the snapshot that holds it
+    await finish(withRope());
+    expect(items()).toHaveLength(1);
+
+    ({ s, finish } = await reconnecting());
+    await finish(withRope());
+    s.receive(rope); // arrives after it
+    expect(items()).toHaveLength(1);
+  });
+
+  it('shows a chat message once, whichever arrives first', async () => {
+    const hi = { id: 5, kind: 'chat', payload: { text: 'hi' } };
+    const { s, finish } = await reconnecting();
+    await finish(snapshot({ messages: [hi] as any }));
+    s.receive({ type: 'message', message: hi });
+    expect(app.messages.map((m) => m.id)).toEqual([5]);
+  });
+
+  it('keeps our own edit when its ack comes in while a reload is under way', async () => {
+    const s = await online();
+    void patch('character', 'c1', '/hp/current', 3);
+    void patch('character', 'c1', '/name', '');
+    const load = deferred<StateResponse>();
+    get.mockImplementationOnce(() => load.promise);
+    s.receive({ type: 'error', message: 'a name is needed', ref: s.sent[1].ref }); // starts a reload
+    echo(s, s.sent[0]);
+    s.receive({ type: 'ack', ref: s.sent[0].ref });
+    load.resolve(snapshot()); // read before our edit was saved
+    await vi.advanceTimersByTimeAsync(0);
+    expect(hp()).toBe(3);
+  });
+});
+
 describe('sending', () => {
   it('refuses a message while not connected, or while the table is still loading', async () => {
     await expect(ws.send({ type: 'chat', text: 'hi' })).rejects.toThrow('not connected');
@@ -407,6 +493,7 @@ describe('patches from the server', () => {
       client: 'other',
     });
     expect(get).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(0); // that reload is done; one under way would hold the next event
     s.receive({
       type: 'patch',
       entity: 'character',

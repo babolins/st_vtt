@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from ..auth import (
     COOKIE,
     COOKIE_MAX_AGE,
+    WS_NOT_LOGGED_IN,
     WS_SIGNED_IN_ELSEWHERE,
     authenticate,
     get_config,
@@ -60,10 +61,12 @@ async def login(body: LoginBody, request: Request, response: Response, cfg: Conf
 
 
 @router.post("/logout")
-def logout(request: Request, response: Response, cfg: Config = Depends(get_config)) -> dict:
+async def logout(request: Request, response: Response, cfg: Config = Depends(get_config)) -> dict:
     current = session_from_token(cfg, request.app.state.db, request.cookies.get(COOKIE))
     if current:
         request.app.state.db.set_meta(session_key(current[0]), "")
+        # The browser's other tabs still hold a socket, which would otherwise go on working.
+        request.app.state.hub.end_session(current[1], WS_NOT_LOGGED_IN)
     response.delete_cookie(COOKIE)
     return {"ok": True}
 

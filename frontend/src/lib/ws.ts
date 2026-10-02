@@ -34,6 +34,10 @@ const patches = new PatchQueue();
 let synced = false;
 let closedByUs = false;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+/** Snapshots being loaded. Events that arrive meanwhile are held, then replayed on top of the
+ *  snapshot: one may be newer than it, which loading it would undo, or already in it. */
+let loading = 0;
+let held: ServerEvent[] = [];
 
 function entityRow(entity: unknown, id: unknown) {
   const key = String(id);
@@ -60,12 +64,37 @@ function countUnsaved(): void {
   app.unsaved = patches.unsaved;
 }
 
-/** Load a fresh snapshot, then re-apply our patches it does not include yet. */
+/**
+ * Load a fresh snapshot, replay on it what the server sent while it loaded, then re-apply our
+ * patches the server does not have yet, which will land after all of that.
+ */
 export async function refreshState(): Promise<void> {
-  const s = await api.get<StateResponse>(`/api/state?client=${clientId}`);
-  loadState(s);
-  for (const e of patches.rebase(s.applied_ref ?? 0, s.me?.name)) applyLocally(e);
-  countUnsaved();
+  loading++;
+  try {
+    const s = await api.get<StateResponse>(`/api/state?client=${clientId}`);
+    loadState(s);
+    // With another snapshot still loading, the held events wait for that one.
+    const landed = loading === 1 ? replayHeld() : new Set<number>();
+    for (const e of patches.rebase(s.applied_ref ?? 0, s.me?.name)) if (!landed.has(e.ref)) applyLocally(e);
+    countUnsaved();
+  } finally {
+    loading--;
+    if (loading === 0) replayHeld(); // the load failed: what arrived still happened
+  }
+}
+
+/** Handle the held events, in order. Returns the refs of our own patches among them that it applied. */
+function replayHeld(): Set<number> {
+  const landed = new Set<number>();
+  const events = held;
+  held = [];
+  for (const ev of events) handle(ev, landed);
+  return landed;
+}
+
+function receive(ev: ServerEvent): void {
+  if (loading) held.push(ev);
+  else handle(ev);
 }
 
 function transmit(ref: number, msg: Record<string, unknown>): void {
@@ -100,7 +129,7 @@ export function connect(): void {
     sendEphemeral({ type: 'presence_sync' });
     for (const k of Object.keys(app.fieldPresence)) delete app.fieldPresence[k];
   };
-  socket.onmessage = (ev) => handle(JSON.parse(ev.data));
+  socket.onmessage = (ev) => receive(JSON.parse(ev.data));
   socket.onclose = (ev) => {
     app.connected = false;
     socket = null;
@@ -192,7 +221,8 @@ export function sendPatch(msg: Record<string, unknown>, value: unknown): Promise
   });
 }
 
-function handle(ev: ServerEvent): void {
+/** Apply one event. `landed` is given when replaying held events on a fresh snapshot. */
+function handle(ev: ServerEvent, landed?: Set<number>): void {
   switch (ev.type) {
     case 'ack': {
       const p = pending.get(ev.ref);
@@ -215,25 +245,32 @@ function handle(ev: ServerEvent): void {
       break;
     }
     case 'patch': {
-      if (ev.client === clientId) {
-        if (!applyEcho(ev.ref != null ? patches.get(ev.ref) : undefined, ev.merged)) break; // already shown, and nothing landed on top of it since
-      } else {
-        patches.overtake(ev.entity, ev.id, ev.path);
-      }
       const target = entityRow(ev.entity, ev.id);
+      if (target && ev.revision <= target.revision) break; // the snapshot already has it
+      const ours = ev.client === clientId;
+      if (!ours) {
+        patches.overtake(ev.entity, ev.id, ev.path);
+      } else if (!landed && !applyEcho(ev.ref != null ? patches.get(ev.ref) : undefined, ev.merged)) {
+        // Already shown, and nothing landed on top of it since. (A snapshot loaded since has
+        // undone what we showed, so on replay it is applied.)
+        if (target) target.revision = ev.revision;
+        break;
+      }
       if (!target) {
-        refreshState().catch(() => {});
+        if (!landed) refreshState().catch(() => {}); // on replay: gone from the fresh snapshot
         break;
       }
       try {
         applyPointer(target.data, ev.path, ev.value, ev.op);
         target.revision = ev.revision;
+        if (ours && ev.ref != null) landed?.add(ev.ref);
       } catch {
         refreshState().catch(() => {});
       }
       break;
     }
     case 'message':
+      if (app.messages.some((m) => m.id === ev.message.id)) break; // the snapshot already has it
       app.messages = [...app.messages.slice(1 - KEEP_MESSAGES), ev.message];
       break;
     case 'message_updated': {
