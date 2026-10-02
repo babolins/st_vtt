@@ -9,7 +9,7 @@
   import type { Snippet } from 'svelte';
   import type { Stat } from '../lib/types';
   import { fmtMod } from '../lib/util';
-  import { balancedRows, placements } from '../lib/statrows';
+  import { balancedRows, fitCount, placements } from '../lib/statrows';
 
   let { stats, value, warn, title }: {
     stats: S[];
@@ -25,26 +25,33 @@
   const labelCh = $derived(Math.max(1, ...stats.flatMap((s) => s.label.split(/\s+/).map((w) => w.length))));
 
   // How many boxes fit a row is the CSS's call (--box-w, from the counts above);
-  // two hidden probes report it in pixels, and the rows are balanced from there.
-  let width = $state(0);
-  let step = $state(0); // a box's minimum width plus the gap after it
-  let gap = $state(0);
-  const fit = $derived(step > 0 ? Math.floor((width + gap) / step) : stats.length);
-  const rows = $derived(balancedRows(stats.length, fit));
-  const places = $derived(placements(rows));
+  // a hidden probe reports it in pixels, and the rows are balanced from there.
+  // Until then the CSS lays the boxes out alone (greedily, but never crushed).
+  let el = $state<HTMLElement>();
+  let row = $state<DOMRectReadOnly>();
+  let probe = $state<DOMRectReadOnly>();
+  const width = $derived(row?.width ?? 0);
+  const box = $derived(probe?.width ?? 0); // a box's minimum width
+  // Read again whenever either is measured: a font change moves all three.
+  const gap = $derived.by(() => {
+    void width; void box;
+    return el ? parseFloat(getComputedStyle(el).columnGap) || 0 : 0;
+  });
+  const fit = $derived(fitCount(width, box, gap));
+  const rows = $derived(fit === null ? null : balancedRows(stats.length, fit));
+  const places = $derived(rows ? placements(rows) : []);
 </script>
 
 <div
-  class="stats" bind:clientWidth={width}
+  class="stats" bind:this={el} bind:contentRect={row}
   style:--value-ch={valueCh} style:--label-ch={labelCh}
-  style:grid-template-columns="repeat({2 * (rows[0] ?? 1)}, minmax(0, 1fr))"
+  style:grid-template-columns={rows ? `repeat(${2 * (rows[0] ?? 1)}, minmax(0, 1fr))` : null}
 >
-  <span class="probe step" aria-hidden="true" bind:clientWidth={step}></span>
-  <span class="probe gap" aria-hidden="true" bind:clientWidth={gap}></span>
+  <div class="probes" aria-hidden="true"><div class="probe" bind:contentRect={probe}></div></div>
   {#each stats as s, i (s.id)}
     <div
       class="stat" class:dis={warn?.(s)} title={title?.(s) ?? ''}
-      style:grid-row={places[i]?.row} style:grid-column="{places[i]?.column ?? 'auto'} / span 2"
+      style:grid-row={places[i]?.row} style:grid-column={places[i] ? `${places[i].column} / span 2` : null}
     >
       <div class="lbl">{s.label}</div>
       {@render value(s)}
@@ -59,8 +66,8 @@
      an uppercase label letter at .75em a little under it. Each estimate is
      rounded up, so a box is never narrower than what it holds -- unless the
      whole row is narrower than one box (a phone), when the box takes the row.
-     The grid has two tracks per box so a short row can start half a box in;
-     the script sets how many, and where each box goes. */
+     Once measured, the grid has two tracks per box so a short row can start
+     half a box in; the script sets how many, and where each box goes. */
   .stats {
     --value-w: calc(var(--value-ch) * 1.45ch + .52em + 2px);
     --stepper-w: calc(var(--value-w) + 3.8em);
@@ -68,10 +75,12 @@
     --box-w: calc(max(var(--stepper-w), var(--label-w)) + .6em + 2 * var(--stat-border-width));
     --gap: .4em;
     display: grid; gap: var(--gap); margin: .25em 0; position: relative;
+    grid-template-columns: repeat(auto-fill, minmax(min(var(--box-w), 100%), 1fr));
   }
-  .probe { position: absolute; visibility: hidden; height: 0; }
-  .probe.step { width: calc(var(--box-w) + var(--gap)); }
-  .probe.gap { width: var(--gap); }
+  /* The probe is a box's minimum width, which can be wider than the row; its
+     zero-size holder clips it so it measures without making the page scroll. */
+  .probes { position: absolute; width: 0; height: 0; overflow: hidden; visibility: hidden; }
+  .probe { width: var(--box-w); height: 0; }
   .stat {
     text-align: center; border: var(--stat-border-width) solid var(--border); border-radius: var(--radius-sm); padding: .3em;
     border-image: var(--stat-border-image) 8 / var(--stat-border-width) round; background: var(--stat-bg);
