@@ -129,51 +129,6 @@ def new_shared_sheet(pack: ContentPack, tpl: SharedSheetDef, name: str | None = 
     }
 
 
-def new_follower(pack: ContentPack) -> dict[str, Any]:
-    return {
-        "id": new_id(),
-        "name": "",
-        "tags": [],
-        "hp": {"current": 3, "max": 3},
-        "armor": 0,
-        "damage_die": "1d4",
-        "instinct": "",
-        "cost": "",
-        "loyalty": 0,
-        "moves": "",
-        "gear": "",
-        "notes": "",
-        "is_group": False,
-        "members": [],
-        "fields": {},
-    }
-
-
-def arcanum_instance(pack: ContentPack, arcanum_id: str | None) -> dict[str, Any]:
-    """A per-sheet copy of a library arcanum (or a blank custom one)."""
-    inst: dict[str, Any] = {
-        "id": new_id(),
-        "ref": arcanum_id,
-        "name": "",
-        "kind": "minor",
-        "tags": [],
-        "description": "",
-        "questions": [],
-        "answers": {},
-        "prerequisites": "",
-        "moves": [],
-        "trackers": [],
-        "state": {},
-        "notes": "",
-    }
-    if arcanum_id:
-        src = next((a for a in pack.arcana if a.id == arcanum_id), None)
-        if src:
-            inst.update(src.model_dump(mode="json", exclude={"id"}))
-            inst["state"] = {t.id: (False if t.type == "toggle" else 0) for t in src.trackers}
-    return inst
-
-
 def level_cost(pack: ContentPack, level: int) -> int:
     return level_up_cost(pack.pack.xp.level_up_cost, level)
 
