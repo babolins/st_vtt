@@ -1,3 +1,7 @@
+"""Shared sheets: the village, a GM screen, anything the table edits together. Creating,
+replacing and deleting one is the GM's job; editing it is anyone's, unless it is GM-only.
+"""
+
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -8,7 +12,7 @@ from .. import service
 from ..auth import current_user, require_gm
 from ..config import UserConfig
 from ..perms import strip_for_user
-from ._common import emit, http
+from ._common import PatchBody, emit
 
 router = APIRouter(prefix="/shared", tags=["shared"])
 
@@ -17,12 +21,6 @@ class CreateBody(BaseModel):
     template: str
     name: str | None = None
 
-
-class PatchBody(BaseModel):
-    path: str
-    value: Any = None
-    op: str = "set"
-    patch: str | None = None
 
 
 def _visible_row(request: Request, user: UserConfig, sid: str) -> dict:
@@ -39,11 +37,8 @@ def list_shared(request: Request, user: UserConfig = Depends(current_user)) -> l
 
 @router.post("")
 async def create_shared(body: CreateBody, request: Request, user: UserConfig = Depends(require_gm)) -> dict:
-    try:
-        row, renders = service.create_shared(request.app, user, body.template, body.name)
-    except service.ServiceError as e:
-        raise http(e) from e
-    await emit(request, renders)
+    row, renders = service.create_shared(request.app, user, body.template, body.name)
+    emit(request, renders)
     return service.shared_view(user, row)
 
 
@@ -61,30 +56,21 @@ def export_shared(sid: str, request: Request, user: UserConfig = Depends(current
 
 @router.post("/{sid}/import")
 async def import_shared(sid: str, body: dict[str, Any], request: Request, user: UserConfig = Depends(require_gm)) -> dict:
-    try:
-        renders = service.import_shared(request.app, user, sid, body)
-    except service.ServiceError as e:
-        raise http(e) from e
-    await emit(request, renders)
+    renders = service.import_shared(request.app, user, sid, body)
+    emit(request, renders)
     return {"ok": True}
 
 
 @router.post("/{sid}/patch")
 async def patch_shared(sid: str, body: PatchBody, request: Request, user: UserConfig = Depends(current_user)) -> dict:
-    try:
-        renders = service.patch_entity(request.app, user, "shared", sid, body.path, body.value, body.op, None, body.patch)
-    except service.ServiceError as e:
-        raise http(e) from e
-    await emit(request, renders)
+    renders = service.patch_entity(request.app, user, "shared", sid, body.path, body.value, op=body.op, patch=body.patch)
+    emit(request, renders)
     row = request.app.state.db.get_shared(sid)
     return {"revision": row["revision"] if row else None}
 
 
 @router.delete("/{sid}")
 async def delete_shared(sid: str, request: Request, user: UserConfig = Depends(require_gm)) -> dict:
-    try:
-        renders = service.delete_shared(request.app, user, sid)
-    except service.ServiceError as e:
-        raise http(e) from e
-    await emit(request, renders)
+    renders = service.delete_shared(request.app, user, sid)
+    emit(request, renders)
     return {"ok": True}

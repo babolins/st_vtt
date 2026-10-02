@@ -3,10 +3,11 @@ import json
 import anyio
 import pytest
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from conftest import ROOT
 from st_vtt import service
-from st_vtt.auth import COOKIE
+from st_vtt.auth import COOKIE, WS_NOT_LOGGED_IN
 from st_vtt.main import create_app
 from st_vtt.ws import websocket_endpoint
 
@@ -521,6 +522,43 @@ def test_stale_applied_refs_are_forgotten(tmp_path):
     db.close()
 
 
+def test_campaign_export_has_every_message(tmp_path):
+    from st_vtt.db import Database
+
+    db = Database(tmp_path / "t.db")
+    for i in range(3):
+        db.add_message("Alice", "chat", {"text": str(i)})
+    assert [m["payload"]["text"] for m in db.list_messages(limit=None)] == ["0", "1", "2"]
+    assert [m["payload"]["text"] for m in db.list_messages(limit=2)] == ["1", "2"]
+    assert len(db.export_all()["messages"]) == 3
+    db.close()
+
+
+@pytest.mark.parametrize("kind", ["character", "shared", "record"])
+def test_saving_a_document_that_is_gone_raises(tmp_path, kind):
+    from st_vtt.db import Database
+
+    db = Database(tmp_path / "t.db")
+    with pytest.raises(KeyError):
+        getattr(db, f"save_{kind}")("gone", {"name": "x"})
+    db.close()
+
+
+@pytest.mark.parametrize("kind", ["character", "shared", "record"])
+def test_every_kind_of_document_row_has_the_same_bookkeeping(tmp_path, kind):
+    from st_vtt.db import Database
+
+    db = Database(tmp_path / "t.db")
+    insert = {"character": lambda: db.insert_character("a", "Alice", {"name": "A"}),
+              "shared": lambda: db.insert_shared("a", "village", {"name": "A"}),
+              "record": lambda: db.insert_record("a", "npc", {"name": "A"})}[kind]
+    row = insert()
+    assert {"id", "data", "revision", "created_at", "updated_at"} <= set(row)
+    assert getattr(db, f"save_{kind}")("a", {"name": "B"}) == 1
+    assert getattr(db, f"get_{kind}")("a")["revision"] == 1
+    db.close()
+
+
 def test_refused_patch_is_not_counted_as_applied(alice):
     cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": "Bryn"}).json()["id"]
     with alice.websocket_connect("/ws") as wa:
@@ -531,9 +569,10 @@ def test_refused_patch_is_not_counted_as_applied(alice):
 
 def test_unauthenticated_ws_rejected(app):
     c = raw_client(app)
-    with pytest.raises(Exception):
+    with pytest.raises(WebSocketDisconnect) as ei:
         with c.websocket_connect("/ws"):
             pass
+    assert ei.value.code == WS_NOT_LOGGED_IN
 
 
 def test_a_message_the_server_cannot_read_leaves_the_socket_open(alice):

@@ -1,3 +1,6 @@
+// The app's shared reactive state: who is signed in, the content pack, every sheet and record,
+// chat and presence. Loaded whole from /api/state, then kept current by ws.ts.
+
 import type { CharacterRow, ContentPack, Message, RecordRow, SharedRow, StateResponse, User } from './types';
 
 export const app = $state({
@@ -23,11 +26,14 @@ export const app = $state({
   loginNotice: '' as string,
 });
 
+/** How long a toast stays up: errors longer, so there is time to read them. */
+const TOAST_MS = { info: 3000, error: 6000 };
+
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 export function toast(text: string, kind: 'error' | 'info' = 'info') {
   app.toast = { text, kind };
   if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (app.toast = null), kind === 'error' ? 6000 : 3000);
+  toastTimer = setTimeout(() => (app.toast = null), TOAST_MS[kind]);
 }
 
 export function loadState(s: StateResponse) {

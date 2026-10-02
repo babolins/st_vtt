@@ -1,3 +1,6 @@
+// Editing a sheet: apply the change locally at once, then send it through ws.ts. A `Patcher` is
+// bound to one character, shared sheet or record, so field components need not know which.
+
 import { applyPointer, type PatchOp } from './pointer';
 import { app } from './state.svelte';
 import { sendPatch } from './ws';

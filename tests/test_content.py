@@ -3,7 +3,6 @@ import re
 
 import pytest
 
-from conftest import ROOT
 from st_vtt.content import ContentError, level_up_cost, load_content, merge_pack_files
 
 

@@ -7,7 +7,7 @@ import sqlite3
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS characters (
@@ -64,6 +64,9 @@ CREATE TABLE IF NOT EXISTS applied_refs (
 APPLIED_REFS_TTL = 30 * 24 * 3600
 
 Applied = tuple[str, str, int]
+# The tables that hold documents. The helpers below put the name into their SQL, so only
+# these can reach it (values are always bound parameters).
+DocTable = Literal["characters", "shared_sheets", "records"]
 
 
 class Database:
@@ -85,90 +88,75 @@ class Database:
         with self._lock:
             self._conn.close()
 
-    # ---------------------------------------------------------------- records
-    def list_records(self) -> list[dict[str, Any]]:
-        with self._lock:
-            rows = self._conn.execute("SELECT * FROM records ORDER BY created_at").fetchall()
-        return [self._record_row(r) for r in rows]
+    # --------------------------------------------------------------- documents
+    # Characters, shared sheets and records are each a JSON document with the same bookkeeping
+    # (revision, created_at, updated_at) and one column of their own: owner, template or kind.
+    # `name`, and a character's `playbook`, are copies of the document's own fields; rows leave
+    # them out, as `data` already holds them.
 
-    def get_record(self, rid: str) -> dict[str, Any] | None:
-        with self._lock:
-            row = self._conn.execute("SELECT * FROM records WHERE id=?", (rid,)).fetchone()
-        return self._record_row(row) if row else None
-
-    def insert_record(self, rid: str, kind: str, doc: dict[str, Any]) -> dict[str, Any]:
-        now = time.time()
-        with self._lock:
-            self._conn.execute(
-                "INSERT INTO records (id, kind, name, data, revision, created_at, updated_at) VALUES (?,?,?,?,0,?,?)",
-                (rid, kind, doc.get("name"), json.dumps(doc), now, now),
-            )
-            self._conn.commit()
-        return self.get_record(rid)  # type: ignore[return-value]
-
-    def save_record(self, rid: str, doc: dict[str, Any], applied: Applied | None = None) -> int:
-        with self._lock:
-            row = self._conn.execute("SELECT revision FROM records WHERE id=?", (rid,)).fetchone()
-            rev = (row["revision"] if row else 0) + 1
-            self._conn.execute(
-                "UPDATE records SET data=?, name=?, revision=?, updated_at=? WHERE id=?",
-                (json.dumps(doc), doc.get("name"), rev, time.time(), rid),
-            )
-            self._record_applied(applied)
-            self._conn.commit()
-        return rev
-
-    def delete_record(self, rid: str) -> None:
-        with self._lock:
-            self._conn.execute("DELETE FROM records WHERE id=?", (rid,))
-            self._conn.commit()
+    _MIRRORED: dict[DocTable, tuple[str, ...]] = {"characters": ("name", "playbook"), "shared_sheets": ("name",), "records": ("name",)}
 
     @staticmethod
-    def _record_row(row: sqlite3.Row) -> dict[str, Any]:
-        return {
-            "id": row["id"],
-            "kind": row["kind"],
-            "data": json.loads(row["data"]),
-            "revision": row["revision"],
-            "created_at": row["created_at"],
-            "updated_at": row["updated_at"],
-        }
+    def _doc_row(r: sqlite3.Row) -> dict[str, Any]:
+        row = {k: r[k] for k in r.keys() if k not in ("data", "name", "playbook")}
+        row["data"] = json.loads(r["data"])
+        return row
 
-    # ------------------------------------------------------------- characters
-    def list_characters(self) -> list[dict[str, Any]]:
+    def _list(self, table: DocTable) -> list[dict[str, Any]]:
         with self._lock:
-            rows = self._conn.execute("SELECT * FROM characters ORDER BY created_at").fetchall()
-        return [self._char_row(r) for r in rows]
+            rows = self._conn.execute(f"SELECT * FROM {table} ORDER BY created_at").fetchall()
+        return [self._doc_row(r) for r in rows]
 
-    def get_character(self, cid: str) -> dict[str, Any] | None:
+    def _get(self, table: DocTable, eid: str) -> dict[str, Any] | None:
         with self._lock:
-            row = self._conn.execute("SELECT * FROM characters WHERE id=?", (cid,)).fetchone()
-        return self._char_row(row) if row else None
+            row = self._conn.execute(f"SELECT * FROM {table} WHERE id=?", (eid,)).fetchone()
+        return self._doc_row(row) if row else None
 
-    def insert_character(self, cid: str, owner: str | None, doc: dict[str, Any]) -> dict[str, Any]:
+    def _insert(self, table: DocTable, eid: str, own: dict[str, Any], doc: dict[str, Any]) -> dict[str, Any]:
         now = time.time()
+        mirrored = self._MIRRORED[table]
+        values = {"id": eid, **own, **{k: doc.get(k) for k in mirrored}, "data": json.dumps(doc), "revision": 0, "created_at": now, "updated_at": now}
         with self._lock:
-            self._conn.execute(
-                "INSERT INTO characters (id, owner, playbook, name, data, revision, created_at, updated_at)"
-                " VALUES (?,?,?,?,?,0,?,?)",
-                (cid, owner, doc.get("playbook"), doc.get("name"), json.dumps(doc), now, now),
-            )
+            self._conn.execute(f"INSERT INTO {table} ({', '.join(values)}) VALUES ({', '.join('?' * len(values))})", tuple(values.values()))
             self._conn.commit()
-        return self.get_character(cid)  # type: ignore[return-value]
+        row = self._get(table, eid)
+        assert row is not None
+        return row
 
-    def save_character(self, cid: str, doc: dict[str, Any], applied: Applied | None = None) -> int:
-        """Persist a modified document; returns the new revision."""
+    def _save(self, table: DocTable, eid: str, doc: dict[str, Any], applied: Applied | None) -> int:
+        """Persist a modified document; returns the new revision. KeyError if it is gone."""
+        mirrored = self._MIRRORED[table]
+        sets = "".join(f"{k}=?, " for k in mirrored)
         with self._lock:
             cur = self._conn.execute(
-                "UPDATE characters SET data=?, playbook=?, name=?, revision=revision+1, updated_at=? WHERE id=?",
-                (json.dumps(doc), doc.get("playbook"), doc.get("name"), time.time(), cid),
+                f"UPDATE {table} SET {sets}data=?, revision=revision+1, updated_at=? WHERE id=?",
+                (*(doc.get(k) for k in mirrored), json.dumps(doc), time.time(), eid),
             )
             if cur.rowcount == 0:
-                raise KeyError(cid)
-            rev = self._conn.execute("SELECT revision FROM characters WHERE id=?", (cid,)).fetchone()[0]
+                raise KeyError(eid)
+            rev = self._conn.execute(f"SELECT revision FROM {table} WHERE id=?", (eid,)).fetchone()[0]
             self._record_applied(applied)
             self._conn.commit()
         return int(rev)
+
+    def _delete(self, table: DocTable, eid: str) -> bool:
+        with self._lock:
+            cur = self._conn.execute(f"DELETE FROM {table} WHERE id=?", (eid,))
+            self._conn.commit()
+        return cur.rowcount > 0
+
+    # ------------------------------------------------------------- characters
+    def list_characters(self) -> list[dict[str, Any]]:
+        return self._list("characters")
+
+    def get_character(self, cid: str) -> dict[str, Any] | None:
+        return self._get("characters", cid)
+
+    def insert_character(self, cid: str, owner: str | None, doc: dict[str, Any]) -> dict[str, Any]:
+        return self._insert("characters", cid, {"owner": owner}, doc)
+
+    def save_character(self, cid: str, doc: dict[str, Any], applied: Applied | None = None) -> int:
+        return self._save("characters", cid, doc, applied)
 
     def set_character_owner(self, cid: str, owner: str | None) -> None:
         with self._lock:
@@ -176,59 +164,39 @@ class Database:
             self._conn.commit()
 
     def delete_character(self, cid: str) -> bool:
-        with self._lock:
-            cur = self._conn.execute("DELETE FROM characters WHERE id=?", (cid,))
-            self._conn.commit()
-        return cur.rowcount > 0
-
-    @staticmethod
-    def _char_row(r: sqlite3.Row) -> dict[str, Any]:
-        doc = json.loads(r["data"])
-        return {"id": r["id"], "owner": r["owner"], "revision": r["revision"], "updated_at": r["updated_at"], "data": doc}
+        return self._delete("characters", cid)
 
     # ------------------------------------------------------------ shared sheets
     def list_shared(self) -> list[dict[str, Any]]:
-        with self._lock:
-            rows = self._conn.execute("SELECT * FROM shared_sheets ORDER BY created_at").fetchall()
-        return [self._shared_row(r) for r in rows]
+        return self._list("shared_sheets")
 
     def get_shared(self, sid: str) -> dict[str, Any] | None:
-        with self._lock:
-            row = self._conn.execute("SELECT * FROM shared_sheets WHERE id=?", (sid,)).fetchone()
-        return self._shared_row(row) if row else None
+        return self._get("shared_sheets", sid)
 
     def insert_shared(self, sid: str, template: str, doc: dict[str, Any]) -> dict[str, Any]:
-        now = time.time()
-        with self._lock:
-            self._conn.execute(
-                "INSERT INTO shared_sheets (id, template, name, data, revision, created_at, updated_at) VALUES (?,?,?,?,0,?,?)",
-                (sid, template, doc.get("name"), json.dumps(doc), now, now),
-            )
-            self._conn.commit()
-        return self.get_shared(sid)  # type: ignore[return-value]
+        return self._insert("shared_sheets", sid, {"template": template}, doc)
 
     def save_shared(self, sid: str, doc: dict[str, Any], applied: Applied | None = None) -> int:
-        with self._lock:
-            cur = self._conn.execute(
-                "UPDATE shared_sheets SET data=?, name=?, revision=revision+1, updated_at=? WHERE id=?",
-                (json.dumps(doc), doc.get("name"), time.time(), sid),
-            )
-            if cur.rowcount == 0:
-                raise KeyError(sid)
-            rev = self._conn.execute("SELECT revision FROM shared_sheets WHERE id=?", (sid,)).fetchone()[0]
-            self._record_applied(applied)
-            self._conn.commit()
-        return int(rev)
+        return self._save("shared_sheets", sid, doc, applied)
 
     def delete_shared(self, sid: str) -> bool:
-        with self._lock:
-            cur = self._conn.execute("DELETE FROM shared_sheets WHERE id=?", (sid,))
-            self._conn.commit()
-        return cur.rowcount > 0
+        return self._delete("shared_sheets", sid)
 
-    @staticmethod
-    def _shared_row(r: sqlite3.Row) -> dict[str, Any]:
-        return {"id": r["id"], "template": r["template"], "revision": r["revision"], "created_at": r["created_at"], "updated_at": r["updated_at"], "data": json.loads(r["data"])}
+    # ---------------------------------------------------------------- records
+    def list_records(self) -> list[dict[str, Any]]:
+        return self._list("records")
+
+    def get_record(self, rid: str) -> dict[str, Any] | None:
+        return self._get("records", rid)
+
+    def insert_record(self, rid: str, kind: str, doc: dict[str, Any]) -> dict[str, Any]:
+        return self._insert("records", rid, {"kind": kind}, doc)
+
+    def save_record(self, rid: str, doc: dict[str, Any], applied: Applied | None = None) -> int:
+        return self._save("records", rid, doc, applied)
+
+    def delete_record(self, rid: str) -> bool:
+        return self._delete("records", rid)
 
     # ---------------------------------------------------------------- messages
     def add_message(self, author: str | None, kind: str, payload: dict[str, Any], visibility: list[str] | None = None) -> dict[str, Any]:
@@ -242,33 +210,29 @@ class Database:
             mid = cur.lastrowid
         return {"id": mid, "ts": ts, "author": author, "kind": kind, "payload": payload, "visibility": visibility}
 
-    def list_messages(self, limit: int = 200, before: int | None = None) -> list[dict[str, Any]]:
+    def list_messages(self, limit: int | None = 200, before: int | None = None) -> list[dict[str, Any]]:
+        """The latest `limit` messages (every one, for None) older than message `before`, oldest first."""
+        # SQLite reads a negative LIMIT as no limit.
+        bound = -1 if limit is None else limit
         with self._lock:
             if before is None:
-                rows = self._conn.execute("SELECT * FROM messages ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+                rows = self._conn.execute("SELECT * FROM messages ORDER BY id DESC LIMIT ?", (bound,)).fetchall()
             else:
-                rows = self._conn.execute("SELECT * FROM messages WHERE id<? ORDER BY id DESC LIMIT ?", (before, limit)).fetchall()
-        out = [
-            {
-                "id": r["id"],
-                "ts": r["ts"],
-                "author": r["author"],
-                "kind": r["kind"],
-                "payload": json.loads(r["payload"]),
-                "visibility": json.loads(r["visibility"]) if r["visibility"] else None,
-            }
-            for r in rows
-        ]
-        out.reverse()
-        return out
+                rows = self._conn.execute("SELECT * FROM messages WHERE id<? ORDER BY id DESC LIMIT ?", (before, bound)).fetchall()
+        return [self._message_row(r) for r in reversed(rows)]
 
     def get_message(self, mid: int) -> dict[str, Any] | None:
         with self._lock:
             r = self._conn.execute("SELECT * FROM messages WHERE id=?", (mid,)).fetchone()
-        if r is None:
-            return None
+        return self._message_row(r) if r else None
+
+    @staticmethod
+    def _message_row(r: sqlite3.Row) -> dict[str, Any]:
         return {
-            "id": r["id"], "ts": r["ts"], "author": r["author"], "kind": r["kind"],
+            "id": r["id"],
+            "ts": r["ts"],
+            "author": r["author"],
+            "kind": r["kind"],
             "payload": json.loads(r["payload"]),
             "visibility": json.loads(r["visibility"]) if r["visibility"] else None,
         }
@@ -319,5 +283,5 @@ class Database:
             "characters": self.list_characters(),
             "shared": self.list_shared(),
             "records": self.list_records(),
-            "messages": self.list_messages(limit=100000),
+            "messages": self.list_messages(limit=None),
         }

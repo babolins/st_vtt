@@ -1,3 +1,9 @@
+"""Characters: create, import, export, patch, reassign and delete.
+
+Each route is a thin wrapper over `st_vtt.service`; whatever it changes is also
+broadcast to every connected client.
+"""
+
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -8,7 +14,7 @@ from .. import service
 from ..auth import current_user, require_gm
 from ..config import UserConfig
 from ..perms import strip_for_user
-from ._common import emit, http
+from ._common import PatchBody, emit
 
 router = APIRouter(prefix="/characters", tags=["characters"])
 
@@ -28,12 +34,6 @@ class ImportBody(BaseModel):
     owner: str | None = None
 
 
-class PatchBody(BaseModel):
-    path: str
-    value: Any = None
-    op: str = "set"
-    patch: str | None = None
-
 
 @router.get("")
 def list_characters(request: Request, user: UserConfig = Depends(current_user)) -> list[dict]:
@@ -42,21 +42,15 @@ def list_characters(request: Request, user: UserConfig = Depends(current_user)) 
 
 @router.post("")
 async def create_character(body: CreateBody, request: Request, user: UserConfig = Depends(current_user)) -> dict:
-    try:
-        row, renders = service.create_character(request.app, user, body.playbook, body.name, body.owner)
-    except service.ServiceError as e:
-        raise http(e) from e
-    await emit(request, renders)
+    row, renders = service.create_character(request.app, user, body.playbook, body.name, body.owner)
+    emit(request, renders)
     return service.character_view(user, row)
 
 
 @router.post("/import")
 async def import_character(body: ImportBody, request: Request, user: UserConfig = Depends(current_user)) -> dict:
-    try:
-        row, warnings, renders = service.import_character(request.app, user, body.character, body.owner)
-    except service.ServiceError as e:
-        raise http(e) from e
-    await emit(request, renders)
+    row, warnings, renders = service.import_character(request.app, user, body.character, body.owner)
+    emit(request, renders)
     return {"character": service.character_view(user, row), "warnings": warnings}
 
 
@@ -80,30 +74,21 @@ def export_character(cid: str, request: Request, user: UserConfig = Depends(curr
 
 @router.post("/{cid}/patch")
 async def patch_character(cid: str, body: PatchBody, request: Request, user: UserConfig = Depends(current_user)) -> dict:
-    try:
-        renders = service.patch_entity(request.app, user, "character", cid, body.path, body.value, body.op, None, body.patch)
-    except service.ServiceError as e:
-        raise http(e) from e
-    await emit(request, renders)
+    renders = service.patch_entity(request.app, user, "character", cid, body.path, body.value, op=body.op, patch=body.patch)
+    emit(request, renders)
     row = request.app.state.db.get_character(cid)
     return {"revision": row["revision"] if row else None}
 
 
 @router.post("/{cid}/owner")
 async def set_owner(cid: str, body: OwnerBody, request: Request, user: UserConfig = Depends(require_gm)) -> dict:
-    try:
-        renders = service.set_owner(request.app, user, cid, body.owner)
-    except service.ServiceError as e:
-        raise http(e) from e
-    await emit(request, renders)
+    renders = service.set_owner(request.app, user, cid, body.owner)
+    emit(request, renders)
     return {"ok": True}
 
 
 @router.delete("/{cid}")
 async def delete_character(cid: str, request: Request, user: UserConfig = Depends(current_user)) -> dict:
-    try:
-        renders = service.delete_character(request.app, user, cid)
-    except service.ServiceError as e:
-        raise http(e) from e
-    await emit(request, renders)
+    renders = service.delete_character(request.app, user, cid)
+    emit(request, renders)
     return {"ok": True}

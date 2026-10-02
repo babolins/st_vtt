@@ -63,7 +63,7 @@ def test_every_problem_is_reported_at_once(tmp_path):
 
 
 def test_relative_paths_are_relative_to_the_config_file(tmp_path, monkeypatch):
-    path = write(tmp_path / "table" / "config.json", {
+    write(tmp_path / "table" / "config.json", {
         "users": [{"name": "Gm"}], "database": "data/campaign.db", "content_pack": str(ROOT / "content" / "example"),
     })
     monkeypatch.chdir(tmp_path)

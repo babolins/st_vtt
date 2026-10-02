@@ -8,12 +8,11 @@ is visible to the table at all.
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from typing import Any
 
 from .. import service
 from ..auth import current_user
 from ..config import UserConfig
-from ._common import emit, http
+from ._common import PatchBody, emit
 
 router = APIRouter(prefix="/records", tags=["records"])
 
@@ -22,12 +21,6 @@ class CreateBody(BaseModel):
     kind: str = "npc"
     name: str
 
-
-class PatchBody(BaseModel):
-    path: str
-    value: Any = None
-    op: str = "set"
-    patch: str | None = None
 
 
 def _visible_row(request: Request, user: UserConfig, rid: str) -> dict:
@@ -44,11 +37,8 @@ def list_records(request: Request, user: UserConfig = Depends(current_user)) -> 
 
 @router.post("")
 async def create_record(body: CreateBody, request: Request, user: UserConfig = Depends(current_user)) -> dict:
-    try:
-        row, renders = service.create_record(request.app, user, body.kind, body.name)
-    except service.ServiceError as e:
-        raise http(e) from e
-    await emit(request, renders)
+    row, renders = service.create_record(request.app, user, body.kind, body.name)
+    emit(request, renders)
     return service.record_view(user, row)
 
 
@@ -60,21 +50,13 @@ def get_record(rid: str, request: Request, user: UserConfig = Depends(current_us
 @router.post("/{rid}/patch")
 async def patch_record(rid: str, body: PatchBody, request: Request, user: UserConfig = Depends(current_user)) -> dict:
     _visible_row(request, user, rid)
-    try:
-        renders = service.patch_entity(
-            request.app, user, "record", rid, body.path, body.value, body.op, patch=body.patch
-        )
-    except service.ServiceError as e:
-        raise http(e) from e
-    await emit(request, renders)
+    renders = service.patch_entity(request.app, user, "record", rid, body.path, body.value, op=body.op, patch=body.patch)
+    emit(request, renders)
     return {"ok": True}
 
 
 @router.delete("/{rid}")
 async def delete_record(rid: str, request: Request, user: UserConfig = Depends(current_user)) -> dict:
-    try:
-        renders = service.delete_record(request.app, user, rid)
-    except service.ServiceError as e:
-        raise http(e) from e
-    await emit(request, renders)
+    renders = service.delete_record(request.app, user, rid)
+    emit(request, renders)
     return {"ok": True}

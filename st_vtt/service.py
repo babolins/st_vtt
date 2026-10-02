@@ -8,6 +8,7 @@ broadcast. Events are plain dicts; `render` callables produce a per-user view
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any, Callable
 
 from fastapi import FastAPI
@@ -16,11 +17,10 @@ from . import characters as chars
 from . import dice
 from . import rolls
 from .config import UserConfig
-from .content import ContentPack
-from .db import Database
+from .content import ContentPack, Move
+from .db import Applied, Database
 from .dice import DiceError
 from .patch import PatchError, apply_patch
-from .content import Move
 from .perms import HIDDEN_FIELDS, Forbidden, check_patch, is_hidden_path, strip_for_user, visible_to
 
 Render = Callable[[UserConfig], dict[str, Any] | None]
@@ -286,9 +286,14 @@ def migrate_list_ids(app: FastAPI) -> None:
 # --------------------------------------------------------------------- patches
 
 
+# A browser's client id is at most 8 characters (`clientId` in frontend/src/lib/ws.ts);
+# anything longer than this is not one.
+MAX_CLIENT_ID = 64
+
+
 def applied_key(user: UserConfig, client: Any, ref: Any = 0) -> tuple[str, str, int] | None:
     """Key for the applied-ref record, if the client sent a usable id and ref."""
-    if isinstance(client, str) and 0 < len(client) <= 64 and isinstance(ref, int) and not isinstance(ref, bool):
+    if isinstance(client, str) and 0 < len(client) <= MAX_CLIENT_ID and isinstance(ref, int) and not isinstance(ref, bool):
         return (user.name, client, ref)
     return None
 
@@ -299,7 +304,40 @@ def applied_ref(app: FastAPI, user: UserConfig, client: Any) -> int:
     return db_of(app).applied_ref(key[0], key[1]) if key else 0
 
 
-def patch_entity(app: FastAPI, user: UserConfig, entity: str, eid: str | None, path: str, value: Any = None, op: str = "set", client: str | None = None, patch: str | None = None, ref: Any = None) -> list[Render]:
+@dataclass(frozen=True)
+class _Stored:
+    """How to load and save one kind of patchable document."""
+
+    noun: str
+    get: Callable[[Database, str], dict[str, Any] | None]
+    save: Callable[[Database, str, dict[str, Any], Applied | None], int]
+
+
+_PATCHABLE = {
+    "character": _Stored("character", Database.get_character, Database.save_character),
+    "shared": _Stored("shared sheet", Database.get_shared, Database.save_shared),
+    "record": _Stored("record", Database.get_record, Database.save_record),
+}
+
+
+def patch_entity(
+    app: FastAPI,
+    user: UserConfig,
+    entity: str,
+    eid: str | None,
+    path: str,
+    value: Any = None,
+    *,
+    op: str = "set",
+    patch: str | None = None,
+    client: str | None = None,
+    ref: Any = None,
+) -> list[Render]:
+    """Apply one patch to a character, shared sheet or record, and save it.
+
+    `client` and `ref` identify a patch sent over the WebSocket, so a resent one is
+    applied only once.
+    """
     db = db_of(app)
     # A client resends patches that were in flight when its socket dropped. Any at or below its
     # applied ref are already in: ack them without applying them again. (No await between this
@@ -307,35 +345,20 @@ def patch_entity(app: FastAPI, user: UserConfig, entity: str, eid: str | None, p
     applied = applied_key(user, client, ref)
     if applied and applied[2] <= db.applied_ref(applied[0], applied[1]):
         return []
-    if entity == "character":
-        if not eid:
-            raise ServiceError("missing character id")
-        row = db.get_character(eid)
-        if row is None:
-            raise ServiceError("no such character", 404)
-        owner = row["owner"]
-    elif entity == "shared":
-        if not eid:
-            raise ServiceError("missing shared sheet id")
-        row = db.get_shared(eid)
-        if row is None:
-            raise ServiceError("no such shared sheet", 404)
-        owner = None
-    elif entity == "record":
-        if not eid:
-            raise ServiceError("missing record id")
-        row = db.get_record(eid)
-        if row is None:
-            raise ServiceError("no such record", 404)
-        owner = None
-    else:
+    stored = _PATCHABLE.get(entity)
+    if stored is None:
         raise ServiceError(f"unknown entity {entity!r}")
+    if not eid:
+        raise ServiceError(f"missing {stored.noun} id")
+    row = stored.get(db, eid)
+    if row is None:
+        raise ServiceError(f"no such {stored.noun}", 404)
     anyone = UserConfig(name="", role="player")
     gm_sheet = (entity == "shared" and not shared_visible(app, anyone, row)) or (
         entity == "record" and not record_visible(anyone, row)
     )
     try:
-        check_patch(user, entity, owner, path, gm_only=gm_sheet)
+        check_patch(user, entity, row.get("owner"), path, gm_only=gm_sheet)
     except Forbidden as e:
         raise ServiceError(str(e), 403) from e
     doc = row["data"]
@@ -354,31 +377,23 @@ def patch_entity(app: FastAPI, user: UserConfig, entity: str, eid: str | None, p
     merged = op == "text_patch"
     if merged:
         op, value = "set", result
-    if entity == "character":
-        rev = db.save_character(eid, doc, applied)
-    elif entity == "record":
-        rev = db.save_record(eid, doc, applied)
-    else:
-        rev = db.save_shared(eid, doc, applied)
+    rev = stored.save(db, eid, doc, applied)
     gm_only = gm_sheet or is_hidden_path(entity, path)
 
     # Hiding a record has to withdraw it from the table's browsers, not just stop
     # sending updates: they already hold a copy. Revealing one has to deliver it.
-    withdrawn = revealed = False
-    if entity == "record":
-        after_hidden = not record_visible(anyone, {"data": doc})
-        before_hidden = gm_sheet
-        withdrawn = after_hidden and not before_hidden
-        revealed = before_hidden and not after_hidden
-    after_row = db.get_record(eid) if entity == "record" else None
+    hidden_now = entity == "record" and not record_visible(anyone, {"data": doc})
+    withdrawn = hidden_now and not gm_sheet
+    revealed_row = db.get_record(eid) if entity == "record" and gm_sheet and not hidden_now else None
 
     def render(u: UserConfig) -> dict[str, Any] | None:
-        if not u.is_gm and withdrawn:
-            return {"type": "record_deleted", "id": eid}
-        if not u.is_gm and revealed and after_row is not None:
-            return {"type": "record_created", "record": record_view(u, after_row)}
-        if gm_only and not u.is_gm:
-            return None
+        if not u.is_gm:
+            if withdrawn:
+                return {"type": "record_deleted", "id": eid}
+            if revealed_row is not None:
+                return {"type": "record_created", "record": record_view(u, revealed_row)}
+            if gm_only:
+                return None
         return {"type": "patch", "entity": entity, "id": eid, "path": path, "value": value, "op": op, "revision": rev, "by": user.name, "client": client, "ref": ref, "merged": merged}
 
     return [render]

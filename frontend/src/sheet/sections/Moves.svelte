@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app } from '../../lib/state.svelte';
-  import { borrowedFrom, granted, moveIndex, packInserts, uid } from '../../lib/util';
+  import { borrowedFrom, granted, moveIndex, movePreview, packInserts, uid } from '../../lib/util';
   import type { CharacterDoc, Move, Playbook } from '../../lib/types';
   import type { Patcher } from '../../lib/patch';
   import Collapsible from '../../ui/Collapsible.svelte';
@@ -97,7 +97,7 @@
           <div class="grow">
             <strong>{m.name}</strong> {#if why}<span class="tag warn">{why}</span>{/if}
             {#if pb?.starting_moves.choose.some((c) => c.from.includes(m.id))}<span class="tag">starting option</span>{/if}
-            <div class="muted small">{m.trigger || m.text.slice(0, 120)}</div>
+            <div class="muted small">{movePreview(m)}</div>
           </div>
           <button class="small" onclick={() => take(m)}>Take</button>
         </div>
@@ -110,7 +110,7 @@
             <div class="grow">
               <strong>{m.name}</strong> <span class="tag">{from.name}</span>
               {#if why}<span class="tag warn">{why}</span>{/if}
-              <div class="muted small">{m.trigger || m.text.slice(0, 120)}</div>
+              <div class="muted small">{movePreview(m)}</div>
             </div>
             <button class="small" onclick={() => take(m)}>Take</button>
           </div>

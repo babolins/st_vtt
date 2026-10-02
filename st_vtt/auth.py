@@ -18,6 +18,8 @@ from .config import Config, UserConfig
 from .db import Database
 
 COOKIE = "st_session"
+# A year, in seconds: a table keeps meeting, and nobody should sign in every session.
+COOKIE_MAX_AGE = 365 * 24 * 60 * 60
 # WebSocket close codes the client understands.
 WS_NOT_LOGGED_IN = 4401
 WS_SIGNED_IN_ELSEWHERE = 4409

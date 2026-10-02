@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -657,13 +657,37 @@ class ContentPack(Strict):
         return self.all_moves().get(move_id)
 
     # ---- validation
+    # Each check appends what it finds to `errors`, so a pack author sees every problem at once.
+
     @model_validator(mode="after")
     def _cross_check(self) -> "ContentPack":
         errors: list[str] = []
+        seen_moves: dict[str, str] = {}  # move id -> where it was first defined
+        self._check_meta(errors)
+        for group, moves in self.moves.items():
+            for m in moves:
+                where = f"moves.{group}[{m.id}]"
+                _note_move_id(errors, seen_moves, where, m.id)
+                self._check_move(errors, where, m)
+        self._check_inserts(errors, seen_moves)
+        self._check_playbooks(errors, seen_moves)
+        if _has_dupes(a.id for a in self.arcana):
+            errors.append("arcana: duplicate arcanum ids")
+        for a in self.arcana:
+            for m in a.moves:
+                self._check_move(errors, f"arcana[{a.id}].moves[{m.id}]", m)
+        self._check_shared_sheets(errors)
+        self._check_option_owners(errors)
+        if errors:
+            raise ValueError("\n".join(errors))
+        return self
+
+    def _check_meta(self, errors: list[str]) -> None:
         stat_ids = set(self.stat_ids())
-        pack_debility_ids = {d.id for d in self.pack.debilities}
         if len(stat_ids) != len(self.pack.stats):
             errors.append("pack.stats: duplicate stat ids")
+        if self.pack.stat_array and len(self.pack.stat_array) != len(self.pack.stats):
+            errors.append(f"pack.stat_array: expected {len(self.pack.stats)} values")
         for d in self.pack.debilities:
             for s in d.affects:
                 if s not in stat_ids:
@@ -673,170 +697,136 @@ class ContentPack(Strict):
                 dice.parse(preset.expr, {"damage_die": "1d6", **{s: 0 for s in stat_ids}})
             except dice.DiceError as e:
                 errors.append(f"pack.dice_presets[{i}] ({preset.label}): {e}")
-        for expr_name, expr in (("base", self.pack.roll.base), ("advantage", self.pack.roll.advantage), ("disadvantage", self.pack.roll.disadvantage)):
+        rules = self.pack.roll
+        for expr_name, expr in (("base", rules.base), ("advantage", rules.advantage), ("disadvantage", rules.disadvantage)):
             try:
                 dice.parse(expr)
             except dice.DiceError as e:
                 errors.append(f"pack.roll.{expr_name}: {e}")
         try:
             level_up_cost(self.pack.xp.level_up_cost, 1)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001 - whatever the formula does wrong, report it
             errors.append(f"pack.xp.level_up_cost: {e}")
 
-        insert_ids = {i.id for i in self.inserts}
-
-        def check_move(where: str, m: Move, own_stats: set[str] | None = None, own_debilities: set[str] | None = None) -> None:
-            if m.insert and m.insert not in insert_ids:
-                errors.append(f"{where}.insert: unknown insert {m.insert!r}")
-            allowed = own_stats if own_stats is not None else stat_ids
-            if m.roll and m.roll.stat is not None and m.roll.stat != "choose":
-                stats = [m.roll.stat] if isinstance(m.roll.stat, str) else m.roll.stat
-                for s in stats:
+    def _check_move(self, errors: list[str], where: str, m: Move, own_stats: set[str] | None = None, own_debilities: set[str] | None = None) -> None:
+        """One move on its own. A shared sheet's moves pass its own stats and debilities."""
+        if m.insert and m.insert not in {i.id for i in self.inserts}:
+            errors.append(f"{where}.insert: unknown insert {m.insert!r}")
+        allowed = own_stats if own_stats is not None else set(self.stat_ids())
+        debility_ids = own_debilities if own_debilities is not None else {d.id for d in self.pack.debilities}
+        if m.roll:
+            if m.roll.stat is not None and m.roll.stat != "choose":
+                for s in [m.roll.stat] if isinstance(m.roll.stat, str) else m.roll.stat:
                     if s not in allowed:
                         errors.append(f"{where}.roll.stat: unknown stat {s!r} (available: {sorted(allowed)})")
-            if m.roll:
-                seen_mods: set[str] = set()
-                for mod in m.roll.modifiers:
-                    if mod.id in seen_mods:
-                        errors.append(f"{where}.roll.modifiers: duplicate modifier id {mod.id!r}")
-                    seen_mods.add(mod.id)
-            tier_labels = {t.label for t in self.pack.roll.tiers}
-            debility_ids = pack_debility_ids if own_debilities is None else own_debilities
-            for label, outcome in m.outcomes.items():
-                if label not in tier_labels:
-                    errors.append(f"{where}.outcomes: unknown tier {label!r} (tiers are {sorted(tier_labels)})")
-                for i, action in enumerate(outcome.apply):
-                    aw = f"{where}.outcomes[{label}].apply[{i}]"
-                    if isinstance(action, HpAction):
-                        try:
-                            dice.parse(action.amount)
-                        except dice.DiceError as e:
-                            errors.append(f"{aw}.amount: {e}")
-                    elif isinstance(action, DebilityAction):
-                        if action.id is not None and action.id not in debility_ids:
-                            errors.append(f"{aw}.id: unknown debility {action.id!r}")
-                    elif isinstance(action, StatAction):
-                        if action.id not in allowed:
-                            errors.append(f"{aw}.id: unknown stat {action.id!r} (available: {sorted(allowed)})")
-                    elif isinstance(action, SheetDebilityAction):
-                        if own_stats is None:
-                            errors.append(f"{aw}: sheet_debility only applies to a shared-sheet move")
-                        elif action.id not in debility_ids:
-                            errors.append(f"{aw}.id: unknown debility {action.id!r}")
+            seen_mods: set[str] = set()
+            for mod in m.roll.modifiers:
+                if mod.id in seen_mods:
+                    errors.append(f"{where}.roll.modifiers: duplicate modifier id {mod.id!r}")
+                seen_mods.add(mod.id)
+        tier_labels = {t.label for t in self.pack.roll.tiers}
+        for label, outcome in m.outcomes.items():
+            if label not in tier_labels:
+                errors.append(f"{where}.outcomes: unknown tier {label!r} (tiers are {sorted(tier_labels)})")
+            for i, action in enumerate(outcome.apply):
+                _check_action(errors, f"{where}.outcomes[{label}].apply[{i}]", action, allowed, debility_ids, on_shared_sheet=own_stats is not None)
 
-        seen_moves: dict[str, str] = {}
-        for group, moves in self.moves.items():
-            for m in moves:
-                where = f"moves.{group}[{m.id}]"
-                if m.id in seen_moves:
-                    errors.append(f"{where}: duplicate move id (also in {seen_moves[m.id]})")
-                seen_moves[m.id] = where
-                check_move(where, m)
+    def _check_sheet(self, errors: list[str], seen_moves: dict[str, str], where: str, own_moves: list[Move], sections: list[Section], starting: StartingMoves) -> None:
+        """The moves and sections of a playbook or an insert."""
+        own_ids = {m.id for m in own_moves}
+        known = own_ids | set(self.shared_moves())
+        insert_ids = {i.id for i in self.inserts}
+        for m in own_moves:
+            mw = f"{where}.moves[{m.id}]"
+            _note_move_id(errors, seen_moves, mw, m.id)
+            self._check_move(errors, mw, m)
+            for r in m.requires.moves if m.requires else []:
+                if r not in known:
+                    errors.append(f"{mw}.requires.moves: unknown move {r!r}")
+            if m.replaces and m.replaces not in own_ids:
+                errors.append(f"{mw}.replaces: unknown move {m.replaces!r}")
+        for r in starting.fixed:
+            if r not in known:
+                errors.append(f"{where}.starting_moves.fixed: unknown move {r!r}")
+        for c in starting.choose:
+            for r in c.from_:
+                if r not in known:
+                    errors.append(f"{where}.starting_moves.choose: unknown move {r!r}")
+            if c.n > len(c.from_):
+                errors.append(f"{where}.starting_moves.choose: n={c.n} exceeds options")
+        _check_section_ids(errors, where, sections)
+        for sec in sections:
+            for opt in sec.all_options():
+                if not opt.effects:
+                    continue
+                ow = f"{where}.sections[{sec.id}].options[{opt.id}].effects"
+                for r in opt.effects.moves:
+                    if r not in known:
+                        errors.append(f"{ow}.moves: unknown move {r!r}")
+                for r in opt.effects.inserts:
+                    if r not in insert_ids:
+                        errors.append(f"{ow}.inserts: unknown insert {r!r}")
+
+    def _check_inserts(self, errors: list[str], seen_moves: dict[str, str]) -> None:
+        insert_ids = {i.id for i in self.inserts}
         if len(insert_ids) != len(self.inserts):
             errors.append("inserts: duplicate insert ids")
         for iid in sorted(insert_ids & set(CORE_INSERTS)):
             errors.append(f"inserts[{iid}]: {iid!r} is a built-in insert name, pick another id")
-
-        def check_sheet(where: str, own_moves: list[Move], sections: list[Section], starting: StartingMoves) -> None:
-            """Validate the moves and sections of a playbook or an insert."""
-            own_ids = {m.id for m in own_moves}
-            for m in own_moves:
-                mw = f"{where}.moves[{m.id}]"
-                if m.id in seen_moves:
-                    errors.append(f"{mw}: duplicate move id (also in {seen_moves[m.id]})")
-                seen_moves[m.id] = mw
-                check_move(mw, m)
-                if m.requires:
-                    for r in m.requires.moves:
-                        if r not in own_ids and r not in self.shared_moves():
-                            errors.append(f"{mw}.requires.moves: unknown move {r!r}")
-                if m.replaces and m.replaces not in own_ids:
-                    errors.append(f"{mw}.replaces: unknown move {m.replaces!r}")
-            known = own_ids | set(self.shared_moves())
-            for r in starting.fixed:
-                if r not in known:
-                    errors.append(f"{where}.starting_moves.fixed: unknown move {r!r}")
-            for c in starting.choose:
-                for r in c.from_:
-                    if r not in known:
-                        errors.append(f"{where}.starting_moves.choose: unknown move {r!r}")
-                if c.n > len(c.from_):
-                    errors.append(f"{where}.starting_moves.choose: n={c.n} exceeds options")
-            sec_ids: set[str] = set()
-            for sec in sections:
-                if sec.id in sec_ids:
-                    errors.append(f"{where}.sections: duplicate section id {sec.id!r}")
-                sec_ids.add(sec.id)
-                for opt in sec.all_options():
-                    if not opt.effects:
-                        continue
-                    ow = f"{where}.sections[{sec.id}].options[{opt.id}].effects"
-                    for r in opt.effects.moves:
-                        if r not in known:
-                            errors.append(f"{ow}.moves: unknown move {r!r}")
-                    for r in opt.effects.inserts:
-                        if r not in insert_ids:
-                            errors.append(f"{ow}.inserts: unknown insert {r!r}")
-
         for ins in self.inserts:
-            check_sheet(f"inserts[{ins.id}]", ins.moves, ins.sections, ins.starting_moves)
+            self._check_sheet(errors, seen_moves, f"inserts[{ins.id}]", ins.moves, ins.sections, ins.starting_moves)
         # A character keeps every section in one map, so an insert's ids must not collide with
-        # another insert's or with a playbook it can be slipped into.
-        insert_section_ids: dict[str, str] = {}
+        # another insert's or with a playbook it can be slipped into (see _check_playbooks).
+        owners: dict[str, str] = {}
         for ins in self.inserts:
             for sec in ins.sections:
-                if sec.id in insert_section_ids:
-                    errors.append(f"inserts[{ins.id}].sections: section id {sec.id!r} is already used by inserts[{insert_section_ids[sec.id]}]")
-                insert_section_ids[sec.id] = ins.id
-        playbook_ids = {p.id for p in self.playbooks}
+                if sec.id in owners:
+                    errors.append(f"inserts[{ins.id}].sections: section id {sec.id!r} is already used by inserts[{owners[sec.id]}]")
+                owners[sec.id] = ins.id
+
+    def _check_playbooks(self, errors: list[str], seen_moves: dict[str, str]) -> None:
+        playbook_ids = [p.id for p in self.playbooks]
+        insert_ids = {i.id for i in self.inserts}
+        insert_sections = {sec.id: ins.id for ins in self.inserts for sec in ins.sections}
         for pb in self.playbooks:
-            check_sheet(f"playbooks[{pb.id}]", pb.moves, pb.sections, pb.starting_moves)
+            where = f"playbooks[{pb.id}]"
+            self._check_sheet(errors, seen_moves, where, pb.moves, pb.sections, pb.starting_moves)
             for m in pb.moves:
-                if not m.grants:
-                    continue
-                where = f"playbooks[{pb.id}].moves[{m.id}].grants.from_playbooks"
-                for other in m.grants.from_playbooks:
+                for other in m.grants.from_playbooks if m.grants else []:
+                    gw = f"{where}.moves[{m.id}].grants.from_playbooks"
                     if other not in playbook_ids:
-                        errors.append(f"{where}: unknown playbook {other!r}")
+                        errors.append(f"{gw}: unknown playbook {other!r}")
                     elif other == pb.id:
-                        errors.append(f"{where}: {other!r} is this move's own playbook")
+                        errors.append(f"{gw}: {other!r} is this move's own playbook")
             if pb.stat_array is not None and len(pb.stat_array) != len(self.pack.stats):
-                errors.append(f"playbooks[{pb.id}].stat_array: expected {len(self.pack.stats)} values")
+                errors.append(f"{where}.stat_array: expected {len(self.pack.stats)} values")
             for iid in pb.inserts:
                 if iid not in CORE_INSERTS and iid not in insert_ids:
-                    errors.append(f"playbooks[{pb.id}].inserts: unknown insert {iid!r} (built-ins are {sorted(CORE_INSERTS)})")
+                    errors.append(f"{where}.inserts: unknown insert {iid!r} (built-ins are {sorted(CORE_INSERTS)})")
             for sec in pb.sections:
-                if sec.id in insert_section_ids:
-                    errors.append(f"playbooks[{pb.id}].sections: section id {sec.id!r} clashes with inserts[{insert_section_ids[sec.id]}]")
-        if self.pack.stat_array and len(self.pack.stat_array) != len(self.pack.stats):
-            errors.append(f"pack.stat_array: expected {len(self.pack.stats)} values")
-        pb_ids = [p.id for p in self.playbooks]
-        if len(set(pb_ids)) != len(pb_ids):
+                if sec.id in insert_sections:
+                    errors.append(f"{where}.sections: section id {sec.id!r} clashes with inserts[{insert_sections[sec.id]}]")
+        if _has_dupes(playbook_ids):
             errors.append("playbooks: duplicate playbook ids")
-        arc_ids = [a.id for a in self.arcana]
-        if len(set(arc_ids)) != len(arc_ids):
-            errors.append("arcana: duplicate arcanum ids")
-        for a in self.arcana:
-            for m in a.moves:
-                check_move(f"arcana[{a.id}].moves[{m.id}]", m)
-        tids = [t.id for t in self.shared_sheets]
-        if len(set(tids)) != len(tids):
+
+    def _check_shared_sheets(self, errors: list[str]) -> None:
+        if _has_dupes(t.id for t in self.shared_sheets):
             errors.append("shared_sheets: duplicate template ids")
         for t in self.shared_sheets:
-            own = {st.id for st in t.stats}
+            where = f"shared_sheets[{t.id}]"
+            own_stats = {st.id for st in t.stats}
+            own_debilities = {d.id for d in t.debilities}
             for m in t.moves:
-                check_move(f"shared_sheets[{t.id}].moves[{m.id}]", m, own_stats=own, own_debilities={d.id for d in t.debilities})
+                self._check_move(errors, f"{where}.moves[{m.id}]", m, own_stats, own_debilities)
             if t.size_start and t.size_start not in t.sizes:
-                errors.append(f"shared_sheets[{t.id}].size_start: not in sizes")
-            sec_ids = set()
-            for sec in t.sections:
-                if sec.id in sec_ids:
-                    errors.append(f"shared_sheets[{t.id}].sections: duplicate section id {sec.id!r}")
-                sec_ids.add(sec.id)
+                errors.append(f"{where}.size_start: not in sizes")
+            _check_section_ids(errors, where, t.sections)
 
-        # A move's own options are stored beside a section's, keyed by the id of whatever owns
-        # them — so a move that carries options must not be named after a section on the same sheet.
-        def check_option_owners(where: str, moves: list[Move], section_ids: dict[str, str]) -> None:
+    def _check_option_owners(self, errors: list[str]) -> None:
+        """A move's own options are stored beside a section's, keyed by the id of whatever owns
+        them, so a move that carries options must not be named after a section on the same sheet."""
+
+        def check(where: str, moves: list[Move], section_ids: dict[str, str]) -> None:
             for m in moves:
                 if m.options and m.id in section_ids:
                     errors.append(f"{where}[{m.id}].options: this move's id is already a section id ({section_ids[m.id]}), pick another")
@@ -849,20 +839,55 @@ class ContentPack(Strict):
             for sec in ins.sections:
                 char_sections.setdefault(sec.id, f"inserts[{ins.id}].sections")
         for group, moves in self.moves.items():
-            check_option_owners(f"moves.{group}", moves, char_sections)
+            check(f"moves.{group}", moves, char_sections)
         for pb in self.playbooks:
-            check_option_owners(f"playbooks[{pb.id}].moves", pb.moves, char_sections)
+            check(f"playbooks[{pb.id}].moves", pb.moves, char_sections)
         for ins in self.inserts:
-            check_option_owners(f"inserts[{ins.id}].moves", ins.moves, char_sections)
+            check(f"inserts[{ins.id}].moves", ins.moves, char_sections)
         for a in self.arcana:
-            check_option_owners(f"arcana[{a.id}].moves", a.moves, char_sections)
+            check(f"arcana[{a.id}].moves", a.moves, char_sections)
         for t in self.shared_sheets:
-            own_sections = {sec.id: f"shared_sheets[{t.id}].sections" for sec in t.sections}
-            check_option_owners(f"shared_sheets[{t.id}].moves", t.moves, own_sections)
+            check(f"shared_sheets[{t.id}].moves", t.moves, {sec.id: f"shared_sheets[{t.id}].sections" for sec in t.sections})
 
-        if errors:
-            raise ValueError("\n".join(errors))
-        return self
+
+def _has_dupes(ids: Iterable[str]) -> bool:
+    ids = list(ids)
+    return len(set(ids)) != len(ids)
+
+
+def _note_move_id(errors: list[str], seen: dict[str, str], where: str, move_id: str) -> None:
+    """Move ids are global across the pack: report one already defined elsewhere."""
+    if move_id in seen:
+        errors.append(f"{where}: duplicate move id (also in {seen[move_id]})")
+    seen[move_id] = where
+
+
+def _check_section_ids(errors: list[str], where: str, sections: list[Section]) -> None:
+    seen: set[str] = set()
+    for sec in sections:
+        if sec.id in seen:
+            errors.append(f"{where}.sections: duplicate section id {sec.id!r}")
+        seen.add(sec.id)
+
+
+def _check_action(errors: list[str], where: str, action: Any, stats: set[str], debilities: set[str], *, on_shared_sheet: bool) -> None:
+    """One `apply` action of a move's outcome."""
+    if isinstance(action, HpAction):
+        try:
+            dice.parse(action.amount)
+        except dice.DiceError as e:
+            errors.append(f"{where}.amount: {e}")
+    elif isinstance(action, DebilityAction):
+        if action.id is not None and action.id not in debilities:
+            errors.append(f"{where}.id: unknown debility {action.id!r}")
+    elif isinstance(action, StatAction):
+        if action.id not in stats:
+            errors.append(f"{where}.id: unknown stat {action.id!r} (available: {sorted(stats)})")
+    elif isinstance(action, SheetDebilityAction):
+        if not on_shared_sheet:
+            errors.append(f"{where}: sheet_debility only applies to a shared-sheet move")
+        elif action.id not in debilities:
+            errors.append(f"{where}.id: unknown debility {action.id!r}")
 
 
 def level_up_cost(formula: str, level: int) -> int:
