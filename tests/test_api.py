@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from conftest import ROOT
+from st_vtt import service
 from st_vtt.auth import COOKIE
 from st_vtt.main import create_app
 from st_vtt.ws import websocket_endpoint
@@ -504,6 +505,77 @@ def test_unauthenticated_ws_rejected(app):
     with pytest.raises(Exception):
         with c.websocket_connect("/ws"):
             pass
+
+
+def test_a_message_the_server_cannot_read_leaves_the_socket_open(alice):
+    with alice.websocket_connect("/ws") as wa:
+        wa.receive_json()  # presence
+        wa.send_text("{not json")
+        assert wa.receive_json() == {"type": "error", "message": "invalid JSON"}
+        # JSON that isn't an object is dropped without a reply.
+        for raw in ("[1]", '"chat"', "5", "null"):
+            wa.send_text(raw)
+        # A keepalive ping isn't acked, even with a ref.
+        wa.send_text(json.dumps({"type": "ping", "ref": 1}))
+        assert_ping_is_next(wa, wa)
+
+
+def test_an_unknown_message_type_is_refused_to_its_sender_only(alice, bob):
+    with alice.websocket_connect("/ws") as wa, bob.websocket_connect("/ws") as wb:
+        wa.receive_json(); wa.receive_json(); wb.receive_json()  # presence
+        wa.send_text(json.dumps({"type": "bogus", "ref": 1}))
+        assert wa.receive_json() == {"type": "error", "message": "unknown message type 'bogus'", "ref": 1}
+        wa.send_text(json.dumps({"ref": 2}))
+        assert wa.receive_json() == {"type": "error", "message": "unknown message type None", "ref": 2}
+        assert_ping_is_next(wa, wa, wb)
+
+
+def test_a_handler_that_fails_answers_server_error_and_nothing_else(alice, bob, monkeypatch, caplog):
+    def boom(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(service, "do_roll", boom)
+    with alice.websocket_connect("/ws") as wa, bob.websocket_connect("/ws") as wb:
+        wa.receive_json(); wa.receive_json(); wb.receive_json()  # presence
+        wa.send_text(json.dumps({"type": "roll", "expr": "1d6", "ref": 1}))
+        assert wa.receive_json() == {"type": "error", "message": "server error: boom", "ref": 1}
+        # No ack and no broadcast, and the socket still works.
+        assert_ping_is_next(wa, wa, wb)
+    assert "ws handler failed" in caplog.text
+
+
+def test_share_move_over_the_socket(alice, bob):
+    cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": "Bryn"}).json()["id"]
+    with alice.websocket_connect("/ws") as wa, bob.websocket_connect("/ws") as wb:
+        wa.receive_json(); wa.receive_json(); wb.receive_json()  # presence
+        wa.send_text(json.dumps({"type": "share_move", "character_id": cid, "move_id": "brawl", "ref": 1}))
+        for ws in (wa, wb):
+            ev = ws.receive_json()
+            assert ev["type"] == "message" and ev["message"]["kind"] == "move"
+            assert ev["message"]["payload"]["name"] == "Brawl" and ev["message"]["payload"]["character"] == "Bryn"
+        assert wa.receive_json() == {"type": "ack", "ref": 1}
+
+        wa.send_text(json.dumps({"type": "share_move", "character_id": cid, "move_id": "nope", "ref": 2}))
+        assert wa.receive_json() == {"type": "error", "message": "unknown move 'nope'", "ref": 2}
+        assert_ping_is_next(wa, wa, wb)
+
+
+def test_request_roll_over_the_socket_is_gm_only(gm, alice):
+    with alice.websocket_connect("/ws") as wa, gm.websocket_connect("/ws") as wg:
+        wa.receive_json(); wa.receive_json(); wg.receive_json()  # presence
+        wa.send_text(json.dumps({"type": "request_roll", "user": "Gm", "label": "x", "ref": 1}))
+        assert wa.receive_json() == {"type": "error", "message": "GM only", "ref": 1}
+        assert_ping_is_next(wa, wa, wg)
+
+        wg.send_text(json.dumps({"type": "request_roll", "user": "Nobody", "label": "x", "ref": 2}))
+        assert wg.receive_json() == {"type": "error", "message": "unknown user 'Nobody'", "ref": 2}
+
+        wg.send_text(json.dumps({"type": "request_roll", "user": "Alice", "label": "Take a Risk", "stat": "wis", "ref": 3}))
+        for ws in (wa, wg):
+            ev = ws.receive_json()
+            assert ev["type"] == "message" and ev["message"]["kind"] == "request"
+            assert ev["message"]["payload"] == {"to": "Alice", "label": "Take a Risk", "stat": "wis"}
+        assert wg.receive_json() == {"type": "ack", "ref": 3}
 
 
 def test_text_patch_via_api_keeps_both_edits(gm, alice, bob):

@@ -64,6 +64,8 @@
   }
   function addCustom() {
     if (!cName.trim()) return;
+    // The server reads this with the pack's strict Move model: a key it doesn't know makes
+    // the move "unknown". tests/test_custom_moves.py writes the same shape; keep the two alike.
     const m: Move = {
       id: `custom_${uid()}`, name: cName.trim(), trigger: cTrigger, text: cText,
       roll: cStat === '' ? null : { stat: cStat === 'nothing' ? null : cStat === 'choose' ? 'choose' : cStat, bonus: 0, label: null, modifiers: [] },
