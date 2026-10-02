@@ -67,8 +67,9 @@ def test_schema_to_stdout_and_to_a_file(tmp_path, capsys):
     assert json.loads(out.read_text(encoding="utf-8")) == printed
 
 
-def test_serve(config_file, served):
-    assert main(["serve"]) == 0
+@pytest.mark.parametrize("argv", [[], ["serve"]])
+def test_serve_is_the_default(config_file, served, argv):
+    assert main(argv) == 0
     [(app, kwargs)] = served
     assert app.state.config.port == 8123
     assert kwargs == {"host": "127.0.0.1", "port": 8123}

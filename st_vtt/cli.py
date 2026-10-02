@@ -18,6 +18,8 @@ def main(argv: list[str] | None = None) -> int:
     serve = sub.add_parser("serve", help="Run the server (default).")
     serve.add_argument("-c", "--config", default="config.json")
     serve.add_argument("--reload", action="store_true", help="Auto-reload on code changes (development).")
+    # With no command it serves, so it needs serve's defaults too.
+    parser.set_defaults(config="config.json", reload=False)
 
     validate = sub.add_parser("validate", help="Validate a content pack directory or file.")
     validate.add_argument("path", nargs="?", help="Content pack path (default: from config).")
