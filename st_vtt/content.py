@@ -944,15 +944,11 @@ def _format_validation_error(e: ValidationError, source: str, origins: dict[str,
         loc_parts = [str(x) for x in err["loc"]]
         loc = ".".join(loc_parts) or "<root>"
         origin = ""
+        # An entry in a list (a playbook, an insert, ...) is located by index, not by the id
+        # `origins` knows it by, so only `moves` groups and object keys name their file.
         if loc_parts:
             head = loc_parts[0]
-            if head in LIST_KEYS and len(loc_parts) > 1:
-                # try to name the entry by id via origins
-                for k, f in origins.items():
-                    if k.startswith(head + "["):
-                        origin = ""  # ambiguous by index; keep loc only
-                        break
-            elif head == "moves" and len(loc_parts) > 1:
+            if head == "moves" and len(loc_parts) > 1:
                 origin = f" (in {origins.get(f'moves.{loc_parts[1]}', '')})"
             elif head in origins:
                 origin = f" (in {origins[head]})"
