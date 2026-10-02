@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -53,6 +53,11 @@ def create_app(config: Config | None = None) -> FastAPI:
     app.state.hub = Hub()
     service.migrate_list_ids(app)
     service.autocreate_shared(app)
+
+    @app.exception_handler(service.ServiceError)
+    async def service_error(request: Request, e: service.ServiceError) -> JSONResponse:
+        # The shape HTTPException gives, so the client reads every error the same way.
+        return JSONResponse({"detail": str(e)}, status_code=e.status)
 
     app.include_router(api_router)
     app.add_api_websocket_route("/ws", websocket_endpoint)

@@ -254,7 +254,10 @@ def handle(app: FastAPI, user: UserConfig, msg: dict[str, Any]) -> list[service.
     if kind == "ping":
         return None
     if kind == "patch":
-        return service.patch_entity(app, user, str(msg.get("entity")), msg.get("id"), str(msg.get("path", "")), msg.get("value"), str(msg.get("op", "set")), msg.get("client"), msg.get("patch"), msg.get("ref"))
+        return service.patch_entity(
+            app, user, str(msg.get("entity")), msg.get("id"), str(msg.get("path", "")), msg.get("value"),
+            op=str(msg.get("op", "set")), patch=msg.get("patch"), client=msg.get("client"), ref=msg.get("ref"),
+        )
     if kind == "chat":
         to = msg.get("to")
         # As ChatBody requires over REST: list() would split a bare name into letters.
