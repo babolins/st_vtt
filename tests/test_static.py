@@ -28,7 +28,9 @@ def test_unknown_paths_get_the_app(client):
     assert client.get("/c/abc123").text == "INDEX"
 
 
-@pytest.mark.parametrize("path", ["/%2e%2e/config.json", "/..%2fconfig.json", "/assets%2f..%2f..%2fconfig.json", "/%2e%2e%2fconfig.json"])
+@pytest.mark.parametrize(
+    "path", ["/%2e%2e/config.json", "/..%2fconfig.json", "/assets%2f..%2f..%2fconfig.json", "/%2e%2e%2fconfig.json"]
+)
 def test_never_serves_files_outside_the_build(client, path):
     r = client.get(path)
     assert "SECRET" not in r.text

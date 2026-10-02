@@ -94,7 +94,11 @@ class Database:
     # `name`, and a character's `playbook`, are copies of the document's own fields; rows leave
     # them out, as `data` already holds them.
 
-    _MIRRORED: dict[DocTable, tuple[str, ...]] = {"characters": ("name", "playbook"), "shared_sheets": ("name",), "records": ("name",)}
+    _MIRRORED: dict[DocTable, tuple[str, ...]] = {
+        "characters": ("name", "playbook"),
+        "shared_sheets": ("name",),
+        "records": ("name",),
+    }
 
     @staticmethod
     def _doc_row(r: sqlite3.Row) -> dict[str, Any]:
@@ -115,9 +119,20 @@ class Database:
     def _insert(self, table: DocTable, eid: str, own: dict[str, Any], doc: dict[str, Any]) -> dict[str, Any]:
         now = time.time()
         mirrored = self._MIRRORED[table]
-        values = {"id": eid, **own, **{k: doc.get(k) for k in mirrored}, "data": json.dumps(doc), "revision": 0, "created_at": now, "updated_at": now}
+        values = {
+            "id": eid,
+            **own,
+            **{k: doc.get(k) for k in mirrored},
+            "data": json.dumps(doc),
+            "revision": 0,
+            "created_at": now,
+            "updated_at": now,
+        }
         with self._lock:
-            self._conn.execute(f"INSERT INTO {table} ({', '.join(values)}) VALUES ({', '.join('?' * len(values))})", tuple(values.values()))
+            self._conn.execute(
+                f"INSERT INTO {table} ({', '.join(values)}) VALUES ({', '.join('?' * len(values))})",
+                tuple(values.values()),
+            )
             self._conn.commit()
         row = self._get(table, eid)
         assert row is not None
@@ -199,7 +214,9 @@ class Database:
         return self._delete("records", rid)
 
     # ---------------------------------------------------------------- messages
-    def add_message(self, author: str | None, kind: str, payload: dict[str, Any], visibility: list[str] | None = None) -> dict[str, Any]:
+    def add_message(
+        self, author: str | None, kind: str, payload: dict[str, Any], visibility: list[str] | None = None
+    ) -> dict[str, Any]:
         ts = time.time()
         with self._lock:
             cur = self._conn.execute(
@@ -218,7 +235,9 @@ class Database:
             if before is None:
                 rows = self._conn.execute("SELECT * FROM messages ORDER BY id DESC LIMIT ?", (bound,)).fetchall()
             else:
-                rows = self._conn.execute("SELECT * FROM messages WHERE id<? ORDER BY id DESC LIMIT ?", (before, bound)).fetchall()
+                rows = self._conn.execute(
+                    "SELECT * FROM messages WHERE id<? ORDER BY id DESC LIMIT ?", (before, bound)
+                ).fetchall()
         return [self._message_row(r) for r in reversed(rows)]
 
     def get_message(self, mid: int) -> dict[str, Any] | None:
@@ -264,7 +283,9 @@ class Database:
 
     def applied_ref(self, user: str, client: str) -> int:
         with self._lock:
-            row = self._conn.execute("SELECT ref FROM applied_refs WHERE user=? AND client=?", (user, client)).fetchone()
+            row = self._conn.execute(
+                "SELECT ref FROM applied_refs WHERE user=? AND client=?", (user, client)
+            ).fetchone()
         return int(row[0]) if row else 0
 
     def _record_applied(self, applied: Applied | None) -> None:

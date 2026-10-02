@@ -22,7 +22,6 @@ class CreateBody(BaseModel):
     name: str | None = None
 
 
-
 def _visible_row(request: Request, user: UserConfig, sid: str) -> dict:
     row = request.app.state.db.get_shared(sid)
     if row is None or not service.shared_visible(request.app, user, row):
@@ -55,7 +54,9 @@ def export_shared(sid: str, request: Request, user: UserConfig = Depends(current
 
 
 @router.post("/{sid}/import")
-async def import_shared(sid: str, body: dict[str, Any], request: Request, user: UserConfig = Depends(require_gm)) -> dict:
+async def import_shared(
+    sid: str, body: dict[str, Any], request: Request, user: UserConfig = Depends(require_gm)
+) -> dict:
     renders = service.import_shared(request.app, user, sid, body)
     emit(request, renders)
     return {"ok": True}
@@ -63,7 +64,9 @@ async def import_shared(sid: str, body: dict[str, Any], request: Request, user: 
 
 @router.post("/{sid}/patch")
 async def patch_shared(sid: str, body: PatchBody, request: Request, user: UserConfig = Depends(current_user)) -> dict:
-    renders = service.patch_entity(request.app, user, "shared", sid, body.path, body.value, op=body.op, patch=body.patch)
+    renders = service.patch_entity(
+        request.app, user, "shared", sid, body.path, body.value, op=body.op, patch=body.patch
+    )
     emit(request, renders)
     row = request.app.state.db.get_shared(sid)
     return {"revision": row["revision"] if row else None}

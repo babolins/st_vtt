@@ -121,7 +121,7 @@ def outcome_actions(outcome: Any, mark_xp: bool) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     if mark_xp:
         out.append({"kind": "xp", "n": 1, "label": "Mark XP"})
-    for action in (outcome.apply if outcome else []):
+    for action in outcome.apply if outcome else []:
         out.append(action.model_dump(mode="json"))
     for action in out:
         action.setdefault("label", "")

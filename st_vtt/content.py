@@ -111,10 +111,16 @@ class Tracks(Strict):
     `statuses` names them, and they are marked left to right (Book I, p94).
     """
 
-    marks: int | None = Field(default=None, ge=1, le=20, description="Squares: plain ticks, e.g. progress towards a requirement.")
+    marks: int | None = Field(
+        default=None, ge=1, le=20, description="Squares: plain ticks, e.g. progress towards a requirement."
+    )
     bulk: int | None = Field(default=None, ge=1, le=20, description="Diamonds: boxes of carried load.")
     uses: int | None = Field(default=None, ge=1, le=20, description="Circles: charges, doses, hours.")
-    statuses: list[str] = Field(default_factory=list, max_length=4, description="Named circles marked left to right, e.g. ['low ammo', 'all out'].")
+    statuses: list[str] = Field(
+        default_factory=list,
+        max_length=4,
+        description="Named circles marked left to right, e.g. ['low ammo', 'all out'].",
+    )
 
     def any(self) -> bool:
         return bool(self.marks or self.bulk or self.uses or self.statuses)
@@ -162,7 +168,9 @@ class RollSpec(Strict):
     )
     bonus: int = 0
     label: str | None = None
-    modifiers: list[Modifier] = Field(default_factory=list, description="Bounded choices the roll dialog offers (e.g. an item's Value).")
+    modifiers: list[Modifier] = Field(
+        default_factory=list, description="Bounded choices the roll dialog offers (e.g. an item's Value)."
+    )
 
 
 class Hold(Strict):
@@ -222,7 +230,9 @@ class Outcome(Strict):
 
     text: str = ""
     apply: list[Action] = Field(default_factory=list, description="Offered as buttons on the roll card.")
-    mark_xp: bool | None = Field(default=None, description="Override the tier's default; some outcomes say 'don't mark XP'.")
+    mark_xp: bool | None = Field(
+        default=None, description="Override the tier's default; some outcomes say 'don't mark XP'."
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -238,9 +248,13 @@ class Requires(Strict):
 class Grant(Strict):
     """A move that lets you take moves from other playbooks (a "multiclass" move)."""
 
-    from_playbooks: list[str] = Field(default_factory=list, description="Playbook ids; empty means any playbook but your own.")
+    from_playbooks: list[str] = Field(
+        default_factory=list, description="Playbook ids; empty means any playbook but your own."
+    )
     n: int = Field(default=1, ge=1, description="How many foreign moves this grant is worth.")
-    exclude_tags: list[str] = Field(default_factory=list, description="Move tags this grant cannot pick, e.g. ['stat', 'multiclass'].")
+    exclude_tags: list[str] = Field(
+        default_factory=list, description="Move tags this grant cannot pick, e.g. ['stat', 'multiclass']."
+    )
 
 
 class Move(Strict):
@@ -263,7 +277,7 @@ class Move(Strict):
     grants: Grant | None = Field(default=None, description="Taking this move lets you pick moves from other playbooks.")
     options: list["Option"] = Field(
         default_factory=list,
-        description="A checklist the move carries, e.g. \"each time you take this move, pick 1\". "
+        description='A checklist the move carries, e.g. "each time you take this move, pick 1". '
         "Picks are stored on the sheet under the move, and stay picked; a choice made at roll time belongs in `text`.",
     )
     min: int | None = Field(default=None, description="options: minimum picks required.")
@@ -280,10 +294,14 @@ class Move(Strict):
         seen: set[str] = set()
         for o in walk_options(self.options):
             if o.id in seen:
-                raise ValueError(f"move {self.id!r}: duplicate option id {o.id!r} (ids must be unique across nested options too)")
+                raise ValueError(
+                    f"move {self.id!r}: duplicate option id {o.id!r} (ids must be unique across nested options too)"
+                )
             seen.add(o.id)
             if o.effects:
-                raise ValueError(f"move {self.id!r}: option {o.id!r} — a move's options cannot carry effects; put them on a section option")
+                raise ValueError(
+                    f"move {self.id!r}: option {o.id!r} — a move's options cannot carry effects; put them on a section option"
+                )
         return self
 
 
@@ -292,7 +310,9 @@ class Move(Strict):
 
 class Effects(Strict):
     moves: list[str] = Field(default_factory=list)
-    inserts: list[str] = Field(default_factory=list, description="Insert ids the sheet gains while this option is selected.")
+    inserts: list[str] = Field(
+        default_factory=list, description="Insert ids the sheet gains while this option is selected."
+    )
     armor: int | None = None
     hp: int | None = None
     tags: list[str] = Field(default_factory=list)
@@ -303,14 +323,20 @@ class Option(Strict):
     label: str
     text: str = ""
     effects: Effects | None = None
-    tracks: Tracks = Field(default_factory=Tracks, description="Boxes tracked on the sheet while the option is selected.")
+    tracks: Tracks = Field(
+        default_factory=Tracks, description="Boxes tracked on the sheet while the option is selected."
+    )
     write_in: str | None = Field(
         default=None,
-        description="Show a one-line write-in box when this option is selected. The value is the input's placeholder; use \"\" for none.",
+        description='Show a one-line write-in box when this option is selected. The value is the input\'s placeholder; use "" for none.',
     )
-    options: list["Option"] = Field(default_factory=list, description="A nested sub-choice, revealed only when this option is selected.")
+    options: list["Option"] = Field(
+        default_factory=list, description="A nested sub-choice, revealed only when this option is selected."
+    )
     min: int | None = Field(default=None, description="Nested sub-choice: minimum picks required.")
-    max: int | None = Field(default=None, description="Nested sub-choice: maximum picks allowed. 1 makes it a single choice.")
+    max: int | None = Field(
+        default=None, description="Nested sub-choice: maximum picks allowed. 1 makes it a single choice."
+    )
     note: bool = Field(
         default=False,
         description="Render as prose with no checkbox: a heading, an instruction, or (with tracks) a plain tracker. "
@@ -363,8 +389,8 @@ class Line(Strict):
     options: list[Option] = Field(default_factory=list, min_length=1)
     write_in: str | None = Field(
         default=None,
-        description="Show a write-in box at the end of the row for the \"or make something up\" case. "
-        "The value is the input's placeholder; use \"\" for none.",
+        description='Show a write-in box at the end of the row for the "or make something up" case. '
+        'The value is the input\'s placeholder; use "" for none.',
     )
 
     @model_validator(mode="after")
@@ -395,7 +421,9 @@ class Section(Strict):
     placeholder: str = ""
     required: bool = Field(default=True, description="Shown in the creation checklist when unfilled.")
     collapsed: bool = Field(default=False, description="Start folded shut on the sheet; for long reference lists.")
-    start: Any = Field(default=None, description="Value a freshly created sheet gets, instead of the empty default for its type.")
+    start: Any = Field(
+        default=None, description="Value a freshly created sheet gets, instead of the empty default for its type."
+    )
 
     def all_options(self) -> Iterator[Option]:
         """Every option in the section, whether it hangs off `options` or off a line."""
@@ -418,12 +446,16 @@ class Section(Strict):
         seen: set[str] = set()
         for oid in [ln.id for ln in self.lines] + [o.id for o in self.all_options()]:
             if oid in seen:
-                raise ValueError(f"section {self.id!r}: duplicate option id {oid!r} (ids must be unique across lines and nested options too)")
+                raise ValueError(
+                    f"section {self.id!r}: duplicate option id {oid!r} (ids must be unique across lines and nested options too)"
+                )
             seen.add(oid)
         if self.type == "table" and not self.columns:
             raise ValueError(f"table section {self.id!r} needs columns")
         if self.type == "table" and any(c.id == "id" for c in self.columns):
-            raise ValueError(f"table section {self.id!r}: no column may be called 'id' (each row keeps its own id there)")
+            raise ValueError(
+                f"table section {self.id!r}: no column may be called 'id' (each row keeps its own id there)"
+            )
         if self.type == "names" and not self.lists:
             raise ValueError(f"names section {self.id!r} needs lists")
         if self.type == "pips" and not self.max:
@@ -513,7 +545,9 @@ class InsertDef(Strict):
     description: str = Field(default="", description="Markdown shown at the top of the insert.")
     sections: list[Section] = Field(default_factory=list)
     moves: list[Move] = Field(default_factory=list)
-    starting_moves: StartingMoves = Field(default_factory=StartingMoves, description="Moves gained with the insert; the rest are picked.")
+    starting_moves: StartingMoves = Field(
+        default_factory=StartingMoves, description="Moves gained with the insert; the rest are picked."
+    )
     hold_names: list[str] = Field(default_factory=list)
 
 
@@ -598,7 +632,9 @@ class SharedSheetDef(Strict):
 
 class ContentPack(Strict):
     pack: PackMeta
-    moves: dict[str, list[Move]] = Field(default_factory=dict, description="Move groups shared by all PCs, e.g. basic/special.")
+    moves: dict[str, list[Move]] = Field(
+        default_factory=dict, description="Move groups shared by all PCs, e.g. basic/special."
+    )
     playbooks: list[Playbook] = Field(default_factory=list)
     inserts: list[InsertDef] = Field(default_factory=list)
     followers: FollowerRules = Field(default_factory=FollowerRules)
@@ -698,7 +734,11 @@ class ContentPack(Strict):
             except dice.DiceError as e:
                 errors.append(f"pack.dice_presets[{i}] ({preset.label}): {e}")
         rules = self.pack.roll
-        for expr_name, expr in (("base", rules.base), ("advantage", rules.advantage), ("disadvantage", rules.disadvantage)):
+        for expr_name, expr in (
+            ("base", rules.base),
+            ("advantage", rules.advantage),
+            ("disadvantage", rules.disadvantage),
+        ):
             try:
                 dice.parse(expr)
             except dice.DiceError as e:
@@ -708,7 +748,14 @@ class ContentPack(Strict):
         except Exception as e:  # noqa: BLE001 - whatever the formula does wrong, report it
             errors.append(f"pack.xp.level_up_cost: {e}")
 
-    def _check_move(self, errors: list[str], where: str, m: Move, own_stats: set[str] | None = None, own_debilities: set[str] | None = None) -> None:
+    def _check_move(
+        self,
+        errors: list[str],
+        where: str,
+        m: Move,
+        own_stats: set[str] | None = None,
+        own_debilities: set[str] | None = None,
+    ) -> None:
         """One move on its own. A shared sheet's moves pass its own stats and debilities."""
         if m.insert and m.insert not in {i.id for i in self.inserts}:
             errors.append(f"{where}.insert: unknown insert {m.insert!r}")
@@ -729,9 +776,24 @@ class ContentPack(Strict):
             if label not in tier_labels:
                 errors.append(f"{where}.outcomes: unknown tier {label!r} (tiers are {sorted(tier_labels)})")
             for i, action in enumerate(outcome.apply):
-                _check_action(errors, f"{where}.outcomes[{label}].apply[{i}]", action, allowed, debility_ids, on_shared_sheet=own_stats is not None)
+                _check_action(
+                    errors,
+                    f"{where}.outcomes[{label}].apply[{i}]",
+                    action,
+                    allowed,
+                    debility_ids,
+                    on_shared_sheet=own_stats is not None,
+                )
 
-    def _check_sheet(self, errors: list[str], seen_moves: dict[str, str], where: str, own_moves: list[Move], sections: list[Section], starting: StartingMoves) -> None:
+    def _check_sheet(
+        self,
+        errors: list[str],
+        seen_moves: dict[str, str],
+        where: str,
+        own_moves: list[Move],
+        sections: list[Section],
+        starting: StartingMoves,
+    ) -> None:
         """The moves and sections of a playbook or an insert."""
         own_ids = {m.id for m in own_moves}
         known = own_ids | set(self.shared_moves())
@@ -781,7 +843,9 @@ class ContentPack(Strict):
         for ins in self.inserts:
             for sec in ins.sections:
                 if sec.id in owners:
-                    errors.append(f"inserts[{ins.id}].sections: section id {sec.id!r} is already used by inserts[{owners[sec.id]}]")
+                    errors.append(
+                        f"inserts[{ins.id}].sections: section id {sec.id!r} is already used by inserts[{owners[sec.id]}]"
+                    )
                 owners[sec.id] = ins.id
 
     def _check_playbooks(self, errors: list[str], seen_moves: dict[str, str]) -> None:
@@ -805,7 +869,9 @@ class ContentPack(Strict):
                     errors.append(f"{where}.inserts: unknown insert {iid!r} (built-ins are {sorted(CORE_INSERTS)})")
             for sec in pb.sections:
                 if sec.id in insert_sections:
-                    errors.append(f"{where}.sections: section id {sec.id!r} clashes with inserts[{insert_sections[sec.id]}]")
+                    errors.append(
+                        f"{where}.sections: section id {sec.id!r} clashes with inserts[{insert_sections[sec.id]}]"
+                    )
         if _has_dupes(playbook_ids):
             errors.append("playbooks: duplicate playbook ids")
 
@@ -829,7 +895,9 @@ class ContentPack(Strict):
         def check(where: str, moves: list[Move], section_ids: dict[str, str]) -> None:
             for m in moves:
                 if m.options and m.id in section_ids:
-                    errors.append(f"{where}[{m.id}].options: this move's id is already a section id ({section_ids[m.id]}), pick another")
+                    errors.append(
+                        f"{where}[{m.id}].options: this move's id is already a section id ({section_ids[m.id]}), pick another"
+                    )
 
         char_sections: dict[str, str] = {}
         for pb in self.playbooks:
@@ -847,7 +915,11 @@ class ContentPack(Strict):
         for a in self.arcana:
             check(f"arcana[{a.id}].moves", a.moves, char_sections)
         for t in self.shared_sheets:
-            check(f"shared_sheets[{t.id}].moves", t.moves, {sec.id: f"shared_sheets[{t.id}].sections" for sec in t.sections})
+            check(
+                f"shared_sheets[{t.id}].moves",
+                t.moves,
+                {sec.id: f"shared_sheets[{t.id}].sections" for sec in t.sections},
+            )
 
 
 def _has_dupes(ids: Iterable[str]) -> bool:
@@ -870,7 +942,9 @@ def _check_section_ids(errors: list[str], where: str, sections: list[Section]) -
         seen.add(sec.id)
 
 
-def _check_action(errors: list[str], where: str, action: Any, stats: set[str], debilities: set[str], *, on_shared_sheet: bool) -> None:
+def _check_action(
+    errors: list[str], where: str, action: Any, stats: set[str], debilities: set[str], *, on_shared_sheet: bool
+) -> None:
     """One `apply` action of a move's outcome."""
     if isinstance(action, HpAction):
         try:
@@ -979,7 +1053,7 @@ def _format_validation_error(e: ValidationError, source: str, origins: dict[str,
                 origin = f" (in {origins[head]})"
         msg = err["msg"]
         if msg.startswith("Value error, "):
-            msg = msg[len("Value error, "):]
+            msg = msg[len("Value error, ") :]
         for line in msg.splitlines():
             lines.append(f"  {loc}: {line}{origin}")
     return "\n".join(lines)

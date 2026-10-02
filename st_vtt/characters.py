@@ -166,7 +166,12 @@ def ensure_list_ids(pack: ContentPack, doc: dict[str, Any], entity: str) -> bool
     if entity == "character":
         gear = doc.get("gear")
         followers = doc.get("followers")
-        lists += [gear.get("items") if isinstance(gear, dict) else None, followers, doc.get("arcana"), doc.get("custom_moves")]
+        lists += [
+            gear.get("items") if isinstance(gear, dict) else None,
+            followers,
+            doc.get("arcana"),
+            doc.get("custom_moves"),
+        ]
         if isinstance(followers, list):
             lists += [f.get("members") for f in followers if isinstance(f, dict)]
     elif entity == "record":
@@ -184,7 +189,15 @@ def ensure_list_ids(pack: ContentPack, doc: dict[str, Any], entity: str) -> bool
 # The numbers a roll adds up or an outcome counts on, which have to be whole numbers.
 # "*" is every key of that object.
 WHOLE_NUMBERS: dict[str, tuple[tuple[str, ...], ...]] = {
-    "character": (("stats", "*"), ("hp", "current"), ("hp", "max"), ("xp",), ("level",), ("armor",), ("moves", "hold", "*")),
+    "character": (
+        ("stats", "*"),
+        ("hp", "current"),
+        ("hp", "max"),
+        ("xp",),
+        ("level",),
+        ("armor",),
+        ("moves", "hold", "*"),
+    ),
     "shared": (("stats", "*"), ("moves", "hold", "*")),
 }
 
@@ -205,7 +218,7 @@ def _number_slots(entity: str, doc: dict[str, Any]) -> Iterator[tuple[str, dict[
                 if not isinstance(node, dict):
                     yield path, None, ""
                     continue
-                for key in (list(node) if tok == "*" else [tok] if tok in node else []):
+                for key in list(node) if tok == "*" else [tok] if tok in node else []:
                     if depth == len(pattern) - 1:
                         yield f"{path}/{key}", node, key
                     else:

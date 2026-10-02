@@ -174,7 +174,9 @@ def test_a_hidden_record_is_never_announced_to_players(alice, gm):
         return json.loads(ws.receive_text())
 
     with alice.websocket_connect("/ws") as wa, gm.websocket_connect("/ws") as wg:
-        recv(wa); recv(wa); recv(wg)  # presence
+        recv(wa)
+        recv(wa)
+        recv(wg)  # presence
         rid = make(gm, "Brennan")
         for ws in (wa, wg):
             assert recv(ws)["type"] == "record_created"
@@ -193,9 +195,11 @@ def test_a_hidden_record_is_never_announced_to_players(alice, gm):
 
         # Revealed, one comes back without its secret.
         other = make(gm, "Cerys")
-        recv(wa); recv(wg)  # record_created
+        recv(wa)
+        recv(wg)  # record_created
         patch(gm, other, "/visibility", "gm")
-        recv(wa); recv(wg)
+        recv(wa)
+        recv(wg)
         patch(gm, other, "/secret", "the heir")
         recv(wg)
         patch(gm, other, "/visibility", "table")
@@ -222,13 +226,21 @@ def test_the_gm_at_work_on_what_the_table_cannot_see_is_not_shown(alice, gm):
     with alice.websocket_connect("/ws") as wa:
         recv(wa)  # presence
         with gm.websocket_connect("/ws") as wg:
-            recv(wa); recv(wg)  # presence x2
+            recv(wa)
+            recv(wg)  # presence x2
             focus(wg, "record", hidden, "/role")
             focus(wg, "record", known, "/secret")
             focus(wg, "character", "anyone", "/gm_notes")
             # Events arrive in order, so the first one Alice hears of is this.
             focus(wg, "record", known, "/role")
-            assert recv(wa) == {"type": "field_presence", "user": "Gm", "client": "cg", "entity": "record", "id": known, "path": "/role"}
+            assert recv(wa) == {
+                "type": "field_presence",
+                "user": "Gm",
+                "client": "cg",
+                "entity": "record",
+                "id": known,
+                "path": "/role",
+            }
 
             # Nor does a snapshot for a late joiner name it: her own chat comes back first.
             # (The GM's chat landing first proves the server has taken the new focus.)

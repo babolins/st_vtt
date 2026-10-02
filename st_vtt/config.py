@@ -97,10 +97,7 @@ class Config(BaseModel):
 def load_config(path: str | Path) -> Config:
     path = Path(path)
     if not path.exists():
-        raise ConfigError(
-            f"config file not found: {path}\n"
-            f"Copy config.example.json to {path.name} and edit it."
-        )
+        raise ConfigError(f"config file not found: {path}\nCopy config.example.json to {path.name} and edit it.")
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:

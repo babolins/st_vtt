@@ -51,7 +51,9 @@ def list_characters(app: FastAPI, user: UserConfig) -> list[dict[str, Any]]:
     return [character_view(user, r) for r in db_of(app).list_characters()]
 
 
-def create_character(app: FastAPI, user: UserConfig, playbook_id: str, name: str, owner: str | None) -> tuple[dict[str, Any], list[Render]]:
+def create_character(
+    app: FastAPI, user: UserConfig, playbook_id: str, name: str, owner: str | None
+) -> tuple[dict[str, Any], list[Render]]:
     pack = pack_of(app)
     pb = pack.playbook(playbook_id)
     if pb is None:
@@ -64,11 +66,18 @@ def create_character(app: FastAPI, user: UserConfig, playbook_id: str, name: str
         raise ServiceError(f"unknown user {owner!r}")
     doc = chars.new_character(pack, pb, name.strip() or pb.name)
     row = db_of(app).insert_character(chars.new_id(), owner, doc)
-    msg = db_of(app).add_message(None, "system", {"text": f"{user.name} created {doc['name']} ({pb.name}) for {owner}."})
-    return row, [lambda u: {"type": "character_created", "character": character_view(u, row)}, lambda u: {"type": "message", "message": msg}]
+    msg = db_of(app).add_message(
+        None, "system", {"text": f"{user.name} created {doc['name']} ({pb.name}) for {owner}."}
+    )
+    return row, [
+        lambda u: {"type": "character_created", "character": character_view(u, row)},
+        lambda u: {"type": "message", "message": msg},
+    ]
 
 
-def import_character(app: FastAPI, user: UserConfig, doc: dict[str, Any], owner: str | None) -> tuple[dict[str, Any], list[str], list[Render]]:
+def import_character(
+    app: FastAPI, user: UserConfig, doc: dict[str, Any], owner: str | None
+) -> tuple[dict[str, Any], list[str], list[Render]]:
     pack = pack_of(app)
     try:
         clean, warnings = chars.validate_import(pack, doc)
@@ -83,8 +92,17 @@ def import_character(app: FastAPI, user: UserConfig, doc: dict[str, Any], owner:
         for field in HIDDEN_FIELDS["character"]:
             clean[field] = ""
     row = db_of(app).insert_character(chars.new_id(), owner, clean)
-    msg = db_of(app).add_message(None, "system", {"text": f"{user.name} imported {clean.get('name') or 'a character'} for {owner}."})
-    return row, warnings, [lambda u: {"type": "character_created", "character": character_view(u, row)}, lambda u: {"type": "message", "message": msg}]
+    msg = db_of(app).add_message(
+        None, "system", {"text": f"{user.name} imported {clean.get('name') or 'a character'} for {owner}."}
+    )
+    return (
+        row,
+        warnings,
+        [
+            lambda u: {"type": "character_created", "character": character_view(u, row)},
+            lambda u: {"type": "message", "message": msg},
+        ],
+    )
 
 
 def delete_character(app: FastAPI, user: UserConfig, cid: str) -> list[Render]:
@@ -94,7 +112,9 @@ def delete_character(app: FastAPI, user: UserConfig, cid: str) -> list[Render]:
     if not user.is_gm and row["owner"] != user.name:
         raise ServiceError("only the owner or GM can delete", 403)
     db_of(app).delete_character(cid)
-    msg = db_of(app).add_message(None, "system", {"text": f"{user.name} deleted {row['data'].get('name') or 'a character'}."})
+    msg = db_of(app).add_message(
+        None, "system", {"text": f"{user.name} deleted {row['data'].get('name') or 'a character'}."}
+    )
     return [lambda u: {"type": "character_deleted", "id": cid}, lambda u: {"type": "message", "message": msg}]
 
 
@@ -207,7 +227,9 @@ def _shared_render(app: FastAPI, row: dict[str, Any], kind: str) -> Render:
     return render
 
 
-def create_shared(app: FastAPI, user: UserConfig, template_id: str, name: str | None) -> tuple[dict[str, Any], list[Render]]:
+def create_shared(
+    app: FastAPI, user: UserConfig, template_id: str, name: str | None
+) -> tuple[dict[str, Any], list[Render]]:
     if not user.is_gm:
         raise ServiceError("GM only", 403)
     tpl = pack_of(app).shared_sheet(template_id)
@@ -293,7 +315,12 @@ MAX_CLIENT_ID = 64
 
 def applied_key(user: UserConfig, client: Any, ref: Any = 0) -> tuple[str, str, int] | None:
     """Key for the applied-ref record, if the client sent a usable id and ref."""
-    if isinstance(client, str) and 0 < len(client) <= MAX_CLIENT_ID and isinstance(ref, int) and not isinstance(ref, bool):
+    if (
+        isinstance(client, str)
+        and 0 < len(client) <= MAX_CLIENT_ID
+        and isinstance(ref, int)
+        and not isinstance(ref, bool)
+    ):
         return (user.name, client, ref)
     return None
 
@@ -394,7 +421,19 @@ def patch_entity(
                 return {"type": "record_created", "record": record_view(u, revealed_row)}
             if gm_only:
                 return None
-        return {"type": "patch", "entity": entity, "id": eid, "path": path, "value": value, "op": op, "revision": rev, "by": user.name, "client": client, "ref": ref, "merged": merged}
+        return {
+            "type": "patch",
+            "entity": entity,
+            "id": eid,
+            "path": path,
+            "value": value,
+            "op": op,
+            "revision": rev,
+            "by": user.name,
+            "client": client,
+            "ref": ref,
+            "merged": merged,
+        }
 
     return [render]
 
@@ -450,7 +489,9 @@ def post_chat(app: FastAPI, user: UserConfig, text: str, to: list[str] | None = 
 
 def _whisper_target(app: FastAPI, name: str) -> str:
     """A user's name as configured, matching case-insensitively if nothing matches exactly."""
-    target = app.state.config.user(name) or next((u for u in app.state.config.users if u.name.lower() == name.lower()), None)
+    target = app.state.config.user(name) or next(
+        (u for u in app.state.config.users if u.name.lower() == name.lower()), None
+    )
     if target is None:
         raise ServiceError(f"unknown user {name!r}")
     return target.name
@@ -525,7 +566,9 @@ def do_roll(app: FastAPI, user: UserConfig, spec: dict[str, Any]) -> list[Render
     return [_message_render(msg)]
 
 
-def apply_outcome(app: FastAPI, user: UserConfig, message_id: int, index: int, choice: str | None = None) -> list[Render]:
+def apply_outcome(
+    app: FastAPI, user: UserConfig, message_id: int, index: int, choice: str | None = None
+) -> list[Render]:
     """Apply one of a roll card's outcomes to the sheet it was rolled for.
 
     The change goes through `patch_entity`, so it is permission-checked and broadcast exactly
@@ -569,7 +612,9 @@ def _message_update_render(msg: dict[str, Any]) -> Render:
     return render
 
 
-def _resolve_action(app: FastAPI, action: dict[str, Any], doc: dict[str, Any], entity: str, choice: str | None) -> tuple[str, Any, str]:
+def _resolve_action(
+    app: FastAPI, action: dict[str, Any], doc: dict[str, Any], entity: str, choice: str | None
+) -> tuple[str, Any, str]:
     """Turn one outcome action into a patch: (path, value, what to show on the card)."""
     pack = pack_of(app)
     kind = action.get("kind")

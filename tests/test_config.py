@@ -39,16 +39,23 @@ def test_invalid_json_names_the_line(tmp_path):
     assert error_of(path).startswith(f"{path}: invalid JSON at line 3:")
 
 
-@pytest.mark.parametrize("raw, where, what", [
-    ({}, "users", "Field required"),
-    ({"users": []}, "users", "at least 1 item"),
-    ({"users": [{"name": "Gm"}, {"name": "gm "}]}, "users", "duplicate user name: 'gm '"),
-    ({"users": [{"name": "  "}]}, "users", "user name must not be empty"),
-    ({"users": [{"name": "Gm", "role": "admin"}]}, "users.0.role", "'gm' or 'player'"),
-    ({"users": [{"name": "Gm"}], "port": "eighty"}, "port", "valid integer"),
-    ({"users": [{"name": "Gm"}], "secret": "change-me-to-something-random"}, "secret", "still the example's placeholder"),
-    ({"users": [{"name": "Gm"}], "secret": "change-me"}, "secret", "still the example's placeholder"),
-])
+@pytest.mark.parametrize(
+    "raw, where, what",
+    [
+        ({}, "users", "Field required"),
+        ({"users": []}, "users", "at least 1 item"),
+        ({"users": [{"name": "Gm"}, {"name": "gm "}]}, "users", "duplicate user name: 'gm '"),
+        ({"users": [{"name": "  "}]}, "users", "user name must not be empty"),
+        ({"users": [{"name": "Gm", "role": "admin"}]}, "users.0.role", "'gm' or 'player'"),
+        ({"users": [{"name": "Gm"}], "port": "eighty"}, "port", "valid integer"),
+        (
+            {"users": [{"name": "Gm"}], "secret": "change-me-to-something-random"},
+            "secret",
+            "still the example's placeholder",
+        ),
+        ({"users": [{"name": "Gm"}], "secret": "change-me"}, "secret", "still the example's placeholder"),
+    ],
+)
 def test_each_problem_is_reported_where_it_is(tmp_path, raw, where, what):
     path = write(tmp_path / "config.json", raw)
     first, *problems = error_of(path).split("\n")
@@ -63,9 +70,14 @@ def test_every_problem_is_reported_at_once(tmp_path):
 
 
 def test_relative_paths_are_relative_to_the_config_file(tmp_path, monkeypatch):
-    write(tmp_path / "table" / "config.json", {
-        "users": [{"name": "Gm"}], "database": "data/campaign.db", "content_pack": str(ROOT / "content" / "example"),
-    })
+    write(
+        tmp_path / "table" / "config.json",
+        {
+            "users": [{"name": "Gm"}],
+            "database": "data/campaign.db",
+            "content_pack": str(ROOT / "content" / "example"),
+        },
+    )
     monkeypatch.chdir(tmp_path)
     cfg = load_config("table/config.json")
     assert cfg.database_path == tmp_path / "table" / "data" / "campaign.db"

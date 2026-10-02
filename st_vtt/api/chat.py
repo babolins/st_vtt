@@ -54,7 +54,9 @@ class ApplyBody(BaseModel):
 
 
 @router.get("/messages")
-def list_messages(request: Request, before: int | None = None, limit: int = 100, user: UserConfig = Depends(current_user)) -> list[dict]:
+def list_messages(
+    request: Request, before: int | None = None, limit: int = 100, user: UserConfig = Depends(current_user)
+) -> list[dict]:
     msgs = request.app.state.db.list_messages(limit=min(limit, MAX_MESSAGE_PAGE), before=before)
     return [m for m in msgs if visible_to(user, m.get("visibility"))]
 

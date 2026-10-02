@@ -92,7 +92,9 @@ def create_app(config: Config | None = None) -> FastAPI:
 
         @app.get("/", include_in_schema=False)
         def no_frontend() -> JSONResponse:
-            return JSONResponse({"error": f"frontend not built; expected {index}. Run `npm run build` in frontend/."}, status_code=503)
+            return JSONResponse(
+                {"error": f"frontend not built; expected {index}. Run `npm run build` in frontend/."}, status_code=503
+            )
 
     log.info("loaded content pack %r (%d playbooks) from %s", pack.pack.name, len(pack.playbooks), config.content_path)
     log.info("database: %s", config.database_path)

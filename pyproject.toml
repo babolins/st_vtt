@@ -25,6 +25,7 @@ dev = [
     "websockets>=12",
     "pytest-timeout>=2.3",
     "pyright>=1.1.400",
+    "ruff>=0.16.10",
 ]
 
 [build-system]
@@ -44,3 +45,9 @@ timeout = 30
 # would flag without finding anything.
 include = ["st_vtt"]
 pythonVersion = "3.12"
+
+[tool.ruff]
+# CI checks the formatting (`ruff format --check`); the version is pinned in uv.lock, as
+# another release may format differently.
+line-length = 120
+target-version = "py312"

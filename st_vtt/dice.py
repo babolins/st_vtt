@@ -103,7 +103,7 @@ def _parse(expr: str, refs: Mapping[str, str | int] | None, depth: int = 0) -> l
     while pos < len(s):
         m = _TOKEN.match(s, pos)
         if not m or m.end() == pos:
-            raise DiceError(f"unexpected {s[pos:pos+8]!r} in {expr!r}")
+            raise DiceError(f"unexpected {s[pos : pos + 8]!r} in {expr!r}")
         pos = m.end()
         if m.group("sign"):
             if expect_term and terms:

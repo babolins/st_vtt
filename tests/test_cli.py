@@ -17,10 +17,17 @@ def config_file(tmp_path, monkeypatch):
     """A good config in an empty working directory, as config.json."""
     monkeypatch.chdir(tmp_path)
     path = tmp_path / "config.json"
-    path.write_text(json.dumps({
-        "users": [{"name": "Gm", "role": "gm"}], "content_pack": str(PACK),
-        "host": "127.0.0.1", "port": 8123,
-    }), encoding="utf-8")
+    path.write_text(
+        json.dumps(
+            {
+                "users": [{"name": "Gm", "role": "gm"}],
+                "content_pack": str(PACK),
+                "host": "127.0.0.1",
+                "port": 8123,
+            }
+        ),
+        encoding="utf-8",
+    )
     return path
 
 
@@ -47,10 +54,13 @@ def test_validate_the_configs_pack(config_file, capsys):
     assert capsys.readouterr().out.startswith("OK: Example Pack (example)")
 
 
-@pytest.mark.parametrize("argv, error", [
-    (["validate", "/no/such/pack"], "error: content pack not found: /no/such/pack"),
-    (["validate", "-c", "/no/config.json"], "error: config file not found: /no/config.json"),
-])
+@pytest.mark.parametrize(
+    "argv, error",
+    [
+        (["validate", "/no/such/pack"], "error: content pack not found: /no/such/pack"),
+        (["validate", "-c", "/no/config.json"], "error: config file not found: /no/config.json"),
+    ],
+)
 def test_validate_reports_what_is_wrong(capsys, argv, error):
     assert main(argv) == 1
     captured = capsys.readouterr()
