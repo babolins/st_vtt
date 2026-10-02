@@ -206,3 +206,36 @@ def test_a_sheet_saved_with_a_bad_number_can_still_be_edited_and_mended(app, wor
 def test_a_shared_sheet_imported_with_a_bad_number_gets_the_templates(app, world):  # noqa: F811
     service.import_shared(app, GM, world.sid, {"stats": {"luck": "abc", "stores": 4}})
     assert app.state.db.get_shared(world.sid)["data"]["stats"] == {"luck": 1, "stores": 4, "wealth": 0, "folk": 0, "walls": 0}
+
+
+def _spoil(app, world, entity, path, value):
+    """Save a bad value straight to the database, as a sheet from before numbers were checked may hold."""
+    db = app.state.db
+    row = db.get_character(world.cid) if entity == "character" else db.get_shared(world.sid)
+    node = row["data"]
+    *parents, last = path.strip("/").split("/")
+    for key in parents:
+        node = node.setdefault(key, {})
+    node[last] = value
+    (db.save_character if entity == "character" else db.save_shared)(row["id"], row["data"], None)
+
+
+# (what to spoil, then what to do with the spoiled sheet)
+_SPOILED = {
+    "roll a move's stat": (("character", "/stats/str", "abc"), lambda a, w: service.do_roll(a, ALICE, {"character_id": w.cid, "stat": "str"})),
+    "roll dice naming a stat": (("character", "/stats/str", "abc"), lambda a, w: service.do_roll(a, ALICE, {"character_id": w.cid, "expr": "1d6+{str}"})),
+    "roll with stats that aren't an object": (("character", "/stats", "none"), lambda a, w: service.do_roll(a, ALICE, {"character_id": w.cid, "stat": "str"})),
+    "roll a shared sheet's stat": (("shared", "/stats/luck", "abc"), lambda a, w: service.do_roll(a, GM, {"shared_id": w.sid, "stat": "luck"})),
+    "mark xp": (("character", "/xp", "lots"), lambda a, w: service.apply_outcome(a, ALICE, w.roll({"kind": "xp"}, character_id=w.cid), 0)),
+    "heal hp that isn't an object": (("character", "/hp", "full"), lambda a, w: service.apply_outcome(a, ALICE, w.roll({"kind": "hp", "amount": "1"}, character_id=w.cid), 0)),
+    "add hold": (("character", "/moves/hold/Guard", "x"), lambda a, w: service.apply_outcome(a, ALICE, w.roll({"kind": "hold", "name": "Guard"}, character_id=w.cid), 0)),
+    "change a shared sheet's stat": (("shared", "/stats/luck", "abc"), lambda a, w: service.apply_outcome(a, GM, w.roll({"kind": "stat", "id": "luck", "delta": 1}, shared_id=w.sid), 0)),
+}
+
+
+@pytest.mark.parametrize(("spoil", "call"), _SPOILED.values(), ids=_SPOILED.keys())
+def test_a_sheet_saved_with_a_bad_number_is_reported_not_crashed_on(app, world, spoil, call):  # noqa: F811
+    _spoil(app, world, *spoil)
+    with pytest.raises(service.ServiceError, match="not a whole number|must be an object") as ei:
+        call(app, world)
+    assert ei.value.status == 400

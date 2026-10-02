@@ -500,6 +500,8 @@ def do_roll(app: FastAPI, user: UserConfig, spec: dict[str, Any]) -> list[Render
             )
     except DiceError as e:
         raise ServiceError(f"bad dice expression: {e}") from e
+    except rolls.SheetError as e:
+        raise ServiceError(str(e)) from e
     payload["character_id"] = cid
     payload["shared_id"] = sid
     vis = sorted(set([user.name, *gm_names(app)])) if spec.get("gm_only") else None
@@ -534,7 +536,10 @@ def apply_outcome(app: FastAPI, user: UserConfig, message_id: int, index: int, c
     if row is None:
         raise ServiceError("that sheet is gone", 404)
 
-    path, value, detail = _resolve_action(app, actions[index], row["data"], entity, choice)
+    try:
+        path, value, detail = _resolve_action(app, actions[index], row["data"], entity, choice)
+    except rolls.SheetError as e:
+        raise ServiceError(str(e)) from e
     renders = patch_entity(app, user, entity, eid, path, value)
     applied[str(index)] = {"by": user.name, "detail": detail}
     db.update_message(message_id, payload)
@@ -555,20 +560,19 @@ def _resolve_action(app: FastAPI, action: dict[str, Any], doc: dict[str, Any], e
     kind = action.get("kind")
     if kind == "xp":
         n = int(action.get("n", 1))
-        return "/xp", int(doc.get("xp", 0)) + n, f"+{n} XP"
+        return "/xp", rolls.sheet_number(doc, "xp") + n, f"+{n} XP"
     if kind == "hp":
         try:
             rolled = dice.roll(str(action["amount"]))
         except DiceError as e:
             raise ServiceError(f"bad hp amount: {e}") from e
-        hp = doc.get("hp") or {}
-        current, top = int(hp.get("current", 0)), int(hp.get("max", 0))
+        current, top = rolls.sheet_number(doc, "hp", "current"), rolls.sheet_number(doc, "hp", "max")
         new = max(0, min(current + rolled.total, top))
         return "/hp/current", new, f"{rolled.total:+d} HP ({current} → {new})"
     if kind == "hold":
         name = str(action["name"])
         n = int(action.get("n", 1))
-        held = int(doc["moves"]["hold"].get(name, 0))
+        held = rolls.sheet_number(doc, "moves", "hold", name)
         return f"/moves/hold/{name}", held + n, f"+{n} {name}"
     if kind == "debility":
         did = action.get("id") or choice
@@ -582,7 +586,7 @@ def _resolve_action(app: FastAPI, action: dict[str, Any], doc: dict[str, Any], e
         stat = next((s for s in (tpl.stats if tpl else []) if s.id == sid), None)
         if stat is None:
             raise ServiceError(f"unknown stat {sid!r} on this sheet")
-        new = max(stat.min, min(int(doc.get("stats", {}).get(sid, 0)) + int(action["delta"]), stat.max))
+        new = max(stat.min, min(rolls.sheet_number(doc, "stats", sid) + int(action["delta"]), stat.max))
         return f"/stats/{sid}", new, f"{sid} → {new:+d}"
     if kind == "sheet_debility":
         return f"/debilities/{action['id']}", True, f"marked {action['id']}"
