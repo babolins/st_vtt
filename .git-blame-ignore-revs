@@ -4,3 +4,6 @@
 
 # Format the backend with ruff at 120 columns (#56)
 45b60be03ff2de127f220801574bf77ac32b78b7
+
+# Format the frontend with Prettier at 120 columns (#59)
+5eed0fae2d6e5632ff46fc8aaead6f634fab7646
