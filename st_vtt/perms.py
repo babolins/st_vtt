@@ -22,6 +22,8 @@ IMMUTABLE_PATHS = ("/pack_id", "/playbook")
 # `kind` mirrors the records table's own column, and `created_by` decides who may
 # delete a record; both are fixed at creation, for the GM too.
 RECORD_IMMUTABLE_PATHS = ("/kind", "/created_by")
+# `template` mirrors the shared_sheets table's own column, which import keeps it equal to.
+SHARED_IMMUTABLE_PATHS = ("/template",)
 
 
 class Forbidden(Exception):
@@ -57,7 +59,7 @@ def check_patch(user: UserConfig, entity: str, owner: str | None, path: str, gm_
             raise Forbidden("GM only")
     else:
         raise Forbidden(f"unknown entity {entity!r}")
-    immutable = IMMUTABLE_PATHS + (RECORD_IMMUTABLE_PATHS if entity == "record" else ())
+    immutable = IMMUTABLE_PATHS + {"record": RECORD_IMMUTABLE_PATHS, "shared": SHARED_IMMUTABLE_PATHS}.get(entity, ())
     if any(path == p or path.startswith(p + "/") for p in immutable):
         raise Forbidden(f"{path} cannot be changed")
     if not user.is_gm and (is_hidden_path(entity, path) or _under(path, GM_WRITE_FIELDS.get(entity, ()))):

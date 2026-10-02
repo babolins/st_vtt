@@ -20,6 +20,9 @@ from typing import Any
 from diff_match_patch import diff_match_patch
 
 OPS = ("set", "remove", "list_add", "list_remove", "text_patch")
+# Keys a browser applying a broadcast patch would follow out of the document and into
+# Object.prototype (frontend/src/lib/pointer.ts refuses them too).
+RESERVED = frozenset({"__proto__", "constructor", "prototype"})
 _dmp = diff_match_patch()
 
 
@@ -32,7 +35,10 @@ def split_pointer(path: str) -> list[str]:
         return []
     if not path.startswith("/"):
         raise PatchError(f"pointer must start with '/': {path!r}")
-    return [p.replace("~1", "/").replace("~0", "~") for p in path[1:].split("/")]
+    tokens = [p.replace("~1", "/").replace("~0", "~") for p in path[1:].split("/")]
+    if reserved := RESERVED.intersection(tokens):
+        raise PatchError(f"{min(reserved)!r} is a reserved name")
+    return tokens
 
 
 def _by_id(container: list[Any], token: str) -> int | None:

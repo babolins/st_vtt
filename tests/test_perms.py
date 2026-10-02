@@ -37,6 +37,13 @@ def test_immutable_and_root():
         check_patch(gm, "character", "Alice", "")
 
 
+def test_shared_sheet_template_is_fixed():
+    # The sheet renders by data.template; a player changing it broke the sheet for everyone.
+    for user in (bob, gm):
+        with pytest.raises(Forbidden):
+            check_patch(user, "shared", None, "/template")
+
+
 def test_visibility_and_strip():
     assert visible_to(alice, None)
     assert visible_to(alice, ["Alice"])

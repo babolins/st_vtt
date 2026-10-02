@@ -12,7 +12,7 @@ from .. import service
 from ..auth import current_user, require_gm
 from ..config import UserConfig
 from ..perms import strip_for_user
-from ._common import PatchBody, emit
+from ._common import PatchBody, emit, json_download
 
 router = APIRouter(prefix="/shared", tags=["shared"])
 
@@ -49,8 +49,7 @@ def get_shared(sid: str, request: Request, user: UserConfig = Depends(current_us
 @router.get("/{sid}/export")
 def export_shared(sid: str, request: Request, user: UserConfig = Depends(current_user)) -> JSONResponse:
     doc = strip_for_user(user, "shared", _visible_row(request, user, sid)["data"])
-    name = (doc.get("name") or "shared").replace('"', "")
-    return JSONResponse(doc, headers={"Content-Disposition": f'attachment; filename="{name}.json"'})
+    return json_download(doc, str(doc.get("name") or "shared"))
 
 
 @router.post("/{sid}/import")

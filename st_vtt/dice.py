@@ -17,8 +17,11 @@ import re
 from dataclasses import dataclass, field
 from typing import Callable, Mapping
 
+# Dice in one roll, all told, and sides on one die.
 MAX_DICE = 100
 MAX_SIDES = 1000
+# Digits in one number: past Python's own limit, int() raises a ValueError of its own.
+MAX_DIGITS = 9
 
 
 class DiceError(ValueError):
@@ -89,6 +92,12 @@ class _Term:
 MAX_REF_DEPTH = 3
 
 
+def _number(digits: str) -> int:
+    if len(digits) > MAX_DIGITS:
+        raise DiceError(f"{digits[:8]}... is too large a number")
+    return int(digits)
+
+
 def _parse(expr: str, refs: Mapping[str, str | int] | None, depth: int = 0) -> list[_Term]:
     if depth > MAX_REF_DEPTH:
         raise DiceError("reference expansion too deep")
@@ -117,10 +126,10 @@ def _parse(expr: str, refs: Mapping[str, str | int] | None, depth: int = 0) -> l
         if not expect_term:
             raise DiceError(f"missing operator before {m.group(0).strip()!r} in {expr!r}")
         if m.group("dice"):
-            count = int(m.group(3) or 1)
-            sides = int(m.group(4))
+            count = _number(m.group(3) or "1")
+            sides = _number(m.group(4))
             keep = (m.group(5) or "").lower() or None
-            keep_n = int(m.group(6)) if m.group(6) else None
+            keep_n = _number(m.group(6)) if m.group(6) else None
             if count < 1 or count > MAX_DICE:
                 raise DiceError(f"dice count must be 1..{MAX_DICE}")
             if sides < 1 or sides > MAX_SIDES:
@@ -129,7 +138,7 @@ def _parse(expr: str, refs: Mapping[str, str | int] | None, depth: int = 0) -> l
                 raise DiceError(f"keep count must be 1..{count}")
             terms.append(_Term(sign, DieGroup(count, sides, keep, keep_n, sign)))
         elif m.group("int"):
-            terms.append(_Term(sign, value=int(m.group("int"))))
+            terms.append(_Term(sign, value=_number(m.group("int"))))
         elif m.group("ref"):
             name = m.group(9).strip()
             if name not in refs:
@@ -144,6 +153,8 @@ def _parse(expr: str, refs: Mapping[str, str | int] | None, depth: int = 0) -> l
         expect_term = False
     if expect_term:
         raise DiceError(f"dangling operator in {expr!r}")
+    if depth == 0 and sum(t.dice.count for t in terms if t.dice) > MAX_DICE:
+        raise DiceError(f"at most {MAX_DICE} dice in one roll")
     return terms
 
 
