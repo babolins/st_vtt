@@ -209,6 +209,7 @@ is stopped, or use `Export campaign`.
 ## Development
 
 ```bash
+uv run pyright                   # type checking
 uv run pytest                    # backend tests
 cd frontend && npm run dev       # Vite dev server on :5173 proxying to :8000
 cd frontend && npm run check     # svelte-check
