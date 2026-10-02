@@ -196,9 +196,12 @@ def validate_import(pack: ContentPack, doc: dict[str, Any]) -> tuple[dict[str, A
         raise ValueError("character must be a JSON object")
     pb_id = doc.get("playbook")
     playbook = pack.playbook(pb_id) if isinstance(pb_id, str) else None
+    if not pack.playbooks:
+        # Nothing to shape the sheet by, and nothing could create one here either.
+        raise ValueError(f"pack {pack.pack.id!r} has no playbooks, so it can't hold a character")
     if playbook is None:
         warnings.append(f"unknown playbook {pb_id!r}; sheet will render with generic sections only")
-        template = new_character(pack, pack.playbooks[0], "") if pack.playbooks else {}
+        template = new_character(pack, pack.playbooks[0], "")
         template["playbook"] = pb_id or ""
         template["sections"] = {}
     else:

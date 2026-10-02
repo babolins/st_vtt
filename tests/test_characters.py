@@ -237,3 +237,8 @@ def test_import_leaves_out_what_the_server_assigns():
     doc, _ = validate_import(_pack(), {"playbook": "pb", "id": "abc", "owner": "Mallory", "revision": 99})
     assert not {"id", "owner", "revision"} & doc.keys()
 
+
+def test_import_into_a_pack_without_playbooks_is_refused():
+    pack = ContentPack.model_validate({"pack": {"id": "t", "name": "T", "stats": [{"id": "str", "label": "STR"}]}})
+    with pytest.raises(ValueError, match="pack 't' has no playbooks, so it can't hold a character"):
+        validate_import(pack, {"playbook": "pb", "name": "Pedr"})
