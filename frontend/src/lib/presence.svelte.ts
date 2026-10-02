@@ -6,9 +6,15 @@ import { presenceKey, userColor } from './util';
 
 export interface PresenceOpts { entity: string; id: string; path: string }
 
+// The badge is tied to its input by CSS anchor positioning (see .presence-badge
+// in app.css), so the browser keeps it on the input through any layout change.
+// Each input needs its own anchor name.
+let anchors = 0;
+
 export function presence(node: HTMLElement, opts: PresenceOpts | undefined) {
   let current = opts;
   let badge: HTMLElement | null = null;
+  const anchor = `--presence-${++anchors}`;
 
   const key = () => (current ? presenceKey(current.entity, current.id, current.path) : null);
   const onFocus = () => { if (current) sendEphemeral({ type: 'focus', ...current }); };
@@ -16,32 +22,13 @@ export function presence(node: HTMLElement, opts: PresenceOpts | undefined) {
   node.addEventListener('focusin', onFocus);
   node.addEventListener('focusout', onBlur);
 
-  // The badge sits in the input's offsetParent, at the input's offset. A layout
-  // change can move the input without resizing it (stat boxes rebalancing onto
-  // two rows), but then the parent resizes, so both are watched. An input moved
-  // inside a parent that keeps its size is not caught.
-  let watched: Element | null = null;
-  function place() {
-    const parent = node.offsetParent as HTMLElement | null;
-    if (parent !== watched) {
-      if (watched) ro.unobserve(watched);
-      if (parent) ro.observe(parent);
-      watched = parent;
-    }
-    if (!badge || !parent) return;
-    if (badge.parentElement !== parent) parent.appendChild(badge);
-    badge.style.left = `${node.offsetLeft + node.offsetWidth - badge.offsetWidth - 2}px`;
-    badge.style.top = `${node.offsetTop - 9}px`;
-  }
-  const ro = new ResizeObserver(place);
-  ro.observe(node); // its first callback finds the parent to watch
-
   const stop = $effect.root(() => {
     $effect(() => {
       const k = key();
       const others = k ? Object.values(app.fieldPresence).filter((f) => f.key === k) : [];
       if (others.length === 0) {
         node.style.boxShadow = '';
+        node.style.removeProperty('anchor-name');
         badge?.remove();
         badge = null;
         return;
@@ -54,10 +41,14 @@ export function presence(node: HTMLElement, opts: PresenceOpts | undefined) {
       if (!badge) {
         badge = document.createElement('span');
         badge.className = 'presence-badge';
+        badge.style.setProperty('position-anchor', anchor);
+        // After the input in the document, as an anchor must be, and inside the
+        // same positioned box, so it scrolls and clips with it.
+        (node.offsetParent ?? node.parentElement)?.appendChild(badge);
       }
+      node.style.setProperty('anchor-name', anchor);
       badge.textContent = names.map((n) => (n === me ? 'you' : n)).join(', ');
       badge.style.background = color;
-      requestAnimationFrame(place);
     });
   });
 
@@ -66,7 +57,6 @@ export function presence(node: HTMLElement, opts: PresenceOpts | undefined) {
     destroy() {
       node.removeEventListener('focusin', onFocus);
       node.removeEventListener('focusout', onBlur);
-      ro.disconnect();
       badge?.remove();
       stop();
     },
