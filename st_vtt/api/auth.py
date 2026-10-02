@@ -3,7 +3,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from ..auth import COOKIE, COOKIE_MAX_AGE, WS_SIGNED_IN_ELSEWHERE, authenticate, get_config, make_token, new_session_id, session_from_token, session_key
+from ..auth import (
+    COOKIE,
+    COOKIE_MAX_AGE,
+    WS_SIGNED_IN_ELSEWHERE,
+    authenticate,
+    get_config,
+    make_token,
+    new_session_id,
+    session_from_token,
+    session_key,
+)
 from ..config import Config, UserConfig
 
 router = APIRouter(tags=["auth"])

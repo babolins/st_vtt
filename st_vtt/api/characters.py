@@ -34,7 +34,6 @@ class ImportBody(BaseModel):
     owner: str | None = None
 
 
-
 @router.get("")
 def list_characters(request: Request, user: UserConfig = Depends(current_user)) -> list[dict]:
     return service.list_characters(request.app, user)
@@ -73,8 +72,12 @@ def export_character(cid: str, request: Request, user: UserConfig = Depends(curr
 
 
 @router.post("/{cid}/patch")
-async def patch_character(cid: str, body: PatchBody, request: Request, user: UserConfig = Depends(current_user)) -> dict:
-    renders = service.patch_entity(request.app, user, "character", cid, body.path, body.value, op=body.op, patch=body.patch)
+async def patch_character(
+    cid: str, body: PatchBody, request: Request, user: UserConfig = Depends(current_user)
+) -> dict:
+    renders = service.patch_entity(
+        request.app, user, "character", cid, body.path, body.value, op=body.op, patch=body.patch
+    )
     emit(request, renders)
     row = request.app.state.db.get_character(cid)
     return {"revision": row["revision"] if row else None}

@@ -95,7 +95,10 @@ def test_character_lifecycle_and_perms(gm, alice, bob):
     assert alice.post(f"/api/characters/{cid}/patch", json={"path": "/gm_notes", "value": "x"}).status_code == 403
     assert gm.post(f"/api/characters/{cid}/patch", json={"path": "/gm_notes", "value": "secret"}).status_code == 200
     assert alice.post(f"/api/characters/{cid}/patch", json={"path": "/playbook", "value": "x"}).status_code == 403
-    assert alice.post(f"/api/characters/{cid}/patch", json={"path": "/followers/-", "value": {"name": "Dog"}}).status_code == 200
+    assert (
+        alice.post(f"/api/characters/{cid}/patch", json={"path": "/followers/-", "value": {"name": "Dog"}}).status_code
+        == 200
+    )
 
     row = alice.get(f"/api/characters/{cid}").json()
     assert row["data"]["hp"]["current"] == 10
@@ -123,7 +126,12 @@ def sheet_id(c, template="village"):
 def test_shared_patch_by_anyone(alice, bob, gm):
     sid = sheet_id(alice)
     assert alice.post(f"/api/shared/{sid}/patch", json={"path": "/stats/stores", "value": 3}).status_code == 200
-    assert bob.post(f"/api/shared/{sid}/patch", json={"path": "/sections/residents/-", "value": {"name": "Old Mab"}}).status_code == 200
+    assert (
+        bob.post(
+            f"/api/shared/{sid}/patch", json={"path": "/sections/residents/-", "value": {"name": "Old Mab"}}
+        ).status_code
+        == 200
+    )
     assert bob.post(f"/api/shared/{sid}/patch", json={"path": "/gm_notes", "value": "no"}).status_code == 403
     st = gm.get(f"/api/shared/{sid}").json()
     assert st["data"]["stats"]["stores"] == 3
@@ -143,10 +151,17 @@ def test_gm_only_shared_sheet(app, gm, alice, bob):
     assert [x["template"] for x in alice.get("/api/shared").json()] == ["village"]
     assert alice.get(f"/api/shared/{sid}").status_code == 404
     assert alice.post(f"/api/shared/{sid}/patch", json={"path": "/notes", "value": "x"}).status_code == 403
-    assert gm.post(f"/api/shared/{sid}/patch", json={"path": "/sections/npcs/-", "value": {"name": "Bandit", "damage": "1d6"}}).status_code == 200
+    assert (
+        gm.post(
+            f"/api/shared/{sid}/patch", json={"path": "/sections/npcs/-", "value": {"name": "Bandit", "damage": "1d6"}}
+        ).status_code
+        == 200
+    )
     # ws: the gm-only patch reaches the gm but not alice
     with alice.websocket_connect("/ws") as wa, gm.websocket_connect("/ws") as wg:
-        json.loads(wa.receive_text()); json.loads(wa.receive_text()); json.loads(wg.receive_text())
+        json.loads(wa.receive_text())
+        json.loads(wa.receive_text())
+        json.loads(wg.receive_text())
         wg.send_text(json.dumps({"type": "patch", "entity": "shared", "id": sid, "path": "/notes", "value": "secret"}))
         assert json.loads(wg.receive_text())["type"] == "patch"
         wg.send_text(json.dumps({"type": "chat", "text": "hi"}))
@@ -162,7 +177,9 @@ def test_a_gm_only_sheet_is_never_announced_to_players(gm, alice):
         return json.loads(ws.receive_text())
 
     with alice.websocket_connect("/ws") as wa, gm.websocket_connect("/ws") as wg:
-        recv(wa); recv(wa); recv(wg)  # presence
+        recv(wa)
+        recv(wa)
+        recv(wg)  # presence
 
         # A sheet the table can see is announced to it, with a line in chat.
         assert gm.post("/api/shared", json={"template": "village", "name": "Barrier Pass"}).status_code == 200
@@ -227,9 +244,15 @@ def test_old_documents_gain_list_ids_once(config, pack):
     db.close()
 
     app1 = create_app(config)
-    rows = {"c": app1.state.db.get_character("c1"), "s": app1.state.db.get_shared("s1"), "r": app1.state.db.get_record("r1")}
+    rows = {
+        "c": app1.state.db.get_character("c1"),
+        "s": app1.state.db.get_shared("s1"),
+        "r": app1.state.db.get_record("r1"),
+    }
     c = rows["c"]["data"]
-    assert all(i["id"] for i in c["gear"]["items"]) and c["followers"][0]["id"] and c["followers"][0]["members"][0]["id"]
+    assert (
+        all(i["id"] for i in c["gear"]["items"]) and c["followers"][0]["id"] and c["followers"][0]["members"][0]["id"]
+    )
     assert c["sections"]["relationships"][0]["id"]
     assert all(r["id"] for r in rows["s"]["data"]["sections"]["resources"])
     assert rows["r"]["data"]["ties"][0]["id"]
@@ -251,14 +274,25 @@ def test_an_item_appended_without_an_id_gets_one(gm, alice):
     sid = sheet_id(gm)
     with gm.websocket_connect("/ws") as wg:
         wg.receive_json()  # presence
-        assert alice.post(f"/api/shared/{sid}/patch", json={"path": "/sections/assets/-", "value": {"name": "Cart"}}).status_code == 200
+        assert (
+            alice.post(
+                f"/api/shared/{sid}/patch", json={"path": "/sections/assets/-", "value": {"name": "Cart"}}
+            ).status_code
+            == 200
+        )
         ev = wg.receive_json()
     rows = gm.get(f"/api/shared/{sid}").json()["data"]["sections"]["assets"]
     assert rows[-1]["name"] == "Cart" and rows[-1]["id"]
     assert ev["value"] == rows[-1]  # the broadcast carries the id too
     # the old build added ties with list_add
     rid = alice.post("/api/records", json={"name": "Mab"}).json()["id"]
-    assert alice.post(f"/api/records/{rid}/patch", json={"path": "/ties", "op": "list_add", "value": {"type": "kin-of", "to": "x", "note": ""}}).status_code == 200
+    assert (
+        alice.post(
+            f"/api/records/{rid}/patch",
+            json={"path": "/ties", "op": "list_add", "value": {"type": "kin-of", "to": "x", "note": ""}},
+        ).status_code
+        == 200
+    )
     assert gm.get(f"/api/records/{rid}").json()["data"]["ties"][0]["id"]
 
 
@@ -315,7 +349,9 @@ def test_move_roll_with_debility(alice):
 
 def test_request_roll_gm_only(gm, alice):
     assert alice.post("/api/request_roll", json={"user": "Gm", "label": "x"}).status_code == 403
-    assert gm.post("/api/request_roll", json={"user": "Alice", "label": "Take a Risk", "stat": "wis"}).status_code == 200
+    assert (
+        gm.post("/api/request_roll", json={"user": "Alice", "label": "Take a Risk", "stat": "wis"}).status_code == 200
+    )
     m = alice.get("/api/messages").json()[-1]
     assert m["kind"] == "request" and m["payload"]["to"] == "Alice"
 
@@ -336,7 +372,11 @@ def test_websocket_roundtrip(app, gm, alice, bob):
                     assert recv(ws)["users"] == ["Alice", "Bob", "Gm"]
 
                 # alice patches her own character: everyone sees it, alice gets an ack
-                wa.send_text(json.dumps({"type": "patch", "entity": "character", "id": cid, "path": "/hp/current", "value": 7, "ref": 1}))
+                wa.send_text(
+                    json.dumps(
+                        {"type": "patch", "entity": "character", "id": cid, "path": "/hp/current", "value": 7, "ref": 1}
+                    )
+                )
                 for ws in (wa, wb, wg):
                     ev = recv(ws)
                     assert ev["type"] == "patch" and ev["value"] == 7 and ev["by"] == "Alice" and ev["revision"] == 1
@@ -344,12 +384,18 @@ def test_websocket_roundtrip(app, gm, alice, bob):
                 assert alice.get(f"/api/characters/{cid}").json()["data"]["hp"]["current"] == 7
 
                 # bob may not edit alice's character: error only to bob
-                wb.send_text(json.dumps({"type": "patch", "entity": "character", "id": cid, "path": "/hp/current", "value": 0, "ref": 2}))
+                wb.send_text(
+                    json.dumps(
+                        {"type": "patch", "entity": "character", "id": cid, "path": "/hp/current", "value": 0, "ref": 2}
+                    )
+                )
                 err = recv(wb)
                 assert err["type"] == "error" and err["ref"] == 2
 
                 # gm_notes patch reaches the gm only
-                wg.send_text(json.dumps({"type": "patch", "entity": "character", "id": cid, "path": "/gm_notes", "value": "shh"}))
+                wg.send_text(
+                    json.dumps({"type": "patch", "entity": "character", "id": cid, "path": "/gm_notes", "value": "shh"})
+                )
                 assert recv(wg)["path"] == "/gm_notes"
 
                 # a public chat reaches everyone (and proves alice/bob did not get the gm_notes patch)
@@ -418,8 +464,32 @@ def assert_ping_is_next(speaker, *listeners):
 def test_conflicting_sets_reach_everyone_in_server_order(gm, alice, bob):
     sid = sheet_id(alice)
     with alice.websocket_connect("/ws") as wa, bob.websocket_connect("/ws") as wb:
-        wa.send_text(json.dumps({"type": "patch", "entity": "shared", "id": sid, "path": "/stats/stores", "value": 1, "ref": 1, "client": "a"}))
-        wb.send_text(json.dumps({"type": "patch", "entity": "shared", "id": sid, "path": "/stats/stores", "value": 2, "ref": 1, "client": "b"}))
+        wa.send_text(
+            json.dumps(
+                {
+                    "type": "patch",
+                    "entity": "shared",
+                    "id": sid,
+                    "path": "/stats/stores",
+                    "value": 1,
+                    "ref": 1,
+                    "client": "a",
+                }
+            )
+        )
+        wb.send_text(
+            json.dumps(
+                {
+                    "type": "patch",
+                    "entity": "shared",
+                    "id": sid,
+                    "path": "/stats/stores",
+                    "value": 2,
+                    "ref": 1,
+                    "client": "b",
+                }
+            )
+        )
         seen_a = [e for e in _recv_until(wa, 3) if e["type"] == "patch"]
         seen_b = [e for e in _recv_until(wb, 3) if e["type"] == "patch"]
     # both clients see the same order, with the sender's ref, and the last is what was stored
@@ -435,8 +505,16 @@ def test_two_people_removing_the_same_row_remove_one(gm, alice, bob):
     assert len(rows) == 2
     path = f"/sections/resources/@{rows[0]['id']}"
     with alice.websocket_connect("/ws") as wa, bob.websocket_connect("/ws") as wb:
-        wa.send_text(json.dumps({"type": "patch", "entity": "shared", "id": sid, "path": path, "op": "remove", "ref": 1, "client": "a"}))
-        wb.send_text(json.dumps({"type": "patch", "entity": "shared", "id": sid, "path": path, "op": "remove", "ref": 1, "client": "b"}))
+        wa.send_text(
+            json.dumps(
+                {"type": "patch", "entity": "shared", "id": sid, "path": path, "op": "remove", "ref": 1, "client": "a"}
+            )
+        )
+        wb.send_text(
+            json.dumps(
+                {"type": "patch", "entity": "shared", "id": sid, "path": path, "op": "remove", "ref": 1, "client": "b"}
+            )
+        )
         seen = _recv_until(wa, 3) + _recv_until(wb, 3)
     assert sorted(e["type"] for e in seen) == ["ack", "ack", "patch", "patch", "patch", "patch"]
     assert gm.get(f"/api/shared/{sid}").json()["data"]["sections"]["resources"] == rows[1:]
@@ -450,14 +528,32 @@ def test_an_edit_lands_on_its_row_after_a_row_above_is_removed(gm, alice, bob):
     first, second = alice.get(f"/api/shared/{sid}").json()["data"]["sections"]["resources"]
     # Alice started typing in the second row before Bob removed the first; the server gets Bob's first.
     edit = dmp.patch_toText(dmp.patch_make(second["notes"], "fresh water"))
-    assert bob.post(f"/api/shared/{sid}/patch", json={"path": f"/sections/resources/@{first['id']}", "op": "remove"}).status_code == 200
-    assert alice.post(f"/api/shared/{sid}/patch", json={"path": f"/sections/resources/@{second['id']}/notes", "op": "text_patch", "patch": edit}).status_code == 200
+    assert (
+        bob.post(
+            f"/api/shared/{sid}/patch", json={"path": f"/sections/resources/@{first['id']}", "op": "remove"}
+        ).status_code
+        == 200
+    )
+    assert (
+        alice.post(
+            f"/api/shared/{sid}/patch",
+            json={"path": f"/sections/resources/@{second['id']}/notes", "op": "text_patch", "patch": edit},
+        ).status_code
+        == 200
+    )
     assert gm.get(f"/api/shared/{sid}").json()["data"]["sections"]["resources"] == [{**second, "notes": "fresh water"}]
 
 
 def test_resent_patch_is_acked_not_reapplied(gm, alice, bob):
     sid = sheet_id(alice)
-    npc = {"type": "patch", "entity": "shared", "id": sid, "path": "/sections/npcs/-", "value": {"name": "Bandit"}, "client": "a"}
+    npc = {
+        "type": "patch",
+        "entity": "shared",
+        "id": sid,
+        "path": "/sections/npcs/-",
+        "value": {"name": "Bandit"},
+        "client": "a",
+    }
 
     def npcs():
         return [n["name"] for n in gm.get(f"/api/shared/{sid}").json()["data"]["sections"].get("npcs", [])]
@@ -486,7 +582,14 @@ def test_resent_patch_is_acked_not_reapplied(gm, alice, bob):
 def test_applied_refs_survive_a_restart(config):
     # The patch was saved, but the server went down before the ack reached the browser,
     # so after the restart the browser resends it.
-    npc = {"type": "patch", "entity": "shared", "path": "/sections/npcs/-", "value": {"name": "Bandit"}, "ref": 7, "client": "a"}
+    npc = {
+        "type": "patch",
+        "entity": "shared",
+        "path": "/sections/npcs/-",
+        "value": {"name": "Bandit"},
+        "ref": 7,
+        "client": "a",
+    }
     app1 = create_app(config)
     c1 = client_for(app1, "Alice")
     sid = sheet_id(c1)
@@ -549,9 +652,11 @@ def test_every_kind_of_document_row_has_the_same_bookkeeping(tmp_path, kind):
     from st_vtt.db import Database
 
     db = Database(tmp_path / "t.db")
-    insert = {"character": lambda: db.insert_character("a", "Alice", {"name": "A"}),
-              "shared": lambda: db.insert_shared("a", "village", {"name": "A"}),
-              "record": lambda: db.insert_record("a", "npc", {"name": "A"})}[kind]
+    insert = {
+        "character": lambda: db.insert_character("a", "Alice", {"name": "A"}),
+        "shared": lambda: db.insert_shared("a", "village", {"name": "A"}),
+        "record": lambda: db.insert_record("a", "npc", {"name": "A"}),
+    }[kind]
     row = insert()
     assert {"id", "data", "revision", "created_at", "updated_at"} <= set(row)
     assert getattr(db, f"save_{kind}")("a", {"name": "B"}) == 1
@@ -562,7 +667,11 @@ def test_every_kind_of_document_row_has_the_same_bookkeeping(tmp_path, kind):
 def test_refused_patch_is_not_counted_as_applied(alice):
     cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": "Bryn"}).json()["id"]
     with alice.websocket_connect("/ws") as wa:
-        wa.send_text(json.dumps({"type": "patch", "entity": "character", "id": cid, "path": "", "op": "remove", "ref": 1, "client": "a"}))
+        wa.send_text(
+            json.dumps(
+                {"type": "patch", "entity": "character", "id": cid, "path": "", "op": "remove", "ref": 1, "client": "a"}
+            )
+        )
         assert _recv_until(wa, 1)[0]["type"] == "error"
     assert alice.get("/api/state?client=a").json()["applied_ref"] == 0
 
@@ -590,7 +699,9 @@ def test_a_message_the_server_cannot_read_leaves_the_socket_open(alice):
 
 def test_an_unknown_message_type_is_refused_to_its_sender_only(alice, bob):
     with alice.websocket_connect("/ws") as wa, bob.websocket_connect("/ws") as wb:
-        wa.receive_json(); wa.receive_json(); wb.receive_json()  # presence
+        wa.receive_json()
+        wa.receive_json()
+        wb.receive_json()  # presence
         wa.send_text(json.dumps({"type": "bogus", "ref": 1}))
         assert wa.receive_json() == {"type": "error", "message": "unknown message type 'bogus'", "ref": 1}
         wa.send_text(json.dumps({"ref": 2}))
@@ -604,7 +715,9 @@ def test_a_handler_that_fails_answers_server_error_and_nothing_else(alice, bob, 
 
     monkeypatch.setattr(service, "do_roll", boom)
     with alice.websocket_connect("/ws") as wa, bob.websocket_connect("/ws") as wb:
-        wa.receive_json(); wa.receive_json(); wb.receive_json()  # presence
+        wa.receive_json()
+        wa.receive_json()
+        wb.receive_json()  # presence
         wa.send_text(json.dumps({"type": "roll", "expr": "1d6", "ref": 1}))
         assert wa.receive_json() == {"type": "error", "message": "server error: boom", "ref": 1}
         # No ack and no broadcast, and the socket still works.
@@ -615,7 +728,9 @@ def test_a_handler_that_fails_answers_server_error_and_nothing_else(alice, bob, 
 def test_share_move_over_the_socket(alice, bob):
     cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": "Bryn"}).json()["id"]
     with alice.websocket_connect("/ws") as wa, bob.websocket_connect("/ws") as wb:
-        wa.receive_json(); wa.receive_json(); wb.receive_json()  # presence
+        wa.receive_json()
+        wa.receive_json()
+        wb.receive_json()  # presence
         wa.send_text(json.dumps({"type": "share_move", "character_id": cid, "move_id": "brawl", "ref": 1}))
         for ws in (wa, wb):
             ev = ws.receive_json()
@@ -630,7 +745,9 @@ def test_share_move_over_the_socket(alice, bob):
 
 def test_request_roll_over_the_socket_is_gm_only(gm, alice):
     with alice.websocket_connect("/ws") as wa, gm.websocket_connect("/ws") as wg:
-        wa.receive_json(); wa.receive_json(); wg.receive_json()  # presence
+        wa.receive_json()
+        wa.receive_json()
+        wg.receive_json()  # presence
         wa.send_text(json.dumps({"type": "request_roll", "user": "Gm", "label": "x", "ref": 1}))
         assert wa.receive_json() == {"type": "error", "message": "GM only", "ref": 1}
         assert_ping_is_next(wa, wa, wg)
@@ -638,7 +755,9 @@ def test_request_roll_over_the_socket_is_gm_only(gm, alice):
         wg.send_text(json.dumps({"type": "request_roll", "user": "Nobody", "label": "x", "ref": 2}))
         assert wg.receive_json() == {"type": "error", "message": "unknown user 'Nobody'", "ref": 2}
 
-        wg.send_text(json.dumps({"type": "request_roll", "user": "Alice", "label": "Take a Risk", "stat": "wis", "ref": 3}))
+        wg.send_text(
+            json.dumps({"type": "request_roll", "user": "Alice", "label": "Take a Risk", "stat": "wis", "ref": 3})
+        )
         for ws in (wa, wg):
             ev = ws.receive_json()
             assert ev["type"] == "message" and ev["message"]["kind"] == "request"
@@ -655,11 +774,22 @@ def test_text_patch_via_api_keeps_both_edits(gm, alice, bob):
     assert gm.post(f"/api/shared/{sid}/patch", json={"path": "/notes", "value": base}).status_code == 200
     pa = dmp.patch_toText(dmp.patch_make(base, base + "- Alice fixed the roof\n"))
     pb = dmp.patch_toText(dmp.patch_make(base, "Bob was here. " + base))
-    assert alice.post(f"/api/shared/{sid}/patch", json={"path": "/notes", "op": "text_patch", "patch": pa}).status_code == 200
-    assert bob.post(f"/api/shared/{sid}/patch", json={"path": "/notes", "op": "text_patch", "patch": pb}).status_code == 200
+    assert (
+        alice.post(f"/api/shared/{sid}/patch", json={"path": "/notes", "op": "text_patch", "patch": pa}).status_code
+        == 200
+    )
+    assert (
+        bob.post(f"/api/shared/{sid}/patch", json={"path": "/notes", "op": "text_patch", "patch": pb}).status_code
+        == 200
+    )
     notes = gm.get(f"/api/shared/{sid}").json()["data"]["notes"]
     assert notes == "Bob was here. Season log:\n- Alice fixed the roof\n"
-    assert bob.post(f"/api/shared/{sid}/patch", json={"path": "/notes", "op": "text_patch", "patch": "garbage"}).status_code == 400
+    assert (
+        bob.post(
+            f"/api/shared/{sid}/patch", json={"path": "/notes", "op": "text_patch", "patch": "garbage"}
+        ).status_code
+        == 400
+    )
 
 
 def test_ephemeral_focus_and_typing(app, gm, alice, bob):
@@ -669,19 +799,32 @@ def test_ephemeral_focus_and_typing(app, gm, alice, bob):
     with alice.websocket_connect("/ws") as wa:
         recv(wa)  # presence
         with bob.websocket_connect("/ws") as wb:
-            recv(wa); recv(wb)
-            wa.send_text(json.dumps({"type": "focus", "entity": "shared", "id": "main", "path": "/notes", "client": "ca"}))
+            recv(wa)
+            recv(wb)
+            wa.send_text(
+                json.dumps({"type": "focus", "entity": "shared", "id": "main", "path": "/notes", "client": "ca"})
+            )
             ev = recv(wb)
-            assert ev == {"type": "field_presence", "user": "Alice", "client": "ca", "entity": "shared", "id": "main", "path": "/notes"}
+            assert ev == {
+                "type": "field_presence",
+                "user": "Alice",
+                "client": "ca",
+                "entity": "shared",
+                "id": "main",
+                "path": "/notes",
+            }
             wa.send_text(json.dumps({"type": "typing", "active": True}))
             assert recv(wb) == {"type": "typing", "user": "Alice", "active": True}
             # a late joiner asks for the current focus snapshot
             with gm.websocket_connect("/ws") as wg:
-                recv(wg); recv(wa); recv(wb)  # presence x3
+                recv(wg)
+                recv(wa)
+                recv(wb)  # presence x3
                 wg.send_text(json.dumps({"type": "presence_sync", "client": "cg"}))
                 ev = recv(wg)
                 assert ev["type"] == "field_presence" and ev["user"] == "Alice" and ev["path"] == "/notes"
-            recv(wa); recv(wb)  # gm left
+            recv(wa)
+            recv(wb)  # gm left
             wa.send_text(json.dumps({"type": "blur", "client": "ca"}))
             assert recv(wb)["path"] is None
             # alice never receives her own ephemeral events: a chat proves the next event is the chat
@@ -818,7 +961,10 @@ def test_shared_sheet_stat_rolls(gm, alice):
 def test_roll_modifiers_and_bonus_bounds(alice):
     sid = sheet_id(alice)
     # the example pack's Muster move declares no modifiers
-    assert alice.post("/api/roll", json={"shared_id": sid, "move_id": "muster", "modifiers": {"value": 1}}).status_code == 400
+    assert (
+        alice.post("/api/roll", json={"shared_id": sid, "move_id": "muster", "modifiers": {"value": 1}}).status_code
+        == 400
+    )
     # free-form bonus is clamped to a sane range
     assert alice.post("/api/roll", json={"shared_id": sid, "bonus": 3}).status_code == 200
     assert alice.get("/api/messages").json()[-1]["payload"]["bonus"] == 3
@@ -836,19 +982,30 @@ def test_declared_modifier_options(config):
     shutil.copytree(src, tmp)
     sheets = _json.loads((tmp / "shared_sheets.json").read_text())
     muster = next(m for m in sheets["shared_sheets"][0]["moves"] if m["id"] == "muster")
-    muster["roll"]["modifiers"] = [{
-        "id": "value", "label": "Item Value", "default": 0,
-        "options": [{"label": f"Value {v}", "value": -v} for v in range(4)],
-    }]
+    muster["roll"]["modifiers"] = [
+        {
+            "id": "value",
+            "label": "Item Value",
+            "default": 0,
+            "options": [{"label": f"Value {v}", "value": -v} for v in range(4)],
+        }
+    ]
     (tmp / "shared_sheets.json").write_text(_json.dumps(sheets))
     config.content_pack = str(tmp)
     app = create_app(config)
     c = client_for(app, "Alice")
     sid = sheet_id(c)
     content_move = next(m for m in c.get("/api/content").json()["shared_sheets"][0]["moves"] if m["id"] == "muster")
-    assert [o["label"] for o in content_move["roll"]["modifiers"][0]["options"]] == ["Value 0", "Value 1", "Value 2", "Value 3"]
+    assert [o["label"] for o in content_move["roll"]["modifiers"][0]["options"]] == [
+        "Value 0",
+        "Value 1",
+        "Value 2",
+        "Value 3",
+    ]
 
-    assert c.post("/api/roll", json={"shared_id": sid, "move_id": "muster", "modifiers": {"value": -2}}).status_code == 200
+    assert (
+        c.post("/api/roll", json={"shared_id": sid, "move_id": "muster", "modifiers": {"value": -2}}).status_code == 200
+    )
     p = c.get("/api/messages").json()[-1]["payload"]
     assert p["modifiers"] == [{"id": "value", "label": "Item Value", "option": "Value 2", "value": -2}]
     assert p["bonus"] == -2
@@ -857,7 +1014,9 @@ def test_declared_modifier_options(config):
     p = c.get("/api/messages").json()[-1]["payload"]
     assert p["modifiers"][0]["option"] == "Value 0" and p["bonus"] == 0
     # a value outside the declared options is refused
-    assert c.post("/api/roll", json={"shared_id": sid, "move_id": "muster", "modifiers": {"value": -9}}).status_code == 400
+    assert (
+        c.post("/api/roll", json={"shared_id": sid, "move_id": "muster", "modifiers": {"value": -9}}).status_code == 400
+    )
     app.state.db.close()
 
 
@@ -932,7 +1091,12 @@ def test_applying_a_whispered_rolls_outcome_updates_it_for_its_audience_only(gm,
         return json.loads(ws.receive_text())
 
     with alice.websocket_connect("/ws") as wa, bob.websocket_connect("/ws") as wb, gm.websocket_connect("/ws") as wg:
-        recv(wa); recv(wa); recv(wa); recv(wb); recv(wb); recv(wg)  # presence
+        recv(wa)
+        recv(wa)
+        recv(wa)
+        recv(wb)
+        recv(wb)
+        recv(wg)  # presence
         assert alice.post(f"/api/messages/{msg['id']}/apply", json={"index": 0}).status_code == 200
         for ws in (wa, wg):
             assert recv(ws)["path"] == "/moves/hold/Focus"
@@ -962,12 +1126,25 @@ def test_shared_sheet_outcomes_touch_the_shared_sheet(gm):
 def test_a_moves_own_checklist_is_stored_like_a_sections(alice):
     cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": "Pedr"}).json()["id"]
     # Hardened is "each time you take this move, pick 1", with a write-in on one option.
-    assert alice.post(f"/api/characters/{cid}/patch",
-                      json={"path": "/moves/taken", "value": "hardened", "op": "list_add"}).status_code == 200
-    assert alice.post(f"/api/characters/{cid}/patch",
-                      json={"path": "/moves/options/hardened", "value": ["hardened_knack"]}).status_code == 200
-    assert alice.post(f"/api/characters/{cid}/patch",
-                      json={"path": "/option_text/hardened/hardened_knack", "value": "shoeing horses"}).status_code == 200
+    assert (
+        alice.post(
+            f"/api/characters/{cid}/patch", json={"path": "/moves/taken", "value": "hardened", "op": "list_add"}
+        ).status_code
+        == 200
+    )
+    assert (
+        alice.post(
+            f"/api/characters/{cid}/patch", json={"path": "/moves/options/hardened", "value": ["hardened_knack"]}
+        ).status_code
+        == 200
+    )
+    assert (
+        alice.post(
+            f"/api/characters/{cid}/patch",
+            json={"path": "/option_text/hardened/hardened_knack", "value": "shoeing horses"},
+        ).status_code
+        == 200
+    )
 
     doc = alice.get(f"/api/characters/{cid}").json()["data"]
     assert doc["moves"]["options"]["hardened"] == ["hardened_knack"]

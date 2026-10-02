@@ -45,8 +45,11 @@ def test_a_hidden_field_never_reaches_a_player(entity, field, alice, gm):
     with alice.websocket_connect("/ws") as wa:
         recv(wa)  # presence
         with gm.websocket_connect("/ws") as wg:
-            recv(wa); recv(wg)  # presence x2
-            wg.send_text(json.dumps({"type": "patch", "entity": entity, "id": eid, "path": f"/{field}", "value": SENTINEL}))
+            recv(wa)
+            recv(wg)  # presence x2
+            wg.send_text(
+                json.dumps({"type": "patch", "entity": entity, "id": eid, "path": f"/{field}", "value": SENTINEL})
+            )
             wg.send_text(json.dumps({"type": "chat", "text": "done"}))
             assert recv(wa)["type"] == "message"
 

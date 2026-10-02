@@ -22,7 +22,6 @@ class CreateBody(BaseModel):
     name: str
 
 
-
 def _visible_row(request: Request, user: UserConfig, rid: str) -> dict:
     row = request.app.state.db.get_record(rid)
     if row is None or not service.record_visible(user, row):
@@ -50,7 +49,9 @@ def get_record(rid: str, request: Request, user: UserConfig = Depends(current_us
 @router.post("/{rid}/patch")
 async def patch_record(rid: str, body: PatchBody, request: Request, user: UserConfig = Depends(current_user)) -> dict:
     _visible_row(request, user, rid)
-    renders = service.patch_entity(request.app, user, "record", rid, body.path, body.value, op=body.op, patch=body.patch)
+    renders = service.patch_entity(
+        request.app, user, "record", rid, body.path, body.value, op=body.op, patch=body.patch
+    )
     emit(request, renders)
     return {"ok": True}
 

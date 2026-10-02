@@ -78,7 +78,14 @@ def test_a_kick_that_cannot_close_the_socket_still_signs_it_out():
         assert new.closed_with is None
         assert hub.sessions_of("Alice") == {"new"}
         # Bob stops seeing the old tab on the field, and Alice is still online through the new one.
-        assert heard(bob)[-1] == {"type": "field_presence", "user": "Alice", "client": "c-old", "entity": None, "id": None, "path": None}
+        assert heard(bob)[-1] == {
+            "type": "field_presence",
+            "user": "Alice",
+            "client": "c-old",
+            "entity": None,
+            "id": None,
+            "path": None,
+        }
         assert heard(bob, presence=True)[-1]["users"] == ["Alice", "Bob"]
 
         hub.kick("Alice", 4409)
@@ -155,7 +162,9 @@ def test_a_stalled_socket_does_not_hold_up_the_others(monkeypatch):
 
             hub.emit([lambda u: {"type": "one"}])
             hub.broadcast_ephemeral({"type": "typing", "user": "Gm", "active": True})
-            await until(lambda: heard(live) == [{"type": "one"}, {"type": "typing", "user": "Gm", "active": True}], within=1)
+            await until(
+                lambda: heard(live) == [{"type": "one"}, {"type": "typing", "user": "Gm", "active": True}], within=1
+            )
 
     anyio.run(main)
 
@@ -175,7 +184,14 @@ def test_a_stalled_socket_is_dropped_and_told_to_come_back(monkeypatch):
         assert hub.users == ["Bob"]
         await hub.flush()
         assert heard(live, presence=True)[-1]["users"] == ["Bob"]
-        assert heard(live)[-1] == {"type": "field_presence", "user": "Alice", "client": "ca", "entity": None, "id": None, "path": None}
+        assert heard(live)[-1] == {
+            "type": "field_presence",
+            "user": "Alice",
+            "client": "ca",
+            "entity": None,
+            "id": None,
+            "path": None,
+        }
 
     anyio.run(main)
 
@@ -230,7 +246,11 @@ def test_each_client_hears_events_in_the_order_they_happened():
             hub.emit([lambda u, i=i: {"type": "n", "i": i}])
             hub.send(slow if i % 2 else quick, {"type": "ack", "ref": i})
         await hub.flush()
-        assert [e.get("i", e.get("ref")) for e in heard(slow)] == [n for i in range(30) for n in ([i, i] if i % 2 else [i])]
-        assert [e.get("i", e.get("ref")) for e in heard(quick)] == [n for i in range(30) for n in ([i] if i % 2 else [i, i])]
+        assert [e.get("i", e.get("ref")) for e in heard(slow)] == [
+            n for i in range(30) for n in ([i, i] if i % 2 else [i])
+        ]
+        assert [e.get("i", e.get("ref")) for e in heard(quick)] == [
+            n for i in range(30) for n in ([i] if i % 2 else [i, i])
+        ]
 
     anyio.run(main)

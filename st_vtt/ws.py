@@ -63,7 +63,9 @@ class Hub:
 
     def kick(self, name: str, code: int, keep_session: str | None = None) -> None:
         """Close every connection of `name` (except those of `keep_session`)."""
-        for ws in [ws for ws, u in list(self._clients.items()) if u.name == name and self._sessions.get(ws) != keep_session]:
+        for ws in [
+            ws for ws, u in list(self._clients.items()) if u.name == name and self._sessions.get(ws) != keep_session
+        ]:
             self._drop(ws, code)
 
     def disconnect(self, ws: WebSocket) -> None:
@@ -80,7 +82,17 @@ class Hub:
             outbox.get_nowait()
             outbox.task_done()
         if user and had_focus:
-            self.broadcast_ephemeral({"type": "field_presence", "user": user.name, "client": client, "entity": None, "id": None, "path": None}, exclude=ws)
+            self.broadcast_ephemeral(
+                {
+                    "type": "field_presence",
+                    "user": user.name,
+                    "client": client,
+                    "entity": None,
+                    "id": None,
+                    "path": None,
+                },
+                exclude=ws,
+            )
         self.broadcast_presence()
 
     def _drop(self, ws: WebSocket, code: int) -> None:
@@ -132,7 +144,9 @@ class Hub:
                 if event is not None:
                     self.send(ws, event)
 
-    def broadcast_ephemeral(self, event: dict[str, Any], exclude: WebSocket | None = None, gm_only: bool = False) -> None:
+    def broadcast_ephemeral(
+        self, event: dict[str, Any], exclude: WebSocket | None = None, gm_only: bool = False
+    ) -> None:
         """Send an un-persisted event to every other client (optionally GMs only)."""
         for ws, user in list(self._clients.items()):
             if ws is exclude:
@@ -233,11 +247,15 @@ def handle_ephemeral(app: FastAPI, hub: Hub, ws: WebSocket, user: UserConfig, ms
         hub.set_focus(ws, client, focus)
         hub.broadcast_ephemeral(
             {"type": "field_presence", "user": user.name, "client": client, **focus},
-            exclude=ws, gm_only=_gm_only_focus(app, focus),
+            exclude=ws,
+            gm_only=_gm_only_focus(app, focus),
         )
     elif kind == "blur":
         hub.set_focus(ws, client, None)
-        hub.broadcast_ephemeral({"type": "field_presence", "user": user.name, "client": client, "entity": None, "id": None, "path": None}, exclude=ws)
+        hub.broadcast_ephemeral(
+            {"type": "field_presence", "user": user.name, "client": client, "entity": None, "id": None, "path": None},
+            exclude=ws,
+        )
     elif kind == "typing":
         hub.broadcast_ephemeral({"type": "typing", "user": user.name, "active": bool(msg.get("active"))}, exclude=ws)
     elif kind == "presence_sync":
@@ -255,8 +273,16 @@ def handle(app: FastAPI, user: UserConfig, msg: dict[str, Any]) -> list[service.
         return None
     if kind == "patch":
         return service.patch_entity(
-            app, user, str(msg.get("entity")), msg.get("id"), str(msg.get("path", "")), msg.get("value"),
-            op=str(msg.get("op", "set")), patch=msg.get("patch"), client=msg.get("client"), ref=msg.get("ref"),
+            app,
+            user,
+            str(msg.get("entity")),
+            msg.get("id"),
+            str(msg.get("path", "")),
+            msg.get("value"),
+            op=str(msg.get("op", "set")),
+            patch=msg.get("patch"),
+            client=msg.get("client"),
+            ref=msg.get("ref"),
         )
     if kind == "chat":
         to = msg.get("to")

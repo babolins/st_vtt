@@ -12,11 +12,25 @@ from test_api import alice, app, bob, gm  # noqa: F401
 def custom_move(stat, **overrides):
     """What `addCustom` in frontend/src/sheet/sections/Moves.svelte writes; keep the two alike."""
     move = {
-        "id": "custom_abc", "name": "Read the Stars", "trigger": "When you read the stars", "text": "Ask the GM.",
-        "roll": None if stat == "" else {"stat": None if stat == "nothing" else stat, "bonus": 0, "label": None, "modifiers": []},
-        "outcomes": {}, "hold": None, "tracks": {"marks": None, "bulk": None, "uses": None, "statuses": []},
-        "requires": None, "themes": [], "tags": ["custom"], "replaces": None, "insert": None, "grants": None,
-        "options": [], "min": None, "max": None,
+        "id": "custom_abc",
+        "name": "Read the Stars",
+        "trigger": "When you read the stars",
+        "text": "Ask the GM.",
+        "roll": None
+        if stat == ""
+        else {"stat": None if stat == "nothing" else stat, "bonus": 0, "label": None, "modifiers": []},
+        "outcomes": {},
+        "hold": None,
+        "tracks": {"marks": None, "bulk": None, "uses": None, "statuses": []},
+        "requires": None,
+        "themes": [],
+        "tags": ["custom"],
+        "replaces": None,
+        "insert": None,
+        "grants": None,
+        "options": [],
+        "min": None,
+        "max": None,
     }
     move.update(overrides)
     return move
@@ -25,8 +39,15 @@ def custom_move(stat, **overrides):
 def character_with(client, move, name="Bryn"):
     cid = client.post("/api/characters", json={"playbook": "wanderer", "name": name}).json()["id"]
     client.post(f"/api/characters/{cid}/patch", json={"path": "/stats/wis", "value": 2})
-    assert client.post(f"/api/characters/{cid}/patch", json={"path": "/custom_moves/-", "value": move}).status_code == 200
-    assert client.post(f"/api/characters/{cid}/patch", json={"path": "/moves/taken", "value": move["id"], "op": "list_add"}).status_code == 200
+    assert (
+        client.post(f"/api/characters/{cid}/patch", json={"path": "/custom_moves/-", "value": move}).status_code == 200
+    )
+    assert (
+        client.post(
+            f"/api/characters/{cid}/patch", json={"path": "/moves/taken", "value": move["id"], "op": "list_add"}
+        ).status_code
+        == 200
+    )
     return cid
 
 
@@ -71,7 +92,12 @@ def test_a_custom_move_is_shared_to_chat(alice, bob):
     m = bob.get("/api/messages").json()[-1]
     assert m["kind"] == "move" and m["author"] == "Alice"
     p = m["payload"]
-    assert (p["move_id"], p["name"], p["trigger"], p["text"]) == ("custom_abc", "Read the Stars", "When you read the stars", "Ask the GM.")
+    assert (p["move_id"], p["name"], p["trigger"], p["text"]) == (
+        "custom_abc",
+        "Read the Stars",
+        "When you read the stars",
+        "Ask the GM.",
+    )
     assert p["character"] == "Bryn" and p["character_id"] == cid
     assert p["roll"]["stat"] == "wis" and p["outcomes"] == {}
 
@@ -97,11 +123,14 @@ def test_a_custom_move_belongs_to_its_own_sheet(alice, bob):
     assert bob.post("/api/roll", json={"character_id": cid, "move_id": "custom_abc"}).status_code == 200
 
 
-@pytest.mark.parametrize("bad", [
-    {"colour": "red"},                          # a field the server's Move doesn't have
-    {"name": None},                             # a required field gone
-    {"roll": {"stat": "wis", "bonus": "lots"}},  # a value of the wrong type
-])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"colour": "red"},  # a field the server's Move doesn't have
+        {"name": None},  # a required field gone
+        {"roll": {"stat": "wis", "bonus": "lots"}},  # a value of the wrong type
+    ],
+)
 def test_a_custom_move_the_server_cannot_read_is_an_unknown_move(alice, bad):
     cid = character_with(alice, custom_move("wis", **bad))
     r = alice.post("/api/roll", json={"character_id": cid, "move_id": "custom_abc"})
@@ -109,12 +138,21 @@ def test_a_custom_move_the_server_cannot_read_is_an_unknown_move(alice, bad):
     assert alice.post("/api/share_move", json={"character_id": cid, "move_id": "custom_abc"}).status_code == 400
 
 
-@pytest.mark.parametrize("op, value", [
-    ("remove", None), ("set", 5), ("set", "custom_abc"), ("set", ["custom_abc", {"id": "custom_other", "name": "Other"}]),
-])
+@pytest.mark.parametrize(
+    "op, value",
+    [
+        ("remove", None),
+        ("set", 5),
+        ("set", "custom_abc"),
+        ("set", ["custom_abc", {"id": "custom_other", "name": "Other"}]),
+    ],
+)
 def test_a_sheet_without_a_list_of_custom_moves_has_none_of_them(alice, op, value):
     cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": "Bryn"}).json()["id"]
-    assert alice.post(f"/api/characters/{cid}/patch", json={"path": "/custom_moves", "op": op, "value": value}).status_code == 200
+    assert (
+        alice.post(f"/api/characters/{cid}/patch", json={"path": "/custom_moves", "op": op, "value": value}).status_code
+        == 200
+    )
     r = alice.post("/api/roll", json={"character_id": cid, "move_id": "custom_abc"})
     assert r.status_code == 400 and r.json()["detail"] == "unknown move 'custom_abc'"
     assert alice.post("/api/share_move", json={"character_id": cid, "move_id": "custom_abc"}).status_code == 400
