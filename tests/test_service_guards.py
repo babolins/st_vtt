@@ -42,6 +42,9 @@ def world(app):  # noqa: F811
         hidden_rid=spy["id"],
         chat_id=db.add_message("Alice", "chat", {"text": "hi"})["id"],
         roll=roll,
+        request=lambda **extra: db.add_message(
+            "Gm", "request", {"to": "Alice", "label": "Brawl", "stat": None, **extra}
+        )["id"],
     )
 
 
@@ -339,13 +342,56 @@ _BAD_REQUESTS = {
     ),
     "the GM requests a roll from nobody": (
         GM,
-        lambda a, u, w: service.request_roll(a, u, "Nobody", "", None),
+        lambda a, u, w: service.request_roll(a, u, "Nobody", "Brawl", None),
         (400, "unknown user 'Nobody'"),
     ),
     "the GM requests an unknown stat": (
         GM,
-        lambda a, u, w: service.request_roll(a, u, "Alice", "", "luck"),
+        lambda a, u, w: service.request_roll(a, u, "Alice", "Brawl", "luck"),
         (400, "unknown stat 'luck'"),
+    ),
+    "the GM requests a roll without saying what for": (
+        GM,
+        lambda a, u, w: service.request_roll(a, u, "Alice", "", "str"),
+        (400, "say what the roll is for"),
+    ),
+    "the GM requests a roll for nothing but spaces": (
+        GM,
+        lambda a, u, w: service.request_roll(a, u, "Alice", "   ", None),
+        (400, "say what the roll is for"),
+    ),
+    "the GM requests an unknown move": (
+        GM,
+        lambda a, u, w: service.request_roll(a, u, "Alice", "Punch", None, "punch"),
+        (400, "unknown move 'punch'"),
+    ),
+    "the GM requests a move with nothing to roll": (
+        GM,
+        lambda a, u, w: service.request_roll(a, u, "Alice", "Wrap Up", None, "wrap_up"),
+        (400, "move 'wrap_up' has nothing to roll"),
+    ),
+    # answering a roll request
+    "answer a missing request": (
+        ALICE,
+        lambda a, u, w: service.do_roll(a, u, {"character_id": w.cid, "stat": "str", "request_id": 9999}),
+        (404, "no such request"),
+    ),
+    "answer a chat line as a request": (
+        ALICE,
+        lambda a, u, w: service.do_roll(a, u, {"character_id": w.cid, "stat": "str", "request_id": w.chat_id}),
+        (404, "no such request"),
+    ),
+    "answer someone else's request": (
+        BOB,
+        lambda a, u, w: service.do_roll(a, u, {"expr": "2d6", "request_id": w.request()}),
+        (403, "that request is for Alice"),
+    ),
+    "answer a request twice": (
+        ALICE,
+        lambda a, u, w: service.do_roll(
+            a, u, {"character_id": w.cid, "stat": "str", "request_id": w.request(answered={"by": "Alice", "roll": 1})}
+        ),
+        (400, "already answered by Alice"),
     ),
     # applying a roll card's outcome
     "apply a missing roll": (ALICE, lambda a, u, w: service.apply_outcome(a, u, 9999, 0), (404, "no such roll")),
@@ -393,6 +439,31 @@ _BAD_REQUESTS = {
 @pytest.mark.parametrize(("caller", "call", "expected"), _BAD_REQUESTS.values(), ids=_BAD_REQUESTS.keys())
 def test_a_bad_request_is_refused(app, world, caller, call, expected):  # noqa: F811
     _check(app, world, caller, call, expected)
+
+
+def test_a_request_for_a_move_is_answered_once(app, world):  # noqa: F811
+    """The request names the move, and the roll that answers it marks it answered, like an applied outcome."""
+    db = app.state.db
+    service.request_roll(app, GM, "Alice", "Brawl", None, "brawl")
+    request = db.list_messages(limit=1)[-1]
+    assert request["payload"]["move_id"] == "brawl"
+
+    renders = service.do_roll(app, ALICE, {"character_id": world.cid, "move_id": "brawl", "request_id": request["id"]})
+    roll = db.list_messages(limit=1)[-1]
+    assert roll["kind"] == "roll" and roll["payload"]["move_id"] == "brawl"
+    assert db.get_message(request["id"])["payload"]["answered"] == {"by": "Alice", "roll": roll["id"]}
+    events = [r(GM) for r in renders]
+    assert {"type": "message_updated", "message": db.get_message(request["id"])} in events
+
+    # Refused before any dice are thrown: a second answer leaves no stray roll in the chat.
+    with pytest.raises(service.ServiceError, match="already answered by Alice"):
+        service.do_roll(app, ALICE, {"character_id": world.cid, "move_id": "brawl", "request_id": request["id"]})
+    assert db.list_messages(limit=1)[-1]["id"] == roll["id"]
+
+
+def test_a_generic_request_names_no_move(app, world):  # noqa: F811
+    service.request_roll(app, GM, "Alice", "climbing the wall", "dex")
+    assert app.state.db.list_messages(limit=1)[-1]["payload"]["move_id"] is None
 
 
 def test_a_roll_you_cannot_see_is_not_there(app, world):  # noqa: F811

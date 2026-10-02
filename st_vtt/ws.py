@@ -300,5 +300,13 @@ def handle(app: FastAPI, user: UserConfig, msg: dict[str, Any]) -> list[service.
     if kind == "share_move":
         return service.share_move(app, user, msg.get("character_id"), str(msg.get("move_id", "")))
     if kind == "request_roll":
-        return service.request_roll(app, user, str(msg.get("user", "")), str(msg.get("label", "")), msg.get("stat"))
+        move_id = msg.get("move_id")
+        return service.request_roll(
+            app,
+            user,
+            str(msg.get("user", "")),
+            str(msg.get("label", "")),
+            msg.get("stat"),
+            str(move_id) if move_id is not None else None,
+        )
     raise service.ServiceError(f"unknown message type {kind!r}")

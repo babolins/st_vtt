@@ -10,6 +10,8 @@ export interface RollRequest {
   stat?: string | null;
   label?: string;
   bonus?: number;
+  /** the GM's request this roll answers */
+  requestId?: number;
 }
 
 export const dialogs = $state({

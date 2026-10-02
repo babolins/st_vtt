@@ -75,6 +75,25 @@ export function movesOf(content: ContentPack, row: CharacterRow): IndexedMove[] 
   return out;
 }
 
+/** What the GM can ask a player to roll: the table's moves, then whatever moves `characters` (the
+ *  player's) have, each move once and only those with a roll. A shared sheet's moves are left out,
+ *  since they roll that sheet's stats and not the character's. */
+export function requestableMoves(content: ContentPack, characters: CharacterRow[]): IndexedMove[] {
+  const theirs = characters.flatMap((row) => [
+    ...movesOf(content, row),
+    // An arcanum's moves come with it, without being taken.
+    ...row.data.arcana.flatMap((a) =>
+      a.moves.map((move): IndexedMove => ({ move, source: { kind: 'arcanum', id: a.id, label: a.name } })),
+    ),
+  ]);
+  const seen = new Set<string>();
+  return [...tableMoves(content), ...theirs].filter((e) => {
+    if (!e.move.roll || seen.has(e.move.id)) return false;
+    seen.add(e.move.id);
+    return true;
+  });
+}
+
 /** Shared moves everyone has — the ones printed on the handout, not on a playbook. */
 export function tableMoves(content: ContentPack): IndexedMove[] {
   return allMoves(content).filter((e) => e.source.kind === 'group');
