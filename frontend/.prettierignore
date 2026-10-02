@@ -1,2 +1,5 @@
-# Prettier also skips what .gitignore does (dist/, the generated textures).
+# Prettier reads a .gitignore only from the directory it runs in, and the one that ignores
+# dist/ is the repo root's, so the build is named here too. (The generated textures are SVG,
+# which Prettier doesn't format.)
+dist/
 package-lock.json
