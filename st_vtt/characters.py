@@ -6,7 +6,7 @@ import copy
 import uuid
 from typing import Any, Iterator
 
-from .content import ContentPack, Playbook, Section, SharedSheetDef, level_up_cost
+from .content import ContentPack, Playbook, Section, SharedSheetDef
 
 
 def new_id() -> str:
@@ -127,10 +127,6 @@ def new_shared_sheet(pack: ContentPack, tpl: SharedSheetDef, name: str | None = 
         "notes": "",
         "gm_notes": "",
     }
-
-
-def level_cost(pack: ContentPack, level: int) -> int:
-    return level_up_cost(pack.pack.xp.level_up_cost, level)
 
 
 def table_section_ids(pack: ContentPack, entity: str) -> set[str]:
