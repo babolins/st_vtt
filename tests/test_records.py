@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from st_vtt.config import UserConfig
 from st_vtt.perms import Forbidden, check_patch, strip_for_user
-from test_api import app, alice, bob, client_for, gm  # noqa: F401
+from test_api import app, alice, assert_ping_is_next, bob, client_for, gm  # noqa: F401
 
 
 def make(client: TestClient, name: str, kind: str = "npc") -> str:
@@ -167,6 +167,43 @@ def test_hiding_withdraws_the_record_from_players(app, alice, gm):
     assert back[0]["type"] == "record_created"
     assert back[0]["record"]["data"]["name"] == "Brennan"
     assert "secret" not in back[0]["record"]["data"]
+
+
+def test_a_hidden_record_is_never_announced_to_players(alice, gm):
+    def recv(ws):
+        return json.loads(ws.receive_text())
+
+    with alice.websocket_connect("/ws") as wa, gm.websocket_connect("/ws") as wg:
+        recv(wa); recv(wa); recv(wg)  # presence
+        rid = make(gm, "Brennan")
+        for ws in (wa, wg):
+            assert recv(ws)["type"] == "record_created"
+
+        patch(gm, rid, "/visibility", "gm")
+        assert recv(wa) == {"type": "record_deleted", "id": rid}
+        assert recv(wg)["path"] == "/visibility"
+
+        # While hidden, neither its edits nor its deletion reach the table.
+        patch(gm, rid, "/role", "bandit")
+        assert recv(wg)["path"] == "/role"
+        assert_ping_is_next(wg, wa, wg)
+        assert gm.delete(f"/api/records/{rid}").status_code == 200
+        assert recv(wg) == {"type": "record_deleted", "id": rid}
+        assert_ping_is_next(wg, wa, wg)
+
+        # Revealed, one comes back without its secret.
+        other = make(gm, "Cerys")
+        recv(wa); recv(wg)  # record_created
+        patch(gm, other, "/visibility", "gm")
+        recv(wa); recv(wg)
+        patch(gm, other, "/secret", "the heir")
+        recv(wg)
+        patch(gm, other, "/visibility", "table")
+        back = recv(wa)
+        assert back["type"] == "record_created" and back["record"]["data"]["name"] == "Cerys"
+        assert "secret" not in back["record"]["data"]
+        assert recv(wg)["path"] == "/visibility"
+        assert_ping_is_next(wg, wa, wg)
 
 
 def test_the_gm_at_work_on_what_the_table_cannot_see_is_not_shown(alice, gm):
