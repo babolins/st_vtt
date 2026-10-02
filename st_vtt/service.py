@@ -245,6 +245,7 @@ def import_shared(app: FastAPI, user: UserConfig, sid: str, doc: dict[str, Any])
     template = chars.new_shared_sheet(pack_of(app), tpl) if tpl else dict(row["data"])
     merged = chars.deep_fill(doc, template)
     merged["template"] = row["template"]
+    chars.reset_bad_numbers("shared", merged, template)
     for k in ("id", "revision"):
         merged.pop(k, None)
     chars.ensure_list_ids(pack_of(app), merged, "shared")
@@ -342,10 +343,14 @@ def patch_entity(app: FastAPI, user: UserConfig, entity: str, eid: str | None, p
         # A tab still running the build from before list items were patched by id appends them
         # without one. Give it one here, so it is saved and broadcast with it.
         value = {**value, "id": chars.new_id()}
+    already_bad = set(chars.bad_numbers(entity, doc))
     try:
         result = apply_patch(doc, path, value, op, patch)
     except PatchError as e:
         raise ServiceError(f"bad patch: {e}") from e
+    # Refuse what this patch breaks, not what a sheet saved before numbers were checked holds.
+    if broken := [p for p in chars.bad_numbers(entity, doc) if p not in already_bad]:
+        raise ServiceError("; ".join(broken))
     merged = op == "text_patch"
     if merged:
         op, value = "set", result
@@ -412,10 +417,7 @@ def post_chat(app: FastAPI, user: UserConfig, text: str, to: list[str] | None = 
             parts = rest.split(None, 1)
             if len(parts) < 2:
                 raise ServiceError("usage: /w <name> <message>")
-            target = app.state.config.user(parts[0]) or next((u for u in app.state.config.users if u.name.lower() == parts[0].lower()), None)
-            if target is None:
-                raise ServiceError(f"unknown user {parts[0]!r}")
-            to = [target.name]
+            to = [parts[0]]
             text = parts[1]
         elif cmd in ("gm",):
             to = gm_names(app)
@@ -423,11 +425,20 @@ def post_chat(app: FastAPI, user: UserConfig, text: str, to: list[str] | None = 
         else:
             raise ServiceError(f"unknown command /{cmd}")
     if to:
+        to = list(dict.fromkeys(_whisper_target(app, name) for name in to))
         vis = sorted(set([user.name, *to]))
         msg = db_of(app).add_message(user.name, "whisper", {"text": text, "to": to}, vis)
     else:
         msg = db_of(app).add_message(user.name, "chat", {"text": text})
     return [_message_render(msg)]
+
+
+def _whisper_target(app: FastAPI, name: str) -> str:
+    """A user's name as configured, matching case-insensitively if nothing matches exactly."""
+    target = app.state.config.user(name) or next((u for u in app.state.config.users if u.name.lower() == name.lower()), None)
+    if target is None:
+        raise ServiceError(f"unknown user {name!r}")
+    return target.name
 
 
 def do_roll(app: FastAPI, user: UserConfig, spec: dict[str, Any]) -> list[Render]:
@@ -489,6 +500,8 @@ def do_roll(app: FastAPI, user: UserConfig, spec: dict[str, Any]) -> list[Render
             )
     except DiceError as e:
         raise ServiceError(f"bad dice expression: {e}") from e
+    except rolls.SheetError as e:
+        raise ServiceError(str(e)) from e
     payload["character_id"] = cid
     payload["shared_id"] = sid
     vis = sorted(set([user.name, *gm_names(app)])) if spec.get("gm_only") else None
@@ -505,7 +518,8 @@ def apply_outcome(app: FastAPI, user: UserConfig, message_id: int, index: int, c
     """
     db = db_of(app)
     msg = db.get_message(message_id)
-    if msg is None or msg["kind"] != "roll":
+    # A roll this user can't see is not there: no "already applied by" to say it exists.
+    if msg is None or msg["kind"] != "roll" or not visible_to(user, msg.get("visibility")):
         raise ServiceError("no such roll", 404)
     payload = msg["payload"]
     actions = payload.get("actions") or []
@@ -522,7 +536,10 @@ def apply_outcome(app: FastAPI, user: UserConfig, message_id: int, index: int, c
     if row is None:
         raise ServiceError("that sheet is gone", 404)
 
-    path, value, detail = _resolve_action(app, actions[index], row["data"], entity, choice)
+    try:
+        path, value, detail = _resolve_action(app, actions[index], row["data"], entity, choice)
+    except rolls.SheetError as e:
+        raise ServiceError(str(e)) from e
     renders = patch_entity(app, user, entity, eid, path, value)
     applied[str(index)] = {"by": user.name, "detail": detail}
     db.update_message(message_id, payload)
@@ -543,20 +560,19 @@ def _resolve_action(app: FastAPI, action: dict[str, Any], doc: dict[str, Any], e
     kind = action.get("kind")
     if kind == "xp":
         n = int(action.get("n", 1))
-        return "/xp", int(doc.get("xp", 0)) + n, f"+{n} XP"
+        return "/xp", rolls.sheet_number(doc, "xp") + n, f"+{n} XP"
     if kind == "hp":
         try:
             rolled = dice.roll(str(action["amount"]))
         except DiceError as e:
             raise ServiceError(f"bad hp amount: {e}") from e
-        hp = doc.get("hp") or {}
-        current, top = int(hp.get("current", 0)), int(hp.get("max", 0))
+        current, top = rolls.sheet_number(doc, "hp", "current"), rolls.sheet_number(doc, "hp", "max")
         new = max(0, min(current + rolled.total, top))
         return "/hp/current", new, f"{rolled.total:+d} HP ({current} → {new})"
     if kind == "hold":
         name = str(action["name"])
         n = int(action.get("n", 1))
-        held = int(doc["moves"]["hold"].get(name, 0))
+        held = rolls.sheet_number(doc, "moves", "hold", name)
         return f"/moves/hold/{name}", held + n, f"+{n} {name}"
     if kind == "debility":
         did = action.get("id") or choice
@@ -570,7 +586,7 @@ def _resolve_action(app: FastAPI, action: dict[str, Any], doc: dict[str, Any], e
         stat = next((s for s in (tpl.stats if tpl else []) if s.id == sid), None)
         if stat is None:
             raise ServiceError(f"unknown stat {sid!r} on this sheet")
-        new = max(stat.min, min(int(doc.get("stats", {}).get(sid, 0)) + int(action["delta"]), stat.max))
+        new = max(stat.min, min(rolls.sheet_number(doc, "stats", sid) + int(action["delta"]), stat.max))
         return f"/stats/{sid}", new, f"{sid} → {new:+d}"
     if kind == "sheet_debility":
         return f"/debilities/{action['id']}", True, f"marked {action['id']}"
