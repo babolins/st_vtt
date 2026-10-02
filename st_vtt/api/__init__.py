@@ -1,3 +1,5 @@
+"""The REST API, mounted under /api. Live updates go over the WebSocket in `st_vtt.ws`."""
+
 from fastapi import APIRouter
 
 from . import auth, characters, chat, content, records, shared
