@@ -24,6 +24,7 @@ dev = [
     "httpx>=0.27",
     "websockets>=12",
     "pytest-timeout>=2.3",
+    "pyright>=1.1.400",
 ]
 
 [build-system]
@@ -37,3 +38,9 @@ packages = ["st_vtt"]
 testpaths = ["tests"]
 # A hung test fails instead of stalling the run (and CI) until something else kills it.
 timeout = 30
+
+[tool.pyright]
+# The app only: the tests pass fakes and deliberately bad input, which a type checker
+# would flag without finding anything.
+include = ["st_vtt"]
+pythonVersion = "3.12"
