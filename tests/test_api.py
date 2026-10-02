@@ -942,6 +942,32 @@ def test_single_session_lock(app):
     assert a3.get("/api/me").json() is None
 
 
+@pytest.mark.parametrize("single_session", [True, False])
+def test_logging_out_closes_that_sessions_sockets(app, gm, single_session):
+    # Other tabs of the browser that signed out kept a working socket, and could go on editing.
+    app.state.config.single_session = single_session
+    a1 = client_for(app, "Alice")
+    with a1.websocket_connect("/ws") as tab:
+        tab.receive_json()  # presence
+        if single_session:
+            assert a1.post("/api/logout").status_code == 200
+            gm.post("/api/chat", json={"text": "an open socket would hear this"})
+            with pytest.raises(WebSocketDisconnect) as ei:
+                _recv_until(tab, 1)
+            assert ei.value.code == WS_NOT_LOGGED_IN
+            return
+        a2 = client_for(app, "Alice")  # another browser: a session of its own
+        with a2.websocket_connect("/ws") as other:
+            other.receive_json()
+            assert a1.post("/api/logout").status_code == 200
+            gm.post("/api/chat", json={"text": "an open socket would hear this"})
+            with pytest.raises(WebSocketDisconnect) as ei:
+                _recv_until(tab, 1)
+            assert ei.value.code == WS_NOT_LOGGED_IN
+            other.send_json({"type": "chat", "text": "still here", "ref": 1})
+            assert _recv_until(other, 1)[0]["type"] == "message"
+
+
 def test_multiple_sessions_when_disabled(config):
     config.single_session = False
     app = create_app(config)

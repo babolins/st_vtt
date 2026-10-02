@@ -68,6 +68,11 @@ class Hub:
         ]:
             self._drop(ws, code)
 
+    def end_session(self, sid: str, code: int) -> None:
+        """Close every connection made with session `sid` (all the tabs of one browser)."""
+        for ws in [ws for ws, s in list(self._sessions.items()) if s == sid]:
+            self._drop(ws, code)
+
     def disconnect(self, ws: WebSocket) -> None:
         """Forget a connection and tell everyone else. Harmless for one already forgotten."""
         user = self._clients.pop(ws, None)
