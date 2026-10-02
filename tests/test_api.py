@@ -119,6 +119,20 @@ def test_character_lifecycle_and_perms(gm, alice, bob):
     assert any("made_up_move" in w for w in r.json()["warnings"])
 
 
+@pytest.mark.parametrize("name", ["Łucja 🐺", 'Bryn "the Bold"\r\nX-Evil: 1'])
+def test_export_any_name(alice, gm, name):
+    # Headers go out as Latin-1, so a name outside it used to fail the export with a 500.
+    cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": name}).json()["id"]
+    sid = sheet_id(gm)
+    gm.post(f"/api/shared/{sid}/patch", json={"path": "/name", "value": name})
+    for r in (alice.get(f"/api/characters/{cid}/export"), alice.get(f"/api/shared/{sid}/export")):
+        assert r.status_code == 200
+        assert r.json()["name"] == name
+        disposition = r.headers["content-disposition"]
+        assert disposition.startswith("attachment; filename=")
+        assert "\n" not in disposition and "x-evil" not in r.headers
+
+
 def sheet_id(c, template="village"):
     return next(x["id"] for x in c.get("/api/shared").json() if x["template"] == template)
 
@@ -170,6 +184,17 @@ def test_gm_only_shared_sheet(app, gm, alice, bob):
     assert gm.delete(f"/api/shared/{sid}").status_code == 200
     assert [x["template"] for x in gm.get("/api/shared").json()] == ["village"]
     assert gm.get("/api/export/campaign").json()["shared"][0]["template"] == "village"
+
+
+def test_a_sheet_whose_template_is_gone_is_the_gms(app, gm, alice):
+    # Its template could have been the GM screen: with nothing to say otherwise, the table
+    # doesn't see it.
+    sid = app.state.db.insert_shared("orphan", "renamed_away", {"name": "Behind the screen", "notes": "plans"})["id"]
+    assert sid in [x["id"] for x in gm.get("/api/shared").json()]
+    assert sid not in [x["id"] for x in alice.get("/api/shared").json()]
+    assert alice.get(f"/api/shared/{sid}").status_code == 404
+    assert alice.post(f"/api/shared/{sid}/patch", json={"path": "/notes", "value": "x"}).status_code == 403
+    assert service.shared_is_gm_only(app, sid)
 
 
 def test_a_gm_only_sheet_is_never_announced_to_players(gm, alice):
@@ -313,6 +338,23 @@ def test_chat_commands_and_visibility(gm, alice, bob):
     assert bob.delete("/api/messages").status_code == 403
     assert gm.delete("/api/messages").status_code == 200
     assert [m["kind"] for m in alice.get("/api/messages").json()] == ["system"]
+
+
+def test_a_note_to_the_gm_needs_a_gm_and_a_note(alice, config, tmp_path):
+    assert alice.post("/api/chat", json={"text": "/gm"}).status_code == 400
+    assert alice.post("/api/chat", json={"text": "/gm the key is under the mat"}).status_code == 200
+    m = alice.get("/api/messages").json()[-1]
+    assert m["kind"] == "whisper" and m["visibility"] == ["Alice", "Gm"]
+
+    # With nobody to whisper to, it used to go to the whole table.
+    players_only = [u for u in config.users if not u.is_gm]
+    app = create_app(config.model_copy(update={"users": players_only, "database": str(tmp_path / "no_gm.db")}))
+    try:
+        a = client_for(app, "Alice")
+        assert a.post("/api/chat", json={"text": "/gm the key is under the mat"}).status_code == 400
+        assert a.get("/api/messages").json() == []
+    finally:
+        app.state.db.close()
 
 
 def test_a_whisper_reaches_its_recipients_by_their_names(gm, alice, bob):

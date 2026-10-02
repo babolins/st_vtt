@@ -70,3 +70,13 @@ describe('@id tokens', () => {
     expect(getPointer(d, `/items/${at('a/b~c')}/n`)).toBe(1);
   });
 });
+
+describe('reserved names', () => {
+  it.each(['/__proto__/polluted', '/constructor/prototype/polluted', '/a/prototype'])(
+    'are refused, so a patch cannot reach Object.prototype: %s',
+    (path) => {
+      expect(() => applyPointer({ a: {} }, path, 'yes')).toThrow(/reserved/);
+      expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    },
+  );
+});

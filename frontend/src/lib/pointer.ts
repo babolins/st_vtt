@@ -1,13 +1,20 @@
 // Minimal RFC 6901 JSON Pointer apply, mirroring st_vtt/patch.py.
 // Inside a list, `@<id>` names the element whose `id` is <id> (see there).
 
+// Following one of these would leave the document for Object.prototype. The server refuses them
+// too (st_vtt/patch.py), so a patch naming one is never broadcast.
+const RESERVED = new Set(['__proto__', 'constructor', 'prototype']);
+
 export function splitPointer(path: string): string[] {
   if (path === '') return [];
   if (!path.startsWith('/')) throw new Error(`bad pointer ${path}`);
-  return path
+  const tokens = path
     .slice(1)
     .split('/')
     .map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'));
+  const reserved = tokens.find((t) => RESERVED.has(t));
+  if (reserved !== undefined) throw new Error(`'${reserved}' is a reserved name`);
+  return tokens;
 }
 
 export function escapeToken(tok: string): string {

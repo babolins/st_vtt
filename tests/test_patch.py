@@ -196,3 +196,11 @@ def test_remove_a_key():
     d = {"moves": {"hold": {"Focus": 2, "Luck": 1}}}
     assert apply_patch(d, "/moves/hold/Focus", op="remove") is None
     assert d == {"moves": {"hold": {"Luck": 1}}}
+
+
+@pytest.mark.parametrize("path", ["/__proto__/x", "/constructor/prototype/x", "/a/prototype"])
+def test_refuses_names_a_browser_would_follow_into_object_prototype(path):
+    # Harmless keys to Python, but the patch is broadcast, and a browser applying it would
+    # walk into Object.prototype and change every object in the app.
+    with pytest.raises(PatchError, match="reserved"):
+        apply_patch({"a": {}}, path, "x")

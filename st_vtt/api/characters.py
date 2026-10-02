@@ -14,7 +14,7 @@ from .. import service
 from ..auth import current_user, require_gm
 from ..config import UserConfig
 from ..perms import strip_for_user
-from ._common import PatchBody, emit
+from ._common import PatchBody, emit, json_download
 
 router = APIRouter(prefix="/characters", tags=["characters"])
 
@@ -67,8 +67,7 @@ def export_character(cid: str, request: Request, user: UserConfig = Depends(curr
     if row is None:
         raise HTTPException(404, "no such character")
     doc = strip_for_user(user, "character", row["data"])
-    name = (doc.get("name") or "character").replace('"', "")
-    return JSONResponse(doc, headers={"Content-Disposition": f'attachment; filename="{name}.json"'})
+    return json_download(doc, str(doc.get("name") or "character"))
 
 
 @router.post("/{cid}/patch")
