@@ -2,10 +2,10 @@ import json
 
 import anyio
 import pytest
+from conftest import ROOT
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from conftest import ROOT
 from st_vtt import service
 from st_vtt.auth import COOKIE, WS_NOT_LOGGED_IN
 from st_vtt.main import create_app

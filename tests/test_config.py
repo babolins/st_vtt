@@ -4,8 +4,8 @@ say what to fix."""
 import json
 
 import pytest
-
 from conftest import ROOT
+
 from st_vtt.config import ConfigError, load_config
 from st_vtt.content import load_content
 

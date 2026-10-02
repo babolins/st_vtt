@@ -16,6 +16,7 @@ jobs:
           enable-cache: true
       - run: uv sync --locked
       - run: uv run ruff format --check st_vtt tests
+      - run: uv run ruff check st_vtt tests
       - run: uv run pyright
       - run: uv run pytest
       - run: uv run st-vtt validate content/example

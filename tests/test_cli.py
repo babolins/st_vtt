@@ -4,8 +4,8 @@ import json
 
 import pytest
 import uvicorn
-
 from conftest import ROOT
+
 from st_vtt.cli import main
 from st_vtt.main import create_app
 
