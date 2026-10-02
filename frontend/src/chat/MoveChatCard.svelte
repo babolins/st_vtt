@@ -2,11 +2,11 @@
   import { app } from '../lib/state.svelte';
   import { allMoves } from '../lib/moveindex';
   import { timeShort } from '../lib/util';
-  import type { Message, Move } from '../lib/types';
+  import type { Move, MoveMessage } from '../lib/types';
   import MoveBody from '../ui/MoveBody.svelte';
   import { peek } from '../lib/router.svelte';
 
-  let { message }: { message: Message } = $props();
+  let { message }: { message: MoveMessage } = $props();
   const p = $derived(message.payload);
   // The card carries the move's text, but the pack has the authoritative copy —
   // options, tracks and all — so prefer it and keep one renderer for both.

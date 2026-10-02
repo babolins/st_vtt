@@ -9,6 +9,7 @@
   import MoveChatCard from './MoveChatCard.svelte';
   import DiceBar from './DiceBar.svelte';
   import Markdown from '../ui/Markdown.svelte';
+  import type { RequestMessage } from '../lib/types';
 
   let { onclose }: { onclose: () => void } = $props();
   let text = $state('');
@@ -51,7 +52,7 @@
     });
   }
 
-  function answerRequest(m: any) {
+  function answerRequest(m: RequestMessage) {
     const mine = myCharacters();
     openRoll({ characterId: mine[0]?.id ?? null, move: null, stat: m.payload.stat ?? null, label: m.payload.label });
   }

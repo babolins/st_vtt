@@ -1,3 +1,5 @@
+import type { PatchOp } from './pointer';
+
 // Mirrors st_vtt/content.py and the character / shared-sheet documents.
 
 export interface Stat { id: string; label: string; min: number; max: number }
@@ -167,10 +169,60 @@ export interface SharedDoc {
 export interface SharedRow { id: string; template: string; revision: number; created_at: number; updated_at: number; data: SharedDoc }
 
 export interface User { name: string; role: 'gm' | 'player' }
-export interface Message {
-  id: number; ts: number; author: string | null; kind: 'chat' | 'whisper' | 'roll' | 'system' | 'request' | 'move';
-  payload: any; visibility: string[] | null;
+
+// ---- chat messages (st_vtt/service.py builds the payloads, st_vtt/rolls.py the roll cards')
+
+export interface DieGroup { die: string; sign: number; results: number[]; kept: number[]; subtotal: number }
+export interface RollResult { expr: string; dice: DieGroup[]; modifier: number; total: number }
+export interface ChosenModifier { id: string; label: string; option: string; value: number }
+/** A roll card: free-form dice, or a move rolled against a sheet (which adds the optional fields). */
+export interface RollPayload {
+  type: 'dice' | 'move'; label: string; character: string | null; roll: RollResult; total: number;
+  character_id: string | null; shared_id: string | null; gm_only: boolean;
+  /** outcome index -> who applied it, once someone has */
+  applied?: Record<string, { by: string; detail: string }>;
+  move_id?: string | null; stat?: string | null; stat_label?: string | null; stat_mod?: number; bonus?: number;
+  modifiers?: ChosenModifier[]; mode?: 'normal' | 'advantage' | 'disadvantage' | 'both';
+  /** debilities that forced disadvantage */
+  auto_disadvantage?: string[];
+  tier?: string | null; outcome?: string | null; mark_xp?: boolean; actions?: OutcomeAction[];
 }
+/** A move shared to the chat. Its outcomes are tier -> text. */
+export interface MoveSharePayload {
+  move_id: string; name: string; trigger: string; text: string; outcomes: Record<string, string>;
+  hold: Hold | null; roll: RollSpec | null; character: string | null; character_id: string | null;
+}
+interface MessageBase { id: number; ts: number; author: string | null; visibility: string[] | null }
+export type ChatMessage = MessageBase & { kind: 'chat' | 'system'; payload: { text: string } };
+export type WhisperMessage = MessageBase & { kind: 'whisper'; payload: { text: string; to: string[] } };
+export type RequestMessage = MessageBase & { kind: 'request'; payload: { to: string; label: string; stat: string | null } };
+export type RollMessage = MessageBase & { kind: 'roll'; payload: RollPayload };
+export type MoveMessage = MessageBase & { kind: 'move'; payload: MoveSharePayload };
+export type Message = ChatMessage | WhisperMessage | RequestMessage | RollMessage | MoveMessage;
+
+// ---- what the server sends over the socket (st_vtt/ws.py, and the renders in st_vtt/service.py)
+
+export type Entity = 'character' | 'shared' | 'record';
+/** Someone's cursor: in a field, or (all null) nowhere. */
+type FieldFocus = { entity: Entity; id: string; path: string } | { entity: null; id: null; path: null };
+export type ServerEvent =
+  | { type: 'ack'; ref: number }
+  /** `ref` is missing when the server could not read the message at all */
+  | { type: 'error'; message: string; ref?: number | null }
+  /** `client` and `ref` are null for a change made over REST (an applied roll outcome, say) */
+  | { type: 'patch'; entity: Entity; id: string; path: string; value: unknown; op: PatchOp; revision: number; by: string; client: string | null; ref: number | null; merged: boolean }
+  | { type: 'message' | 'message_updated'; message: Message }
+  | { type: 'chat_cleared' }
+  | { type: 'character_created'; character: CharacterRow }
+  | { type: 'character_deleted'; id: string }
+  | { type: 'character_owner'; id: string; owner: string | null }
+  | { type: 'shared_created' | 'shared_replaced'; sheet: SharedRow }
+  | { type: 'shared_deleted'; id: string }
+  | { type: 'record_created'; record: RecordRow }
+  | { type: 'record_deleted'; id: string }
+  | { type: 'presence'; users: string[] }
+  | ({ type: 'field_presence'; user: string; client: string | null } & FieldFocus)
+  | { type: 'typing'; user: string; active: boolean };
 export interface StateResponse {
   me: User; campaign_name: string; users: User[]; online: string[];
   characters: CharacterRow[]; shared: SharedRow[];
