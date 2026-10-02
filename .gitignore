@@ -6,6 +6,7 @@ config.json
 frontend/node_modules/
 frontend/dist/
 .pytest_cache/
+.coverage
 
 # Real content packs stay out of the repo; only the docs, schema, and example pack are tracked.
 content/*
