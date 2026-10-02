@@ -17,14 +17,32 @@ from .perms import is_hidden_path
 
 log = logging.getLogger("st_vtt.ws")
 
+# Close code for a client dropped for not keeping up ("Try Again Later"): it reconnects and
+# reloads what it missed.
+WS_TOO_SLOW = 1013
+# A client is dropped when one send to it takes longer than this (seconds), or when this
+# many events are waiting for it: it has stopped reading, or can't keep up.
+SEND_TIMEOUT = 5.0
+OUTBOX_LIMIT = 1000
+
 
 class Hub:
+    """The connected clients, and what goes out to them.
+
+    Sending only queues an event: each client has its own outbox, emptied by its own writer
+    task, so a client that stops reading holds up nobody else. That client is dropped instead
+    (see SEND_TIMEOUT). Everything here runs on the server's one event loop and nothing that
+    changes the Hub's state awaits partway through, so it needs no lock.
+    """
+
     def __init__(self) -> None:
         self._clients: dict[WebSocket, UserConfig] = {}
         self._focus: dict[WebSocket, dict[str, Any]] = {}
         self._client_ids: dict[WebSocket, str | None] = {}
         self._sessions: dict[WebSocket, str] = {}
-        self._lock = asyncio.Lock()
+        self._outboxes: dict[WebSocket, asyncio.Queue[str]] = {}
+        self._writers: dict[WebSocket, asyncio.Task[None]] = {}
+        self._closing: set[asyncio.Task[None]] = set()
 
     @property
     def users(self) -> list[str]:
@@ -32,45 +50,100 @@ class Hub:
 
     async def connect(self, ws: WebSocket, user: UserConfig, sid: str) -> None:
         await ws.accept()
-        async with self._lock:
-            self._clients[ws] = user
-            self._sessions[ws] = sid
-        await self.broadcast_presence()
+        self._clients[ws] = user
+        self._sessions[ws] = sid
+        outbox: asyncio.Queue[str] = asyncio.Queue()
+        self._outboxes[ws] = outbox
+        self._writers[ws] = asyncio.create_task(self._write(ws, outbox))
+        self.broadcast_presence()
 
     def sessions_of(self, name: str) -> set[str]:
         """Session ids with a live connection for this user."""
         return {self._sessions[ws] for ws, u in self._clients.items() if u.name == name and ws in self._sessions}
 
-    async def kick(self, name: str, code: int, keep_session: str | None = None) -> None:
+    def kick(self, name: str, code: int, keep_session: str | None = None) -> None:
         """Close every connection of `name` (except those of `keep_session`)."""
-        targets = [ws for ws, u in list(self._clients.items()) if u.name == name and self._sessions.get(ws) != keep_session]
-        for ws in targets:
+        for ws in [ws for ws, u in list(self._clients.items()) if u.name == name and self._sessions.get(ws) != keep_session]:
+            self._drop(ws, code)
+
+    def disconnect(self, ws: WebSocket) -> None:
+        """Forget a connection and tell everyone else. Harmless for one already forgotten."""
+        user = self._clients.pop(ws, None)
+        had_focus = self._focus.pop(ws, None)
+        client = self._client_ids.pop(ws, None)
+        self._sessions.pop(ws, None)
+        outbox = self._outboxes.pop(ws, None)
+        writer = self._writers.pop(ws, None)
+        if writer is not None and writer is not asyncio.current_task():
+            writer.cancel()
+        while outbox is not None and not outbox.empty():
+            outbox.get_nowait()
+            outbox.task_done()
+        if user and had_focus:
+            self.broadcast_ephemeral({"type": "field_presence", "user": user.name, "client": client, "entity": None, "id": None, "path": None}, exclude=ws)
+        self.broadcast_presence()
+
+    def _drop(self, ws: WebSocket, code: int) -> None:
+        """Disconnect `ws` and close it, without waiting for the close to get through: a
+        client that has stopped reading can't take a close frame either."""
+        self.disconnect(ws)
+        task = asyncio.create_task(self._close(ws, code))
+        self._closing.add(task)
+        task.add_done_callback(self._closing.discard)
+
+    async def _close(self, ws: WebSocket, code: int) -> None:
+        with anyio.move_on_after(SEND_TIMEOUT):
             try:
                 await ws.close(code=code)
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001 - client went away
                 pass
-            await self.disconnect(ws)
 
-    async def disconnect(self, ws: WebSocket) -> None:
-        async with self._lock:
-            user = self._clients.pop(ws, None)
-            had_focus = self._focus.pop(ws, None)
-            client = self._client_ids.pop(ws, None)
-            self._sessions.pop(ws, None)
-        if user and had_focus:
-            await self.broadcast_ephemeral({"type": "field_presence", "user": user.name, "client": client, "entity": None, "id": None, "path": None}, exclude=ws)
-        await self.broadcast_presence()
+    async def _write(self, ws: WebSocket, outbox: asyncio.Queue[str]) -> None:
+        while True:
+            text = await outbox.get()
+            try:
+                with anyio.fail_after(SEND_TIMEOUT):
+                    await ws.send_text(text)
+            except Exception:  # noqa: BLE001 - too slow, or the client went away
+                if self._outboxes.get(ws) is outbox:
+                    self._drop(ws, WS_TOO_SLOW)
+                return
+            finally:
+                outbox.task_done()
 
-    async def broadcast_ephemeral(self, event: dict[str, Any], exclude: WebSocket | None = None, gm_only: bool = False) -> None:
+    def send(self, ws: WebSocket, event: dict[str, Any]) -> None:
+        outbox = self._outboxes.get(ws)
+        if outbox is None:
+            return  # not connected, or dropped
+        if outbox.qsize() >= OUTBOX_LIMIT:
+            self._drop(ws, WS_TOO_SLOW)
+            return
+        outbox.put_nowait(json.dumps(event))
+
+    async def flush(self) -> None:
+        """Wait until everything queued so far is sent or given up on, and every close begun is done."""
+        await asyncio.gather(*(outbox.join() for outbox in list(self._outboxes.values())), *list(self._closing))
+
+    def emit(self, renders: Iterable[service.Render]) -> None:
+        clients = list(self._clients.items())
+        for render in renders:
+            for ws, user in clients:
+                event = render(user)
+                if event is not None:
+                    self.send(ws, event)
+
+    def broadcast_ephemeral(self, event: dict[str, Any], exclude: WebSocket | None = None, gm_only: bool = False) -> None:
         """Send an un-persisted event to every other client (optionally GMs only)."""
         for ws, user in list(self._clients.items()):
             if ws is exclude:
                 continue
             if gm_only and not user.is_gm:
                 continue
-            await self.send(ws, event)
+            self.send(ws, event)
 
     def set_focus(self, ws: WebSocket, client: str | None, focus: dict[str, Any] | None) -> None:
+        if ws not in self._clients:
+            return  # dropped
         self._client_ids[ws] = client
         if focus is None:
             self._focus.pop(ws, None)
@@ -85,24 +158,10 @@ class Hub:
             if ws in self._clients
         ]
 
-    async def send(self, ws: WebSocket, event: dict[str, Any]) -> None:
-        try:
-            await ws.send_text(json.dumps(event))
-        except Exception:  # noqa: BLE001 - client went away
-            pass
-
-    async def emit(self, renders: Iterable[service.Render]) -> None:
-        clients = list(self._clients.items())
-        for render in renders:
-            for ws, user in clients:
-                event = render(user)
-                if event is not None:
-                    await self.send(ws, event)
-
-    async def broadcast_presence(self) -> None:
+    def broadcast_presence(self) -> None:
         users = self.users
         for ws in list(self._clients):
-            await self.send(ws, {"type": "presence", "users": users})
+            self.send(ws, {"type": "presence", "users": users})
 
 
 async def websocket_endpoint(ws: WebSocket) -> None:
@@ -120,40 +179,37 @@ async def websocket_endpoint(ws: WebSocket) -> None:
             try:
                 msg = json.loads(raw)
             except json.JSONDecodeError:
-                await hub.send(ws, {"type": "error", "message": "invalid JSON"})
+                hub.send(ws, {"type": "error", "message": "invalid JSON"})
                 continue
             if not isinstance(msg, dict):
                 continue
             ref = msg.get("ref")
             if msg.get("type") in EPHEMERAL:
-                await handle_ephemeral(app, hub, ws, user, msg)
+                handle_ephemeral(app, hub, ws, user, msg)
                 continue
             try:
                 renders = handle(app, user, msg)
             except service.ServiceError as e:
-                await hub.send(ws, {"type": "error", "message": str(e), "ref": ref})
+                hub.send(ws, {"type": "error", "message": str(e), "ref": ref})
                 continue
             except Exception as e:  # noqa: BLE001
                 log.exception("ws handler failed")
-                await hub.send(ws, {"type": "error", "message": f"server error: {e}", "ref": ref})
+                hub.send(ws, {"type": "error", "message": f"server error: {e}", "ref": ref})
                 continue
             if renders is None:
                 continue
-            await hub.emit(renders)
+            hub.emit(renders)
             if ref is not None:
-                await hub.send(ws, {"type": "ack", "ref": ref})
+                hub.send(ws, {"type": "ack", "ref": ref})
     except WebSocketDisconnect:
         pass
     finally:
-        # Shielded: this task may be the one being cancelled (a shutdown, or the TestClient
-        # closing a socket). disconnect() drops the socket before it broadcasts, so a cancel
-        # there would leave everyone else showing the user online. Bounded, so a stalled
-        # client cannot hold the task open.
-        with anyio.move_on_after(DISCONNECT_TIMEOUT, shield=True):
-            await hub.disconnect(ws)
+        # This task may be the one being cancelled (a shutdown, or the TestClient closing a
+        # socket). disconnect() doesn't await, so a cancel can't stop it partway, before it
+        # has told everyone else the user left.
+        hub.disconnect(ws)
 
 
-DISCONNECT_TIMEOUT = 5.0
 EPHEMERAL = {"focus", "blur", "typing", "presence_sync"}
 
 
@@ -169,28 +225,28 @@ def _gm_only_focus(app: FastAPI, focus: dict[str, Any]) -> bool:
     return is_hidden_path(entity, path)
 
 
-async def handle_ephemeral(app: FastAPI, hub: Hub, ws: WebSocket, user: UserConfig, msg: dict[str, Any]) -> None:
+def handle_ephemeral(app: FastAPI, hub: Hub, ws: WebSocket, user: UserConfig, msg: dict[str, Any]) -> None:
     kind = msg.get("type")
     client = msg.get("client")
     if kind == "focus":
         focus = {"entity": msg.get("entity"), "id": msg.get("id"), "path": msg.get("path")}
         hub.set_focus(ws, client, focus)
-        await hub.broadcast_ephemeral(
+        hub.broadcast_ephemeral(
             {"type": "field_presence", "user": user.name, "client": client, **focus},
             exclude=ws, gm_only=_gm_only_focus(app, focus),
         )
     elif kind == "blur":
         hub.set_focus(ws, client, None)
-        await hub.broadcast_ephemeral({"type": "field_presence", "user": user.name, "client": client, "entity": None, "id": None, "path": None}, exclude=ws)
+        hub.broadcast_ephemeral({"type": "field_presence", "user": user.name, "client": client, "entity": None, "id": None, "path": None}, exclude=ws)
     elif kind == "typing":
-        await hub.broadcast_ephemeral({"type": "typing", "user": user.name, "active": bool(msg.get("active"))}, exclude=ws)
+        hub.broadcast_ephemeral({"type": "typing", "user": user.name, "active": bool(msg.get("active"))}, exclude=ws)
     elif kind == "presence_sync":
         for f in hub.focus_snapshot():
             if f.get("client") == client:
                 continue
             if _gm_only_focus(app, f) and not user.is_gm:
                 continue
-            await hub.send(ws, {"type": "field_presence", **f})
+            hub.send(ws, {"type": "field_presence", **f})
 
 
 def handle(app: FastAPI, user: UserConfig, msg: dict[str, Any]) -> list[service.Render] | None:
