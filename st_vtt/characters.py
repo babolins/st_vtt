@@ -129,51 +129,6 @@ def new_shared_sheet(pack: ContentPack, tpl: SharedSheetDef, name: str | None = 
     }
 
 
-def new_follower(pack: ContentPack) -> dict[str, Any]:
-    return {
-        "id": new_id(),
-        "name": "",
-        "tags": [],
-        "hp": {"current": 3, "max": 3},
-        "armor": 0,
-        "damage_die": "1d4",
-        "instinct": "",
-        "cost": "",
-        "loyalty": 0,
-        "moves": "",
-        "gear": "",
-        "notes": "",
-        "is_group": False,
-        "members": [],
-        "fields": {},
-    }
-
-
-def arcanum_instance(pack: ContentPack, arcanum_id: str | None) -> dict[str, Any]:
-    """A per-sheet copy of a library arcanum (or a blank custom one)."""
-    inst: dict[str, Any] = {
-        "id": new_id(),
-        "ref": arcanum_id,
-        "name": "",
-        "kind": "minor",
-        "tags": [],
-        "description": "",
-        "questions": [],
-        "answers": {},
-        "prerequisites": "",
-        "moves": [],
-        "trackers": [],
-        "state": {},
-        "notes": "",
-    }
-    if arcanum_id:
-        src = next((a for a in pack.arcana if a.id == arcanum_id), None)
-        if src:
-            inst.update(src.model_dump(mode="json", exclude={"id"}))
-            inst["state"] = {t.id: (False if t.type == "toggle" else 0) for t in src.trackers}
-    return inst
-
-
 def level_cost(pack: ContentPack, level: int) -> int:
     return level_up_cost(pack.pack.xp.level_up_cost, level)
 
@@ -241,9 +196,12 @@ def validate_import(pack: ContentPack, doc: dict[str, Any]) -> tuple[dict[str, A
         raise ValueError("character must be a JSON object")
     pb_id = doc.get("playbook")
     playbook = pack.playbook(pb_id) if isinstance(pb_id, str) else None
+    if not pack.playbooks:
+        # Nothing to shape the sheet by, and nothing could create one here either.
+        raise ValueError(f"pack {pack.pack.id!r} has no playbooks, so it can't hold a character")
     if playbook is None:
         warnings.append(f"unknown playbook {pb_id!r}; sheet will render with generic sections only")
-        template = new_character(pack, pack.playbooks[0], "") if pack.playbooks else {}
+        template = new_character(pack, pack.playbooks[0], "")
         template["playbook"] = pb_id or ""
         template["sections"] = {}
     else:
