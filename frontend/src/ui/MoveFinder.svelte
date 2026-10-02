@@ -28,24 +28,41 @@
   const content = $derived(app.content!);
   const mine = $derived(myCharacters());
   // A GM browses everyone's sheets; a player browses their own and the table's.
-  const characters = $derived(isGm() ? Object.values(app.characters) : [...mine, ...Object.values(app.characters).filter((c) => !canEdit(c))]);
+  const characters = $derived(
+    isGm() ? Object.values(app.characters) : [...mine, ...Object.values(app.characters).filter((c) => !canEdit(c))],
+  );
 
   const pool = $derived.by((): IndexedMove[] => {
     if (scope === 'all') return allMoves(content);
-    if (scope === 'table') return allMoves(content).filter((e) => e.source.kind === 'group' || e.source.kind === 'shared');
+    if (scope === 'table')
+      return allMoves(content).filter((e) => e.source.kind === 'group' || e.source.kind === 'shared');
     return mine.flatMap((row) => movesOf(content, row));
   });
 
   const hits = $derived(query.trim() ? search(pool, query) : []);
 
-  interface Group { label: string; note?: string; entries: IndexedMove[] }
+  interface Group {
+    label: string;
+    note?: string;
+    entries: IndexedMove[];
+  }
   const groups = $derived.by((): Group[] => {
-    if (query.trim()) return [{ label: `${hits.length} ${hits.length === 1 ? 'match' : 'matches'}`, entries: hits.map((h) => h.entry) }];
+    if (query.trim())
+      return [
+        { label: `${hits.length} ${hits.length === 1 ? 'match' : 'matches'}`, entries: hits.map((h) => h.entry) },
+      ];
     if (view === 'theme') {
-      return byTheme(pool).map((g) => ({ label: g.label, note: g.authored ? undefined : 'no themes authored — grouped by source', entries: g.entries }));
+      return byTheme(pool).map((g) => ({
+        label: g.label,
+        note: g.authored ? undefined : 'no themes authored — grouped by source',
+        entries: g.entries,
+      }));
     }
     if (view === 'character') {
-      return characters.map((row) => ({ label: `${row.data.name || 'Unnamed'} · ${row.owner ?? 'unowned'}`, entries: movesOf(content, row) }));
+      return characters.map((row) => ({
+        label: `${row.data.name || 'Unnamed'} · ${row.owner ?? 'unowned'}`,
+        entries: movesOf(content, row),
+      }));
     }
     return alphabetical(pool);
   });
@@ -54,10 +71,16 @@
   const selected = $derived(flat[Math.min(cursor, flat.length - 1)]);
   const hitFor = $derived(query.trim() ? hits[Math.min(cursor, hits.length - 1)] : undefined);
   // Rolling needs a sheet the move belongs to; the first of mine that has it.
-  const rollOn = $derived(selected ? mine.find((row) => movesOf(content, row).some((e) => e.move.id === selected.move.id)) ?? mine[0] : undefined);
+  const rollOn = $derived(
+    selected
+      ? (mine.find((row) => movesOf(content, row).some((e) => e.move.id === selected.move.id)) ?? mine[0])
+      : undefined,
+  );
 
   $effect(() => {
-    query; scope; view;
+    query;
+    scope;
+    view;
     cursor = 0;
   });
   $effect(() => {
@@ -92,12 +115,25 @@
 
   function onkey(e: KeyboardEvent) {
     if (e.key === 'Escape') return onclose();
-    if (e.key === 'ArrowDown') { cursor = Math.min(cursor + 1, flat.length - 1); e.preventDefault(); }
-    else if (e.key === 'ArrowUp') { cursor = Math.max(cursor - 1, 0); e.preventDefault(); }
-    else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { roll(); e.preventDefault(); }
-    else if (e.key === 'Enter' && e.shiftKey) { share(); e.preventDefault(); }
-    else if (e.key === 'Enter' && e.altKey) { open(); e.preventDefault(); }
-    else if (e.key === 'Enter') { glance(); e.preventDefault(); }
+    if (e.key === 'ArrowDown') {
+      cursor = Math.min(cursor + 1, flat.length - 1);
+      e.preventDefault();
+    } else if (e.key === 'ArrowUp') {
+      cursor = Math.max(cursor - 1, 0);
+      e.preventDefault();
+    } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      roll();
+      e.preventDefault();
+    } else if (e.key === 'Enter' && e.shiftKey) {
+      share();
+      e.preventDefault();
+    } else if (e.key === 'Enter' && e.altKey) {
+      open();
+      e.preventDefault();
+    } else if (e.key === 'Enter') {
+      glance();
+      e.preventDefault();
+    }
   }
 </script>
 
@@ -106,7 +142,12 @@
 <div class="scrim" role="presentation" onclick={onclose}></div>
 <div class="finder" role="dialog" aria-label="Find a move" aria-modal="true">
   <div class="row bar">
-    <input bind:this={input} bind:value={query} placeholder="Find a move — name, or what it's about" aria-label="Search moves" />
+    <input
+      bind:this={input}
+      bind:value={query}
+      placeholder="Find a move — name, or what it's about"
+      aria-label="Search moves"
+    />
     <div class="seg" role="group" aria-label="Which moves">
       {#each [['mine', 'Mine'], ['table', 'Table'], ['all', 'Everything']] as [id, label]}
         <button class="small" class:on={scope === id} onclick={() => (scope = id as Scope)}>{label}</button>
@@ -136,10 +177,17 @@
           </div>
           {#each g.entries as e}
             {@const i = flat.indexOf(e)}
-            <button class="hit" class:sel={i === cursor} onclick={() => (cursor = i)} ondblclick={glance} onmouseenter={() => (cursor = i)}>
+            <button
+              class="hit"
+              class:sel={i === cursor}
+              onclick={() => (cursor = i)}
+              ondblclick={glance}
+              onmouseenter={() => (cursor = i)}
+            >
               <span class="hname">
                 {#if hitFor && flat[cursor] === e && hitFor.marks.length}
-                  {#each splitMarks(e.move.name, hitFor.marks) as part}<span class:mark={part.hit}>{part.text}</span>{/each}
+                  {#each splitMarks(e.move.name, hitFor.marks) as part}<span class:mark={part.hit}>{part.text}</span
+                    >{/each}
                 {:else}{e.move.name}{/if}
               </span>
               <span class="hwhere muted small">{e.source.label}</span>
@@ -183,41 +231,135 @@
 </div>
 
 <style>
-  .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, .35); z-index: 40; }
+  .scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 40;
+  }
   .finder {
-    position: fixed; z-index: 41; inset: 4vh 50% auto auto; transform: translateX(50%);
-    width: min(62rem, 94vw); max-height: 88vh; display: flex; flex-direction: column;
-    background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+    position: fixed;
+    z-index: 41;
+    inset: 4vh 50% auto auto;
+    transform: translateX(50%);
+    width: min(62rem, 94vw);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
   }
-  .bar { padding: .5em .6em; gap: .5em; border-bottom: 1px solid var(--border); }
-  .bar.sub { padding: .35em .6em; }
-  input { flex: 1; font-size: 1.05em; }
-  .seg { display: inline-flex; gap: .15em; }
-  .seg .on { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-  .panes { display: grid; grid-template-columns: minmax(0, 20em) minmax(0, 1fr); min-height: 0; flex: 1; }
-  .results { overflow-y: auto; border-right: 1px solid var(--border); padding-bottom: .5em; }
+  .bar {
+    padding: 0.5em 0.6em;
+    gap: 0.5em;
+    border-bottom: 1px solid var(--border);
+  }
+  .bar.sub {
+    padding: 0.35em 0.6em;
+  }
+  input {
+    flex: 1;
+    font-size: 1.05em;
+  }
+  .seg {
+    display: inline-flex;
+    gap: 0.15em;
+  }
+  .seg .on {
+    background: var(--accent);
+    color: var(--accent-fg);
+    border-color: var(--accent);
+  }
+  .panes {
+    display: grid;
+    grid-template-columns: minmax(0, 20em) minmax(0, 1fr);
+    min-height: 0;
+    flex: 1;
+  }
+  .results {
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    padding-bottom: 0.5em;
+  }
   .ghead {
-    position: sticky; top: 0; background: var(--bg-sunken); padding: .25em .7em;
-    font-size: .78em; text-transform: uppercase; letter-spacing: .08em; color: var(--fg-muted); z-index: 1;
+    position: sticky;
+    top: 0;
+    background: var(--bg-sunken);
+    padding: 0.25em 0.7em;
+    font-size: 0.78em;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-muted);
+    z-index: 1;
   }
-  .note { text-transform: none; letter-spacing: 0; margin-left: .5em; }
+  .note {
+    text-transform: none;
+    letter-spacing: 0;
+    margin-left: 0.5em;
+  }
   .hit {
-    display: grid; grid-template-columns: 1fr auto; gap: 0 .5em; width: 100%; text-align: left;
-    background: transparent; border: 0; border-radius: 0; padding: .3em .7em; cursor: pointer;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0 0.5em;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0.3em 0.7em;
+    cursor: pointer;
   }
-  .hit.sel { background: var(--accent-soft); }
-  .hname { font-weight: 600; }
-  .mark { text-decoration: underline; text-underline-offset: 2px; }
-  .hwhere { justify-self: end; }
-  .snip { grid-column: 1 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .preview { overflow-y: auto; padding: .7em .9em; min-height: 0; }
-  .pname { font-size: 1.15em; font-weight: 600; }
-  .pwhere { margin-bottom: .5em; }
-  .pactions { margin-top: .8em; gap: .4em; }
-  .keys { gap: 1em; padding: .35em .7em; border-top: 1px solid var(--border); }
-  .empty { padding: 1em .7em; }
+  .hit.sel {
+    background: var(--accent-soft);
+  }
+  .hname {
+    font-weight: 600;
+  }
+  .mark {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .hwhere {
+    justify-self: end;
+  }
+  .snip {
+    grid-column: 1 / -1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .preview {
+    overflow-y: auto;
+    padding: 0.7em 0.9em;
+    min-height: 0;
+  }
+  .pname {
+    font-size: 1.15em;
+    font-weight: 600;
+  }
+  .pwhere {
+    margin-bottom: 0.5em;
+  }
+  .pactions {
+    margin-top: 0.8em;
+    gap: 0.4em;
+  }
+  .keys {
+    gap: 1em;
+    padding: 0.35em 0.7em;
+    border-top: 1px solid var(--border);
+  }
+  .empty {
+    padding: 1em 0.7em;
+  }
   @media (max-width: 760px) {
-    .panes { grid-template-columns: minmax(0, 1fr); }
-    .preview { display: none; }
+    .panes {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .preview {
+      display: none;
+    }
   }
 </style>

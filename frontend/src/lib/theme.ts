@@ -12,7 +12,9 @@ export function currentTheme(): Theme {
 
 export function setTheme(t: Theme): void {
   document.documentElement.dataset.theme = t;
-  try { localStorage.setItem('theme', t); } catch {}
+  try {
+    localStorage.setItem('theme', t);
+  } catch {}
 }
 
 export function nextTheme(): Theme {

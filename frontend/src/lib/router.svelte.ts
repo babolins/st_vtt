@@ -26,7 +26,10 @@ export interface Route {
 export const ALL: Place = { kind: 'all' };
 
 function parsePlace(path: string): Place | null {
-  const parts = path.replace(/^#?\/?/, '').split('/').filter(Boolean);
+  const parts = path
+    .replace(/^#?\/?/, '')
+    .split('/')
+    .filter(Boolean);
   if (!parts.length) return null;
   const [head, id] = parts;
   if (head === 'all') return ALL;
@@ -45,20 +48,28 @@ export function parse(hash: string): Route | null {
   const place = parsePlace(path);
   if (!place) return null;
   const peeked = new URLSearchParams(query ?? '').get('peek');
-  const peek = peeked ? parsePlace(peeked) ?? undefined : undefined;
+  const peek = peeked ? (parsePlace(peeked) ?? undefined) : undefined;
   return peek ? { place, peek } : { place };
 }
 
 function placeHref(place: Place): string {
   switch (place.kind) {
-    case 'all': return '/all';
-    case 'character': return `/c/${place.id}`;
-    case 'shared': return `/s/${place.id}`;
-    case 'move': return `/m/${place.id}`;
-    case 'people': return '/people';
-    case 'record': return `/n/${place.id}`;
-    case 'graph': return '/graph';
-    case 'timeline': return '/when';
+    case 'all':
+      return '/all';
+    case 'character':
+      return `/c/${place.id}`;
+    case 'shared':
+      return `/s/${place.id}`;
+    case 'move':
+      return `/m/${place.id}`;
+    case 'people':
+      return '/people';
+    case 'record':
+      return `/n/${place.id}`;
+    case 'graph':
+      return '/graph';
+    case 'timeline':
+      return '/when';
   }
 }
 

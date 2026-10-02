@@ -42,11 +42,26 @@
 {/if}
 
 <style>
-  .center { display: grid; place-items: center; height: 100%; }
-  .toast {
-    position: fixed; bottom: 1em; left: 50%; transform: translateX(-50%);
-    background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: .5em 1em; box-shadow: var(--shadow); z-index: 100; max-width: 90vw;
+  .center {
+    display: grid;
+    place-items: center;
+    height: 100%;
   }
-  .toast.error { border-color: var(--bad); color: var(--bad); }
+  .toast {
+    position: fixed;
+    bottom: 1em;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.5em 1em;
+    box-shadow: var(--shadow);
+    z-index: 100;
+    max-width: 90vw;
+  }
+  .toast.error {
+    border-color: var(--bad);
+    color: var(--bad);
+  }
 </style>

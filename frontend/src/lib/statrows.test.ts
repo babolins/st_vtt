@@ -49,12 +49,17 @@ describe('balancedRows', () => {
 describe('placements', () => {
   it('spans each box over two half-tracks, left to right', () => {
     expect(placements([3])).toEqual([
-      { row: 1, column: 1 }, { row: 1, column: 3 }, { row: 1, column: 5 },
+      { row: 1, column: 1 },
+      { row: 1, column: 3 },
+      { row: 1, column: 5 },
     ]);
   });
 
   it('starts a row one box short one half-track in, so it is centred', () => {
-    expect(placements([3, 2]).slice(3)).toEqual([{ row: 2, column: 2 }, { row: 2, column: 4 }]);
+    expect(placements([3, 2]).slice(3)).toEqual([
+      { row: 2, column: 2 },
+      { row: 2, column: 4 },
+    ]);
     // The lone box of 2 + 2 + 1 sits in the middle of four half-tracks.
     expect(placements([2, 2, 1])[4]).toEqual({ row: 3, column: 2 });
   });

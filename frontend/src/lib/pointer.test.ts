@@ -3,7 +3,13 @@ import { applyPointer, at, getPointer } from './pointer';
 
 // Mirrors the id-token cases in tests/test_patch.py.
 
-const gear = () => ({ items: [{ id: 'a', name: 'rope' }, { id: 'b', name: 'lamp' }, { id: 'c', name: 'axe' }] });
+const gear = () => ({
+  items: [
+    { id: 'a', name: 'rope' },
+    { id: 'b', name: 'lamp' },
+    { id: 'c', name: 'axe' },
+  ],
+});
 
 describe('@id tokens', () => {
   it('select by id', () => {
@@ -18,7 +24,10 @@ describe('@id tokens', () => {
     const d = gear();
     applyPointer(d, '/items/@a', null, 'remove');
     applyPointer(d, '/items/@c/name', 'hatchet');
-    expect(d.items).toEqual([{ id: 'b', name: 'lamp' }, { id: 'c', name: 'hatchet' }]);
+    expect(d.items).toEqual([
+      { id: 'b', name: 'lamp' },
+      { id: 'c', name: 'hatchet' },
+    ]);
   });
 
   it('address an appended item', () => {

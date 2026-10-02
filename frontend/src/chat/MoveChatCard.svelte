@@ -11,13 +11,30 @@
   // The card carries the move's text, but the pack has the authoritative copy —
   // options, tracks and all — so prefer it and keep one renderer for both.
   const move = $derived.by((): Move => {
-    const found = p.move_id && app.content ? allMoves(app.content).find((e) => e.move.id === p.move_id)?.move : undefined;
-    return found ?? ({
-      id: p.move_id ?? 'shared', name: p.name, trigger: p.trigger ?? '', text: p.text ?? '',
-      roll: null, outcomes: p.outcomes ?? {}, hold: p.hold ?? null, tracks: {},
-      requires: null, themes: [], tags: [], replaces: null, insert: null, grants: null,
-      options: [], min: null, max: null,
-    } as unknown as Move);
+    const found =
+      p.move_id && app.content ? allMoves(app.content).find((e) => e.move.id === p.move_id)?.move : undefined;
+    return (
+      found ??
+      ({
+        id: p.move_id ?? 'shared',
+        name: p.name,
+        trigger: p.trigger ?? '',
+        text: p.text ?? '',
+        roll: null,
+        outcomes: p.outcomes ?? {},
+        hold: p.hold ?? null,
+        tracks: {},
+        requires: null,
+        themes: [],
+        tags: [],
+        replaces: null,
+        insert: null,
+        grants: null,
+        options: [],
+        min: null,
+        max: null,
+      } as unknown as Move)
+    );
   });
 </script>
 
@@ -29,13 +46,36 @@
     <span class="grow"></span>
     <span class="muted small">{timeShort(message.ts)}</span>
   </div>
-  <button class="name" onclick={() => peek({ kind: 'move', id: move.id })} title="Peek at this move">{move.name}</button>
+  <button class="name" onclick={() => peek({ kind: 'move', id: move.id })} title="Peek at this move">{move.name}</button
+  >
   <MoveBody {move} />
 </div>
 
 <style>
-  .mc { border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: var(--radius-sm); padding: .4em .6em; background: var(--bg); }
-  .top { gap: .4em; }
-  .name { font-weight: var(--heading-weight); text-transform: var(--move-name-case); letter-spacing: var(--move-name-tracking); margin: .15em 0; background: none; border: 0; padding: 0; color: var(--fg); cursor: pointer; font-size: 1em; text-align: left; }
-  .name:hover { color: var(--accent); }
+  .mc {
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius-sm);
+    padding: 0.4em 0.6em;
+    background: var(--bg);
+  }
+  .top {
+    gap: 0.4em;
+  }
+  .name {
+    font-weight: var(--heading-weight);
+    text-transform: var(--move-name-case);
+    letter-spacing: var(--move-name-tracking);
+    margin: 0.15em 0;
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--fg);
+    cursor: pointer;
+    font-size: 1em;
+    text-align: left;
+  }
+  .name:hover {
+    color: var(--accent);
+  }
 </style>

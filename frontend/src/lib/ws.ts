@@ -37,13 +37,23 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 function entityRow(entity: unknown, id: unknown) {
   const key = String(id);
-  return entity === 'character' ? app.characters[key] : entity === 'shared' ? app.shared[key] : entity === 'record' ? app.records[key] : undefined;
+  return entity === 'character'
+    ? app.characters[key]
+    : entity === 'shared'
+      ? app.shared[key]
+      : entity === 'record'
+        ? app.records[key]
+        : undefined;
 }
 
 function applyLocally(e: PatchEntry): void {
   const target = entityRow(e.entity, e.id);
   if (!target) return;
-  try { applyPointer(target.data, e.path, e.value, e.op); } catch (err) { console.warn('local patch failed', err); }
+  try {
+    applyPointer(target.data, e.path, e.value, e.op);
+  } catch (err) {
+    console.warn('local patch failed', err);
+  }
 }
 
 function countUnsaved(): void {
@@ -80,7 +90,11 @@ export function connect(): void {
   socket.onopen = async () => {
     backoff = RECONNECT_MS;
     app.connected = true;
-    try { await refreshState(); } catch (e) { console.error(e); }
+    try {
+      await refreshState();
+    } catch (e) {
+      console.error(e);
+    }
     if (socket !== ws) return; // dropped meanwhile; the next socket replays the outbox
     synced = flushOutbox();
     sendEphemeral({ type: 'presence_sync' });
@@ -95,14 +109,20 @@ export function connect(): void {
     countUnsaved();
     let lost = false;
     for (const [, p] of pending) {
-      if (p.patch) { p.resolve(); continue; } // back in the outbox
+      if (p.patch) {
+        p.resolve();
+        continue;
+      } // back in the outbox
       lost = true;
       p.reject(new Error('disconnected'));
     }
     pending.clear();
     if (lost) toast('Not connected', 'error');
     if (ev.code === WS_NOT_LOGGED_IN || ev.code === WS_SIGNED_IN_ELSEWHERE) {
-      app.loginNotice = ev.code === WS_SIGNED_IN_ELSEWHERE ? 'You were signed in on another device, so this one was signed out.' : 'Your session ended. Please sign in again.';
+      app.loginNotice =
+        ev.code === WS_SIGNED_IN_ELSEWHERE
+          ? 'You were signed in on another device, so this one was signed out.'
+          : 'Your session ended. Please sign in again.';
       app.me = null;
       return;
     }
@@ -150,8 +170,15 @@ export function send(msg: Record<string, unknown>): Promise<void> {
  */
 export function sendPatch(msg: Record<string, unknown>, value: unknown): Promise<void> {
   const e: PatchEntry = {
-    ref: ++refCounter, msg, entity: String(msg.entity), id: (msg.id as string | null) ?? null,
-    path: String(msg.path), op: msg.op as PatchOp, value, user: app.me?.name ?? '', overtaken: false,
+    ref: ++refCounter,
+    msg,
+    entity: String(msg.entity),
+    id: (msg.id as string | null) ?? null,
+    path: String(msg.path),
+    op: msg.op as PatchOp,
+    value,
+    user: app.me?.name ?? '',
+    overtaken: false,
   };
   if (!synced || !socket || socket.readyState !== WebSocket.OPEN) {
     patches.queue(e);
@@ -169,7 +196,10 @@ function handle(ev: ServerEvent): void {
   switch (ev.type) {
     case 'ack': {
       const p = pending.get(ev.ref);
-      if (p) { pending.delete(ev.ref); p.resolve(); }
+      if (p) {
+        pending.delete(ev.ref);
+        p.resolve();
+      }
       patches.settle(ev.ref);
       break;
     }
@@ -191,7 +221,10 @@ function handle(ev: ServerEvent): void {
         patches.overtake(ev.entity, ev.id, ev.path);
       }
       const target = entityRow(ev.entity, ev.id);
-      if (!target) { refreshState().catch(() => {}); break; }
+      if (!target) {
+        refreshState().catch(() => {});
+        break;
+      }
       try {
         applyPointer(target.data, ev.path, ev.value, ev.op);
         target.revision = ev.revision;
@@ -235,7 +268,8 @@ function handle(ev: ServerEvent): void {
       break;
     case 'presence':
       app.online = ev.users;
-      for (const [c, f] of Object.entries(app.fieldPresence)) if (!ev.users.includes(f.user)) delete app.fieldPresence[c];
+      for (const [c, f] of Object.entries(app.fieldPresence))
+        if (!ev.users.includes(f.user)) delete app.fieldPresence[c];
       break;
     case 'field_presence':
       if (!ev.client || ev.client === clientId) break;

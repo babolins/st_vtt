@@ -18,7 +18,13 @@
   {#if preview || !editable}
     <Markdown text={doc.notes || '_No notes._'} />
   {:else}
-    <DebouncedText multiline rows={6} value={doc.notes ?? ''} path={'/notes'} placeholder="Notes (markdown). Everyone at the table can read these." />
+    <DebouncedText
+      multiline
+      rows={6}
+      value={doc.notes ?? ''}
+      path={'/notes'}
+      placeholder="Notes (markdown). Everyone at the table can read these."
+    />
   {/if}
 </Collapsible>
 
@@ -30,7 +36,13 @@
     {#if gmPreview}
       <Markdown text={doc.gm_notes || '_No GM notes._'} />
     {:else}
-      <DebouncedText multiline rows={4} value={doc.gm_notes ?? ''} path={'/gm_notes'} placeholder="Only the GM sees these." />
+      <DebouncedText
+        multiline
+        rows={4}
+        value={doc.gm_notes ?? ''}
+        path={'/gm_notes'}
+        placeholder="Only the GM sees these."
+      />
     {/if}
   </Collapsible>
 {/if}

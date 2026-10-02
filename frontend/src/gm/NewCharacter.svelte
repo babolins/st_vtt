@@ -18,21 +18,31 @@
     try {
       await api.post('/api/characters', { playbook, name, owner: isGm() ? owner : null });
       onclose();
-    } catch (e) { toast(String((e as Error).message), 'error'); } finally { busy = false; }
+    } catch (e) {
+      toast(String((e as Error).message), 'error');
+    } finally {
+      busy = false;
+    }
   }
   async function importFile() {
     try {
       const doc = await pickFile();
-      const r = await api.post<{ warnings: string[] }>('/api/characters/import', { character: doc, owner: isGm() ? owner : null });
+      const r = await api.post<{ warnings: string[] }>('/api/characters/import', {
+        character: doc,
+        owner: isGm() ? owner : null,
+      });
       for (const w of r.warnings) toast(w, 'error');
       onclose();
-    } catch (e) { toast(String((e as Error).message), 'error'); }
+    } catch (e) {
+      toast(String((e as Error).message), 'error');
+    }
   }
 </script>
 
 <Modal title="New character" {onclose}>
   <div class="stack">
-    <label>Playbook
+    <label
+      >Playbook
       <select bind:value={playbook}>
         {#each content.playbooks as p}<option value={p.id}>{p.name}</option>{/each}
       </select>
@@ -42,7 +52,8 @@
     {/if}
     <label>Name <input type="text" bind:value={name} placeholder="(pick later)" /></label>
     {#if isGm()}
-      <label>Owner
+      <label
+        >Owner
         <select bind:value={owner}>
           {#each app.users as u}<option value={u.name}>{u.name}</option>{/each}
         </select>
@@ -59,5 +70,9 @@
 </Modal>
 
 <style>
-  label { display: flex; flex-direction: column; gap: .2em; }
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2em;
+  }
 </style>

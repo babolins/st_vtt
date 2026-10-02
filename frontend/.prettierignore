@@ -1,0 +1,2 @@
+# Prettier also skips what .gitignore does (dist/, the generated textures).
+package-lock.json

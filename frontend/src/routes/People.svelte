@@ -18,7 +18,14 @@
 
   const all = $derived(records().filter((r) => r.kind !== 'event'));
   const values = (pick: (r: RecordRow) => string) =>
-    [...new Set(all.map(pick).map((v) => v.trim()).filter(Boolean))].sort();
+    [
+      ...new Set(
+        all
+          .map(pick)
+          .map((v) => v.trim())
+          .filter(Boolean),
+      ),
+    ].sort();
 
   const roles = $derived(values((r) => r.data.role));
   const homes = $derived(values((r) => r.data.home));
@@ -32,8 +39,18 @@
       if (facet.home && d.home !== facet.home) return false;
       if (facet.status && d.status !== facet.status) return false;
       if (!q) return true;
-      const hay = [d.name, d.role, d.home, d.status, d.notes, d.secret ?? '', d.tags.join(' '),
-        d.ties.map((t) => `${t.type} ${t.note}`).join(' ')].join(' ').toLowerCase();
+      const hay = [
+        d.name,
+        d.role,
+        d.home,
+        d.status,
+        d.notes,
+        d.secret ?? '',
+        d.tags.join(' '),
+        d.ties.map((t) => `${t.type} ${t.note}`).join(' '),
+      ]
+        .join(' ')
+        .toLowerCase();
       return hay.includes(q);
     });
   });
@@ -59,7 +76,12 @@
     <h2>People</h2>
     <span class="muted small">{shown.length} of {all.length}</span>
     <span class="grow"></span>
-    <input class="new" bind:value={newName} placeholder="Name someone new…" onkeydown={(e) => e.key === 'Enter' && create()} />
+    <input
+      class="new"
+      bind:value={newName}
+      placeholder="Name someone new…"
+      onkeydown={(e) => e.key === 'Enter' && create()}
+    />
     <button class="small primary" onclick={create} disabled={!newName.trim() || busy}>Add</button>
   </div>
 
@@ -76,7 +98,10 @@
   </div>
 
   {#if !all.length}
-    <p class="muted empty">Nobody written down yet. The names from your session notes are a good place to start — anyone at the table can add them.</p>
+    <p class="muted empty">
+      Nobody written down yet. The names from your session notes are a good place to start — anyone at the table can add
+      them.
+    </p>
   {:else}
     <table class="grid people">
       <thead>
@@ -95,7 +120,15 @@
             <td>{row.data.status}</td>
             <td class="ties">
               {#each row.data.ties as t}
-                <span class="tie">{t.type.replace(/-/g, ' ')} <button class="linky" onclick={() => peek(app.characters[t.to] ? { kind: 'character', id: t.to } : { kind: 'record', id: t.to })}>{nameOf(t.to)}</button></span>
+                <span class="tie"
+                  >{t.type.replace(/-/g, ' ')}
+                  <button
+                    class="linky"
+                    onclick={() =>
+                      peek(app.characters[t.to] ? { kind: 'character', id: t.to } : { kind: 'record', id: t.to })}
+                    >{nameOf(t.to)}</button
+                  ></span
+                >
               {/each}
             </td>
           </tr>
@@ -104,21 +137,60 @@
     </table>
   {/if}
   {#if isGm() && all.some((r) => r.data.visibility === 'gm')}
-    <p class="small muted foot">Records marked GM are invisible to players — they are not sent to their browsers at all.</p>
+    <p class="small muted foot">
+      Records marked GM are invisible to players — they are not sent to their browsers at all.
+    </p>
   {/if}
 </div>
 
 <style>
-  .page { padding: .75em 1em 1em; }
-  .head { gap: .5em; align-items: baseline; margin-bottom: .6em; }
-  .head h2 { font-size: 1.3em; }
-  .filters { gap: .4em; margin-bottom: .6em; }
-  .q { flex: 1; min-width: 12em; }
-  .new { width: 12em; }
-  .people td { vertical-align: top; }
-  .linky { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; text-align: left; }
-  .tie { display: block; font-size: .9em; color: var(--fg-muted); }
-  .tag.gm { background: var(--accent-soft); color: var(--accent); }
-  .empty { padding: 1em 0; }
-  .foot { margin-top: .8em; }
+  .page {
+    padding: 0.75em 1em 1em;
+  }
+  .head {
+    gap: 0.5em;
+    align-items: baseline;
+    margin-bottom: 0.6em;
+  }
+  .head h2 {
+    font-size: 1.3em;
+  }
+  .filters {
+    gap: 0.4em;
+    margin-bottom: 0.6em;
+  }
+  .q {
+    flex: 1;
+    min-width: 12em;
+  }
+  .new {
+    width: 12em;
+  }
+  .people td {
+    vertical-align: top;
+  }
+  .linky {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--accent);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+  }
+  .tie {
+    display: block;
+    font-size: 0.9em;
+    color: var(--fg-muted);
+  }
+  .tag.gm {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .empty {
+    padding: 1em 0;
+  }
+  .foot {
+    margin-top: 0.8em;
+  }
 </style>

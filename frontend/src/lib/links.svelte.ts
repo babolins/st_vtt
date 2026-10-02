@@ -47,7 +47,9 @@ export function targets(): Map<string, Target> {
 export function installLinkResolver(): void {
   setLinkResolver((name) => {
     const found = targets().get(name.toLowerCase());
-    return found ? { href: href({ place: found.place }), title: found.kind === 'record' ? 'Record' : 'Character sheet' } : null;
+    return found
+      ? { href: href({ place: found.place }), title: found.kind === 'record' ? 'Record' : 'Character sheet' }
+      : null;
   });
 }
 

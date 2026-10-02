@@ -4,7 +4,11 @@ import type { ContentPack, InsertDef, Move, Playbook, CharacterDoc } from './typ
 
 export function levelUpCost(formula: string, level: number): number {
   if (!/^[0-9+\-*/() level]*$/.test(formula)) return Infinity;
-  try { return Math.floor(Function('level', `return (${formula});`)(level)); } catch { return Infinity; }
+  try {
+    return Math.floor(Function('level', `return (${formula});`)(level));
+  } catch {
+    return Infinity;
+  }
 }
 
 /** One line to pick a move by: its trigger, or the start of its text when it has none. */
@@ -22,9 +26,7 @@ export function playbookOf(content: ContentPack, doc: CharacterDoc): Playbook | 
 
 /** The pack-defined inserts on a sheet, in sheet order ('gear' and friends are engine sections). */
 export function packInserts(content: ContentPack, doc: CharacterDoc): InsertDef[] {
-  return doc.inserts
-    .map((id) => content.inserts.find((i) => i.id === id))
-    .filter((i): i is InsertDef => !!i);
+  return doc.inserts.map((id) => content.inserts.find((i) => i.id === id)).filter((i): i is InsertDef => !!i);
 }
 
 /** Everything carried: gear bulk, plus every load box marked on a section option (Book I, p142). */
@@ -66,7 +68,11 @@ export function borrowedFrom(content: ContentPack, id: string, pb: Playbook | un
 }
 
 /** Moves from other playbooks this character may take, and how many picks are left unspent. */
-export function granted(content: ContentPack, doc: CharacterDoc, pb: Playbook | undefined): { offers: { move: Move; from: Playbook }[]; left: number } {
+export function granted(
+  content: ContentPack,
+  doc: CharacterDoc,
+  pb: Playbook | undefined,
+): { offers: { move: Move; from: Playbook }[]; left: number } {
   const taken = new Set(doc.moves.taken);
   const sources = new Set<string>();
   const exclude = new Set<string>();
@@ -120,7 +126,11 @@ export function pickFile(accept = '.json'): Promise<unknown> {
     input.onchange = async () => {
       const f = input.files?.[0];
       if (!f) return reject(new Error('no file'));
-      try { resolve(JSON.parse(await f.text())); } catch (e) { reject(e); }
+      try {
+        resolve(JSON.parse(await f.text()));
+      } catch (e) {
+        reject(e);
+      }
     };
     input.click();
   });

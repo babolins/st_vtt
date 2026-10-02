@@ -18,27 +18,41 @@
     try {
       await api.post('/api/shared', { template: newTemplate, name: newName || null });
       newName = '';
-    } catch (e) { toast((e as Error).message, 'error'); }
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
   }
 
   async function requestRoll() {
     try {
       await api.post('/api/request_roll', { user: reqUser, label: reqLabel || 'a roll', stat: reqStat || null });
       reqLabel = '';
-    } catch (e) { toast((e as Error).message, 'error'); }
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
   }
   async function exportCampaign() {
-    try { download('campaign.json', await api.get('/api/export/campaign')); } catch (e) { toast((e as Error).message, 'error'); }
+    try {
+      download('campaign.json', await api.get('/api/export/campaign'));
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
   }
   async function clearChat() {
-    try { await api.del('/api/messages'); } catch (e) { toast((e as Error).message, 'error'); }
+    try {
+      await api.del('/api/messages');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
   }
 </script>
 
 <div class="gmbar row">
   <span class="group row">
     <span class="muted small">Ask</span>
-    <select bind:value={reqUser}>{#each app.users as u}<option value={u.name}>{u.name}</option>{/each}</select>
+    <select bind:value={reqUser}
+      >{#each app.users as u}<option value={u.name}>{u.name}</option>{/each}</select
+    >
     <span class="muted small">to roll</span>
     <input type="text" placeholder="what to roll" bind:value={reqLabel} style="width:10em" />
     <select bind:value={reqStat}>
@@ -50,7 +64,8 @@
   <span class="group row">
     <span class="muted small">New shared sheet</span>
     <select bind:value={newTemplate}>
-      {#each content.shared_sheets as t}<option value={t.id}>{t.name}{t.visibility === 'gm' ? ' (GM only)' : ''}</option>{/each}
+      {#each content.shared_sheets as t}<option value={t.id}>{t.name}{t.visibility === 'gm' ? ' (GM only)' : ''}</option
+        >{/each}
     </select>
     <input type="text" placeholder="name (optional)" bind:value={newName} style="width:10em" />
     <button class="small" onclick={createShared} disabled={!newTemplate}>Create</button>
@@ -62,10 +77,21 @@
   </span>
 </div>
 {#if confirmClear}
-  <Confirm title="Clear the chat log?" text="This deletes all messages and rolls for everyone." onyes={clearChat} onclose={() => (confirmClear = false)} />
+  <Confirm
+    title="Clear the chat log?"
+    text="This deletes all messages and rolls for everyone."
+    onyes={clearChat}
+    onclose={() => (confirmClear = false)}
+  />
 {/if}
 
 <style>
-  .gmbar { padding: .4em .75em; border-top: 1px solid var(--border); background: var(--bg-sunken); }
-  .group { gap: .3em; }
+  .gmbar {
+    padding: 0.4em 0.75em;
+    border-top: 1px solid var(--border);
+    background: var(--bg-sunken);
+  }
+  .group {
+    gap: 0.3em;
+  }
 </style>

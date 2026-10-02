@@ -14,7 +14,11 @@
   import MoveOptions from '../sheet/sections/MoveOptions.svelte';
 
   let {
-    move, density = 'full', doc, p, editable = false,
+    move,
+    density = 'full',
+    doc,
+    p,
+    editable = false,
   }: {
     move: Move;
     /** 'full' prints everything; 'brief' is the trigger alone, for a list of results */
@@ -49,15 +53,39 @@
   {/if}
 
   {#if move.hold}
-    <p class="hold"><span class="hold-name">Hold: {move.hold.name}</span>{#if move.hold.note} — {move.hold.note}{/if}</p>
+    <p class="hold">
+      <span class="hold-name">Hold: {move.hold.name}</span>{#if move.hold.note}
+        — {move.hold.note}{/if}
+    </p>
   {/if}
 {/if}
 
 <style>
-  .trigger { color: var(--fg-muted); font-style: italic; margin: 0 0 .4em; }
-  .outcomes { display: grid; grid-template-columns: auto 1fr; gap: .15em .6em; margin: .3em 0 0; }
-  .outcomes dt { font-weight: 600; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
-  .outcomes dd { margin: 0; }
-  .hold { font-size: .9em; color: var(--fg-muted); margin: .4em 0 0; }
-  .hold-name { font-weight: 600; }
+  .trigger {
+    color: var(--fg-muted);
+    font-style: italic;
+    margin: 0 0 0.4em;
+  }
+  .outcomes {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.15em 0.6em;
+    margin: 0.3em 0 0;
+  }
+  .outcomes dt {
+    font-weight: 600;
+    color: var(--fg-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .outcomes dd {
+    margin: 0;
+  }
+  .hold {
+    font-size: 0.9em;
+    color: var(--fg-muted);
+    margin: 0.4em 0 0;
+  }
+  .hold-name {
+    font-weight: 600;
+  }
 </style>

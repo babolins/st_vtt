@@ -17,15 +17,25 @@
   let atBottom = true;
   let lastTyping = 0;
   let now = $state(Date.now());
-  const typers = $derived(Object.entries(app.typing).filter(([u, t]) => t > now && u !== app.me?.name).map(([u]) => u));
+  const typers = $derived(
+    Object.entries(app.typing)
+      .filter(([u, t]) => t > now && u !== app.me?.name)
+      .map(([u]) => u),
+  );
   $effect(() => {
     const iv = setInterval(() => (now = Date.now()), 1000);
     return () => clearInterval(iv);
   });
   function onInput() {
-    if (!text.trim()) { setTyping(false); return; }
+    if (!text.trim()) {
+      setTyping(false);
+      return;
+    }
     const t = Date.now();
-    if (t - lastTyping > TYPING_RESEND_MS) { lastTyping = t; sendEphemeral({ type: 'typing', active: true }); }
+    if (t - lastTyping > TYPING_RESEND_MS) {
+      lastTyping = t;
+      sendEphemeral({ type: 'typing', active: true });
+    }
   }
   function setTyping(active: boolean) {
     lastTyping = active ? Date.now() : 0;
@@ -34,7 +44,9 @@
 
   $effect(() => {
     app.messages.length; // track
-    tick().then(() => { if (atBottom && log) log.scrollTop = log.scrollHeight; });
+    tick().then(() => {
+      if (atBottom && log) log.scrollTop = log.scrollHeight;
+    });
   });
 
   function onscroll() {
@@ -64,7 +76,7 @@
     <span class="muted small kbd">/roll 2d6+1 · /w name · /gmroll</span>
     <button class="ghost small closer" onclick={onclose}>✕</button>
   </div>
-  <div class="log" bind:this={log} onscroll={onscroll}>
+  <div class="log" bind:this={log} {onscroll}>
     {#each app.messages as m (m.id)}
       <div class="msg {m.kind}">
         {#if m.kind === 'system'}
@@ -75,7 +87,11 @@
           <MoveChatCard message={m} />
         {:else if m.kind === 'request'}
           <div class="req">
-            <span><strong>{m.author}</strong> asks <strong>{m.payload.to}</strong> to roll <em>{m.payload.label}</em>{#if m.payload.stat} (+{m.payload.stat.toUpperCase()}){/if}</span>
+            <span
+              ><strong>{m.author}</strong> asks <strong>{m.payload.to}</strong> to roll
+              <em>{m.payload.label}</em>{#if m.payload.stat}
+                (+{m.payload.stat.toUpperCase()}){/if}</span
+            >
             {#if m.payload.to === app.me?.name}
               <button class="small primary" onclick={() => answerRequest(m)}>Roll</button>
             {/if}
@@ -93,26 +109,81 @@
     {#if app.messages.length === 0}<p class="muted small">Nothing yet. Say hello.</p>{/if}
   </div>
   <div class="typing muted small" aria-live="polite">
-    {#if typers.length === 1}{typers[0]} is typing…{:else if typers.length > 1}{typers.slice(0, -1).join(', ')} and {typers[typers.length - 1]} are typing…{/if}
+    {#if typers.length === 1}{typers[0]} is typing…{:else if typers.length > 1}{typers.slice(0, -1).join(', ')} and {typers[
+        typers.length - 1
+      ]} are typing…{/if}
   </div>
   <form class="input" onsubmit={submit}>
-    <input type="text" placeholder="Say something, or /roll 2d6" bind:value={text} oninput={onInput} onblur={() => setTyping(false)} />
+    <input
+      type="text"
+      placeholder="Say something, or /roll 2d6"
+      bind:value={text}
+      oninput={onInput}
+      onblur={() => setTyping(false)}
+    />
     <button class="primary">Send</button>
   </form>
   <DiceBar />
 </div>
 
 <style>
-  .panel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-  .head { padding: .5em .75em; border-bottom: 1px solid var(--border); }
-  .closer { display: none; }
-  .log { flex: 1; overflow-y: auto; padding: .5em .75em; display: flex; flex-direction: column; gap: .5em; }
-  .msg { border-radius: var(--radius-sm); }
-  .msg.whisper { background: var(--accent-soft); padding: .3em .5em; }
-  .msg.chat .meta, .msg.whisper .meta { gap: .4em; }
-  .req { display: flex; gap: .5em; align-items: center; justify-content: space-between; background: var(--bg-sunken); padding: .4em .6em; border-radius: var(--radius-sm); }
-  .typing { height: 1.3em; padding: 0 .75em; border-top: 1px solid var(--border); }
-  .input { display: flex; gap: .4em; padding: .5em .75em; }
-  .input input { flex: 1; }
-  @media (max-width: 900px) { .closer { display: inline; } }
+  .panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  .head {
+    padding: 0.5em 0.75em;
+    border-bottom: 1px solid var(--border);
+  }
+  .closer {
+    display: none;
+  }
+  .log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5em 0.75em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+  }
+  .msg {
+    border-radius: var(--radius-sm);
+  }
+  .msg.whisper {
+    background: var(--accent-soft);
+    padding: 0.3em 0.5em;
+  }
+  .msg.chat .meta,
+  .msg.whisper .meta {
+    gap: 0.4em;
+  }
+  .req {
+    display: flex;
+    gap: 0.5em;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-sunken);
+    padding: 0.4em 0.6em;
+    border-radius: var(--radius-sm);
+  }
+  .typing {
+    height: 1.3em;
+    padding: 0 0.75em;
+    border-top: 1px solid var(--border);
+  }
+  .input {
+    display: flex;
+    gap: 0.4em;
+    padding: 0.5em 0.75em;
+  }
+  .input input {
+    flex: 1;
+  }
+  @media (max-width: 900px) {
+    .closer {
+      display: inline;
+    }
+  }
 </style>

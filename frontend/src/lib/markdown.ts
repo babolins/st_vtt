@@ -29,7 +29,11 @@ export function setLinkResolver(fn: typeof resolveLink): void {
 function links(s: string): string {
   return s.replace(/\[\[([^\]]+)\]\]/g, (whole, raw) => {
     const shown = String(raw).trim();
-    const name = shown.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+    const name = shown
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"');
     const found = resolveLink?.(name);
     if (!found) return shown;
     return `<a class="entity" href="${esc(found.href)}" title="${esc(found.title)}">${shown}</a>`;
@@ -51,8 +55,14 @@ export function render(md: string | null | undefined): string {
   let para: string[] = [];
   let list: string[] = [];
   const flush = () => {
-    if (para.length) { out.push(`<p>${para.map(inline).join('<br>')}</p>`); para = []; }
-    if (list.length) { out.push(`<ul>${list.map((l) => `<li>${inline(l)}</li>`).join('')}</ul>`); list = []; }
+    if (para.length) {
+      out.push(`<p>${para.map(inline).join('<br>')}</p>`);
+      para = [];
+    }
+    if (list.length) {
+      out.push(`<ul>${list.map((l) => `<li>${inline(l)}</li>`).join('')}</ul>`);
+      list = [];
+    }
   };
   for (const raw of lines) {
     const line = raw.trimEnd();

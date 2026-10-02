@@ -7,8 +7,16 @@
   import { SHEET, type Patcher, type SheetContext } from '../../lib/patch';
   import OptionRow from './OptionRow.svelte';
 
-  let { move, doc, p, editable }: {
-    move: Move; doc: CharacterDoc | SharedDoc; p: Patcher; editable: boolean;
+  let {
+    move,
+    doc,
+    p,
+    editable,
+  }: {
+    move: Move;
+    doc: CharacterDoc | SharedDoc;
+    p: Patcher;
+    editable: boolean;
   } = $props();
 
   const sheet = getContext<SheetContext | undefined>(SHEET);
@@ -17,9 +25,13 @@
   const single = $derived(move.max === 1);
   const atMax = $derived(move.max != null && picks.length >= move.max);
   const hint = $derived(
-    move.min != null && move.max != null && move.min === move.max ? `pick ${move.min}`
-      : move.max != null ? `up to ${move.max}`
-      : move.min != null ? `pick ${move.min}+` : '',
+    move.min != null && move.max != null && move.min === move.max
+      ? `pick ${move.min}`
+      : move.max != null
+        ? `up to ${move.max}`
+        : move.min != null
+          ? `pick ${move.min}+`
+          : '',
   );
   const group = $derived(sheet ? `${sheet.entity}.${sheet.id}.${move.id}` : move.id);
   const pres = $derived(sheet ? { entity: sheet.entity, id: sheet.id, path } : undefined);
@@ -47,16 +59,34 @@
 <div class="moveopts">
   {#if hint}<div class="muted small hint">{hint}</div>{/if}
   {#each move.options as o (o.id)}
-    <OptionRow option={o} sectionId={move.id} selected={picks.includes(o.id)}
+    <OptionRow
+      option={o}
+      sectionId={move.id}
+      selected={picks.includes(o.id)}
       editable={editable && (single || picks.includes(o.id) || !atMax)}
-      kind={single ? 'radio' : 'checkbox'} {group}
-      basePath={`/option_tracks/${move.id}`} presencePath={pres}
-      {tracksOf} {textOf} {childrenOf}
-      onselect={toggle} ontrack={setTrack} ontext={setText} onchild={setChild} />
+      kind={single ? 'radio' : 'checkbox'}
+      {group}
+      basePath={`/option_tracks/${move.id}`}
+      presencePath={pres}
+      {tracksOf}
+      {textOf}
+      {childrenOf}
+      onselect={toggle}
+      ontrack={setTrack}
+      ontext={setText}
+      onchild={setChild}
+    />
   {/each}
 </div>
 
 <style>
-  .moveopts { display: flex; flex-direction: column; gap: .1em; margin: .3em 0 .1em; }
-  .hint { padding: 0 .5em; }
+  .moveopts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1em;
+    margin: 0.3em 0 0.1em;
+  }
+  .hint {
+    padding: 0 0.5em;
+  }
 </style>

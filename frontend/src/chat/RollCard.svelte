@@ -16,11 +16,15 @@
   const actions = $derived(p.actions ?? []);
   const applied = $derived(p.applied ?? {});
   const character = $derived(p.character_id ? app.characters[p.character_id] : undefined);
-  const mayApply = $derived(p.character_id ? !!character && canEdit(character) : !!p.shared_id && (isGm() || !!app.shared[p.shared_id]));
+  const mayApply = $derived(
+    p.character_id ? !!character && canEdit(character) : !!p.shared_id && (isGm() || !!app.shared[p.shared_id]),
+  );
   const debilities = $derived(app.content?.pack.debilities ?? []);
   // The dice landing is exactly when the table wants the printed move in front of
   // them, so the card can show the whole thing — the pack already has it.
-  const rolled = $derived(p.move_id && app.content ? allMoves(app.content).find((e) => e.move.id === p.move_id)?.move : undefined);
+  const rolled = $derived(
+    p.move_id && app.content ? allMoves(app.content).find((e) => e.move.id === p.move_id)?.move : undefined,
+  );
   let showMove = $state(false);
   let choosing = $state<number | null>(null);
 
@@ -92,8 +96,9 @@
       <div class="row actions">
         <span class="muted small">Which debility?</span>
         {#each debilities as d}
-          <button class="small" disabled={!!character?.data.debilities[d.id]}
-            onclick={() => apply(choosing!, d.id)}>{d.label}</button>
+          <button class="small" disabled={!!character?.data.debilities[d.id]} onclick={() => apply(choosing!, d.id)}
+            >{d.label}</button
+          >
         {/each}
       </div>
     {/if}
@@ -101,21 +106,83 @@
 </div>
 
 <style>
-  .showmove { padding: .1em .2em; margin-top: .2em; }
-  .movebody { border-top: 1px solid var(--border); margin-top: .3em; padding-top: .3em; }
-  .rc { border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: var(--radius-sm); padding: .4em .6em; background: var(--bg); }
-  .rc.hit { border-left-color: var(--ok); }
-  .rc.mixed { border-left-color: var(--warn); }
-  .rc.miss { border-left-color: var(--bad); }
-  .top { gap: .4em; }
-  .main { gap: .5em; margin: .15em 0; }
-  .label { font-weight: 600; }
-  .total { font-size: 1.4em; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .tier { font-weight: 600; padding: 0 .5em; border-radius: var(--radius-pill); background: var(--bg-sunken); }
-  .hit .tier { color: var(--ok); } .mixed .tier { color: var(--warn); } .miss .tier { color: var(--bad); }
-  .detail { display: flex; gap: .4em; flex-wrap: wrap; font-family: var(--mono); }
-  .pill.warn { color: var(--warn); border-color: var(--warn); }
-  .actions { gap: .35em; margin-top: .35em; flex-wrap: wrap; }
-  .done { color: var(--ok); font-weight: 600; }
-  :global(.rc .outcome) { margin-top: .3em; padding-top: .3em; border-top: 1px dashed var(--border); }
+  .showmove {
+    padding: 0.1em 0.2em;
+    margin-top: 0.2em;
+  }
+  .movebody {
+    border-top: 1px solid var(--border);
+    margin-top: 0.3em;
+    padding-top: 0.3em;
+  }
+  .rc {
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.4em 0.6em;
+    background: var(--bg);
+  }
+  .rc.hit {
+    border-left-color: var(--ok);
+  }
+  .rc.mixed {
+    border-left-color: var(--warn);
+  }
+  .rc.miss {
+    border-left-color: var(--bad);
+  }
+  .top {
+    gap: 0.4em;
+  }
+  .main {
+    gap: 0.5em;
+    margin: 0.15em 0;
+  }
+  .label {
+    font-weight: 600;
+  }
+  .total {
+    font-size: 1.4em;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .tier {
+    font-weight: 600;
+    padding: 0 0.5em;
+    border-radius: var(--radius-pill);
+    background: var(--bg-sunken);
+  }
+  .hit .tier {
+    color: var(--ok);
+  }
+  .mixed .tier {
+    color: var(--warn);
+  }
+  .miss .tier {
+    color: var(--bad);
+  }
+  .detail {
+    display: flex;
+    gap: 0.4em;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+  }
+  .pill.warn {
+    color: var(--warn);
+    border-color: var(--warn);
+  }
+  .actions {
+    gap: 0.35em;
+    margin-top: 0.35em;
+    flex-wrap: wrap;
+  }
+  .done {
+    color: var(--ok);
+    font-weight: 600;
+  }
+  :global(.rc .outcome) {
+    margin-top: 0.3em;
+    padding-top: 0.3em;
+    border-top: 1px dashed var(--border);
+  }
 </style>

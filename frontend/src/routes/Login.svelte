@@ -17,7 +17,9 @@
 
   onMount(async () => {
     users = await api.get('/api/users');
-    try { selected = localStorage.getItem('st_vtt.lastUser') || ''; } catch {}
+    try {
+      selected = localStorage.getItem('st_vtt.lastUser') || '';
+    } catch {}
     if (!users.some((u) => u.name === selected)) selected = users[0]?.name ?? '';
   });
 
@@ -28,9 +30,15 @@
     app.loginNotice = '';
     busy = true;
     try {
-      const me = await api.post<{ name: string; role: 'gm' | 'player' }>('/api/login', { name: selected, password: password || null, force });
+      const me = await api.post<{ name: string; role: 'gm' | 'player' }>('/api/login', {
+        name: selected,
+        password: password || null,
+        force,
+      });
       app.me = { name: me.name, role: me.role };
-      try { localStorage.setItem('st_vtt.lastUser', selected); } catch {}
+      try {
+        localStorage.setItem('st_vtt.lastUser', selected);
+      } catch {}
       onlogin();
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) elsewhere = true;
@@ -45,7 +53,9 @@
   <form class="card box stack" onsubmit={submit}>
     <div class="row">
       <h1 class="grow">Shared Table <span class="muted small tagline">st_vtt</span></h1>
-      <button type="button" class="ghost small" onclick={() => (theme = nextTheme())} title="Theme: light, dark, paper">{THEME_GLYPH[theme]}</button>
+      <button type="button" class="ghost small" onclick={() => (theme = nextTheme())} title="Theme: light, dark, paper"
+        >{THEME_GLYPH[theme]}</button
+      >
     </div>
     <p class="muted">Who are you?</p>
     <div class="who">
@@ -66,8 +76,12 @@
     {#if elsewhere}
       <div class="notice">
         <span><strong>{selected}</strong> is already signed in on another device.</span>
-        <span class="row"><button type="button" class="small" onclick={() => submit(null, true)} disabled={busy}>Sign in here anyway</button>
-        <span class="muted small">(signs the other device out)</span></span>
+        <span class="row"
+          ><button type="button" class="small" onclick={() => submit(null, true)} disabled={busy}
+            >Sign in here anyway</button
+          >
+          <span class="muted small">(signs the other device out)</span></span
+        >
       </div>
     {/if}
     <button class="primary" disabled={!selected || busy}>Enter</button>
@@ -75,13 +89,53 @@
 </div>
 
 <style>
-  .wrap { display: grid; place-items: center; min-height: 100%; padding: 1em; }
-  .box { width: min(26em, 100%); padding: 1.5em; }
-  .who { display: flex; flex-direction: column; gap: .25em; }
-  .opt { display: flex; gap: .5em; align-items: center; padding: .4em .6em; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; color: var(--fg); font-size: 1em; }
-  .opt.sel { border-color: var(--accent); background: var(--accent-soft); }
-  .opt input { margin: 0; }
-  .tagline { font-weight: normal; font-family: var(--mono); }
-  .err { color: var(--bad); }
-  .notice { background: var(--accent-soft); border-radius: var(--radius-sm); padding: .5em .7em; display: flex; flex-wrap: wrap; gap: .4em; align-items: center; }
+  .wrap {
+    display: grid;
+    place-items: center;
+    min-height: 100%;
+    padding: 1em;
+  }
+  .box {
+    width: min(26em, 100%);
+    padding: 1.5em;
+  }
+  .who {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+  }
+  .opt {
+    display: flex;
+    gap: 0.5em;
+    align-items: center;
+    padding: 0.4em 0.6em;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--fg);
+    font-size: 1em;
+  }
+  .opt.sel {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .opt input {
+    margin: 0;
+  }
+  .tagline {
+    font-weight: normal;
+    font-family: var(--mono);
+  }
+  .err {
+    color: var(--bad);
+  }
+  .notice {
+    background: var(--accent-soft);
+    border-radius: var(--radius-sm);
+    padding: 0.5em 0.7em;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4em;
+    align-items: center;
+  }
 </style>

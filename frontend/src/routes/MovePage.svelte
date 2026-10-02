@@ -26,9 +26,15 @@
       <span class="muted small">{found.source.label}</span>
       <span class="grow"></span>
       {#if found.move.roll && mineWithIt}
-        <button class="small primary" onclick={() => openRoll({ characterId: mineWithIt.id, sharedId: null, move: found.move })}>Roll</button>
+        <button
+          class="small primary"
+          onclick={() => openRoll({ characterId: mineWithIt.id, sharedId: null, move: found.move })}>Roll</button
+        >
       {/if}
-      <button class="small" onclick={() => send({ type: 'share_move', character_id: mineWithIt?.id ?? null, move_id: id }).catch(() => {})}>
+      <button
+        class="small"
+        onclick={() => send({ type: 'share_move', character_id: mineWithIt?.id ?? null, move_id: id }).catch(() => {})}
+      >
         Show the table
       </button>
     </div>
@@ -37,7 +43,10 @@
       <p class="small muted who">
         Taken by
         {#each holders as row, i}<!--
-          -->{i > 0 ? ', ' : ' '}<button class="linky" onclick={() => peek({ kind: 'character', id: row.id })}>{row.data.name || 'Unnamed'}</button><!--
+          -->{i > 0 ? ', ' : ' '}<button
+            class="linky"
+            onclick={() => peek({ kind: 'character', id: row.id })}>{row.data.name || 'Unnamed'}</button
+          ><!--
         -->{/each}
       </p>
     {/if}
@@ -48,9 +57,27 @@
 </div>
 
 <style>
-  .page { padding: .75em 1em 1em; max-width: 46em; }
-  .head { gap: .5em; align-items: baseline; margin-bottom: .5em; }
-  .name { font-size: 1.3em; }
-  .who { margin-top: .8em; }
-  .linky { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; }
+  .page {
+    padding: 0.75em 1em 1em;
+    max-width: 46em;
+  }
+  .head {
+    gap: 0.5em;
+    align-items: baseline;
+    margin-bottom: 0.5em;
+  }
+  .name {
+    font-size: 1.3em;
+  }
+  .who {
+    margin-top: 0.8em;
+  }
+  .linky {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--accent);
+    cursor: pointer;
+    font: inherit;
+  }
 </style>

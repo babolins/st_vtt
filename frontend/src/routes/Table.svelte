@@ -110,7 +110,9 @@
   {#if peeked}
     <Peek place={peeked} />
   {/if}
-  <button class="fab primary" onclick={() => (chatOpen = !chatOpen)} aria-label="toggle chat">💬 <span class="small">{unread}</span></button>
+  <button class="fab primary" onclick={() => (chatOpen = !chatOpen)} aria-label="toggle chat"
+    >💬 <span class="small">{unread}</span></button
+  >
 </div>
 
 {#if dialogs.roll}
@@ -124,20 +126,75 @@
 {/if}
 
 <style>
-  .layout { display: grid; grid-template-columns: minmax(11em, 14em) minmax(0, 1fr) minmax(20em, 26em); grid-template-rows: auto 1fr; height: 100%; }
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(11em, 14em) minmax(0, 1fr) minmax(20em, 26em);
+    grid-template-rows: auto 1fr;
+    height: 100%;
+  }
   /* No padding above the scrollport: a sheet's sticky header sits flush at the
      top, and there is no strip left over for content to peek through. */
-  main { grid-column: 2; grid-row: 2; overflow-y: auto; padding: 0 .75em .75em; }
-  main > :global(:first-child) { margin-top: .75em; }
-  aside { grid-column: 3; grid-row: 2; border-left: 1px solid var(--border); background: var(--bg-elev); min-height: 0; display: flex; flex-direction: column; }
-  .fab { display: none; position: fixed; right: 1em; bottom: 1em; border-radius: var(--radius-pill); padding: .6em .9em; box-shadow: var(--shadow); z-index: 20; }
-  .empty { padding: 1.5em; text-align: center; margin-bottom: .75em; }
+  main {
+    grid-column: 2;
+    grid-row: 2;
+    overflow-y: auto;
+    padding: 0 0.75em 0.75em;
+  }
+  main > :global(:first-child) {
+    margin-top: 0.75em;
+  }
+  aside {
+    grid-column: 3;
+    grid-row: 2;
+    border-left: 1px solid var(--border);
+    background: var(--bg-elev);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .fab {
+    display: none;
+    position: fixed;
+    right: 1em;
+    bottom: 1em;
+    border-radius: var(--radius-pill);
+    padding: 0.6em 0.9em;
+    box-shadow: var(--shadow);
+    z-index: 20;
+  }
+  .empty {
+    padding: 1.5em;
+    text-align: center;
+    margin-bottom: 0.75em;
+  }
   @media (max-width: 900px) {
     /* The rail becomes a strip under the header; the sheet takes the rest. */
-    .layout { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; }
-    main { grid-column: 1; grid-row: 3; }
-    aside { position: fixed; inset: auto 0 0 0; height: 70vh; transform: translateY(100%); transition: transform .2s; z-index: 30; border-top: 1px solid var(--border); border-left: 0; box-shadow: 0 -4px 20px rgba(0,0,0,.2); }
-    aside.open { transform: none; }
-    .fab { display: inline-flex; gap: .3em; align-items: center; }
+    .layout {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto 1fr;
+    }
+    main {
+      grid-column: 1;
+      grid-row: 3;
+    }
+    aside {
+      position: fixed;
+      inset: auto 0 0 0;
+      height: 70vh;
+      transform: translateY(100%);
+      transition: transform 0.2s;
+      z-index: 30;
+      border-top: 1px solid var(--border);
+      border-left: 0;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+    }
+    aside.open {
+      transform: none;
+    }
+    .fab {
+      display: inline-flex;
+      gap: 0.3em;
+      align-items: center;
+    }
   }
 </style>

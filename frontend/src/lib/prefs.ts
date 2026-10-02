@@ -4,7 +4,11 @@ let cache: Record<string, unknown> | null = null;
 
 function load(): Record<string, unknown> {
   if (cache) return cache;
-  try { cache = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { cache = {}; }
+  try {
+    cache = JSON.parse(localStorage.getItem(KEY) || '{}');
+  } catch {
+    cache = {};
+  }
   return cache!;
 }
 
@@ -16,5 +20,7 @@ export function getPref<T>(key: string, fallback: T): T {
 export function setPref(key: string, value: unknown): void {
   const p = load();
   p[key] = value;
-  try { localStorage.setItem(KEY, JSON.stringify(p)); } catch {}
+  try {
+    localStorage.setItem(KEY, JSON.stringify(p));
+  } catch {}
 }

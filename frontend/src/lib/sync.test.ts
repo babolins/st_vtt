@@ -3,8 +3,16 @@ import { applyEcho, pathsOverlap, PatchQueue, type PatchEntry } from './sync';
 
 function entry(ref: number, path = '/stats/fortunes', over: Partial<PatchEntry> = {}): PatchEntry {
   return {
-    ref, msg: { type: 'patch', entity: 'shared', id: 'v', path, op: 'set', value: ref },
-    entity: 'shared', id: 'v', path, op: 'set', value: ref, user: 'Alice', overtaken: false, ...over,
+    ref,
+    msg: { type: 'patch', entity: 'shared', id: 'v', path, op: 'set', value: ref },
+    entity: 'shared',
+    id: 'v',
+    path,
+    op: 'set',
+    value: ref,
+    user: 'Alice',
+    overtaken: false,
+    ...over,
   };
 }
 
@@ -42,7 +50,9 @@ describe('applyEcho', () => {
 describe('PatchQueue', () => {
   it('marks only in-flight patches to the same sheet and an overlapping path as overtaken', () => {
     const q = new PatchQueue();
-    const same = entry(1), child = entry(2, '/stats/fortunes/x'), other = entry(3, '/stats/stores');
+    const same = entry(1),
+      child = entry(2, '/stats/fortunes/x'),
+      other = entry(3, '/stats/stores');
     const elsewhere = entry(4, '/stats/fortunes', { id: 'w' });
     const queued = entry(5);
     for (const e of [same, child, other, elsewhere]) q.sent(e);
@@ -55,17 +65,23 @@ describe('PatchQueue', () => {
   it('converges on the server order when two clients set the same field', () => {
     const server: number[] = [];
     const shown = { a: 0, b: 0 };
-    const qa = new PatchQueue(), qb = new PatchQueue();
-    const pa = entry(1), pb = entry(1);
-    shown.a = 1; qa.sent(pa);
-    shown.b = 2; qb.sent(pb);
+    const qa = new PatchQueue(),
+      qb = new PatchQueue();
+    const pa = entry(1),
+      pb = entry(1);
+    shown.a = 1;
+    qa.sent(pa);
+    shown.b = 2;
+    qb.sent(pb);
     server.push(1, 2);
     // A receives: its own echo, then B's patch
     if (applyEcho(qa.get(1), false)) shown.a = 1;
     qa.settle(1);
-    qa.overtake('shared', 'v', '/stats/fortunes'); shown.a = 2;
+    qa.overtake('shared', 'v', '/stats/fortunes');
+    shown.a = 2;
     // B receives: A's patch, then its own echo
-    qb.overtake('shared', 'v', '/stats/fortunes'); shown.b = 1;
+    qb.overtake('shared', 'v', '/stats/fortunes');
+    shown.b = 1;
     if (applyEcho(qb.get(1), false)) shown.b = 2;
     qb.settle(1);
     expect(shown).toEqual({ a: server.at(-1), b: server.at(-1) });

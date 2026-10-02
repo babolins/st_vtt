@@ -43,7 +43,11 @@
   }
 
   async function remove() {
-    try { await api.del(`/api/records/${row.id}`); } catch (e) { toast((e as Error).message, 'error'); }
+    try {
+      await api.del(`/api/records/${row.id}`);
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
   }
 </script>
 
@@ -51,10 +55,18 @@
   <DebouncedText value={doc.name} onchange={(v) => p('/name', v)} class="name" placeholder="Name" />
 
   <div class="fields">
-    <label>Pronouns<DebouncedText value={doc.pronouns} onchange={(v) => p('/pronouns', v)} placeholder="they/them" /></label>
+    <label
+      >Pronouns<DebouncedText value={doc.pronouns} onchange={(v) => p('/pronouns', v)} placeholder="they/them" /></label
+    >
     <label>Role<DebouncedText value={doc.role} onchange={(v) => p('/role', v)} placeholder="publican, smith…" /></label>
     <label>Home<DebouncedText value={doc.home} onchange={(v) => p('/home', v)} placeholder="Stonetop" /></label>
-    <label>Standing<DebouncedText value={doc.status} onchange={(v) => p('/status', v)} placeholder="alive, dead, retired…" /></label>
+    <label
+      >Standing<DebouncedText
+        value={doc.status}
+        onchange={(v) => p('/status', v)}
+        placeholder="alive, dead, retired…"
+      /></label
+    >
   </div>
 
   <div class="ties">
@@ -62,9 +74,20 @@
     {#each doc.ties as t (t.id)}
       <div class="row tie">
         <span class="ttype">{t.type.replace(/-/g, ' ')}</span>
-        <button class="linky" onclick={() => peek(app.characters[t.to] ? { kind: 'character', id: t.to } : { kind: 'record', id: t.to })}>{nameOf(t.to)}</button>
-        <DebouncedText value={t.note} onchange={(v) => p(`/ties/${at(t.id)}/note`, v)} placeholder="how so?" class="tnote" />
-        <button class="ghost small danger" title="Remove tie" onclick={() => p(`/ties/${at(t.id)}`, null, 'remove')}>✕</button>
+        <button
+          class="linky"
+          onclick={() => peek(app.characters[t.to] ? { kind: 'character', id: t.to } : { kind: 'record', id: t.to })}
+          >{nameOf(t.to)}</button
+        >
+        <DebouncedText
+          value={t.note}
+          onchange={(v) => p(`/ties/${at(t.id)}/note`, v)}
+          placeholder="how so?"
+          class="tnote"
+        />
+        <button class="ghost small danger" title="Remove tie" onclick={() => p(`/ties/${at(t.id)}`, null, 'remove')}
+          >✕</button
+        >
       </div>
     {/each}
     <div class="row addtie">
@@ -97,7 +120,12 @@
         <Markdown text={doc.notes || '_Nothing written down yet._'} />
       </button>
     {:else}
-      <DebouncedText value={doc.notes} onchange={(v) => p('/notes', v)} multiline placeholder="What the table knows. Link anyone with [[their name]]." />
+      <DebouncedText
+        value={doc.notes}
+        onchange={(v) => p('/notes', v)}
+        multiline
+        placeholder="What the table knows. Link anyone with [[their name]]."
+      />
     {/if}
   </div>
 
@@ -114,44 +142,148 @@
   {/if}
 
   {#if isGm()}
-    <label class="block secret">What really happened <span class="muted small">— GM only</span>
-      <DebouncedText value={doc.secret ?? ''} onchange={(v) => p('/secret', v)} multiline placeholder="The truth beside the tale." />
+    <label class="block secret"
+      >What really happened <span class="muted small">— GM only</span>
+      <DebouncedText
+        value={doc.secret ?? ''}
+        onchange={(v) => p('/secret', v)}
+        multiline
+        placeholder="The truth beside the tale."
+      />
     </label>
     <div class="row gmbar">
       <label class="chk">
-        <input type="checkbox" checked={doc.visibility === 'gm'} onchange={(e) => p('/visibility', (e.currentTarget as HTMLInputElement).checked ? 'gm' : 'table')} />
+        <input
+          type="checkbox"
+          checked={doc.visibility === 'gm'}
+          onchange={(e) => p('/visibility', (e.currentTarget as HTMLInputElement).checked ? 'gm' : 'table')}
+        />
         Hide this record from the table entirely
       </label>
       <span class="grow"></span>
       <button class="ghost small danger" onclick={remove}>Delete</button>
     </div>
   {:else if doc.created_by === app.me?.name}
-    <div class="row gmbar"><span class="grow"></span><button class="ghost small danger" onclick={remove}>Delete</button></div>
+    <div class="row gmbar">
+      <span class="grow"></span><button class="ghost small danger" onclick={remove}>Delete</button>
+    </div>
   {/if}
 </div>
 
 <style>
-  .rec :global(.name) { font-size: 1.2em; font-weight: 600; width: 100%; }
-  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5em, 1fr)); gap: .4em; margin: .6em 0; }
-  .fields label, .block { display: flex; flex-direction: column; gap: .15em; }
-  .block { margin-top: .6em; }
-  .lbl { font-size: .85em; color: var(--label-color); }
-  .ties { margin-top: .5em; display: flex; flex-direction: column; gap: .25em; }
-  .tie { gap: .35em; }
-  .ttype { font-size: .85em; color: var(--fg-muted); min-width: 6em; }
-  .tie :global(.tnote) { flex: 1; min-width: 6em; }
-  .addtie { gap: .3em; margin-top: .2em; }
-  .addtie input { width: 11em; }
-  .linky { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; }
-  .secret :global(textarea) { border-color: var(--warn); }
-  .gmbar { margin-top: .7em; gap: .5em; }
-  .chk { display: inline-flex; align-items: center; gap: .35em; color: var(--fg); font-size: .9em; }
-  .dense .fields { grid-template-columns: repeat(auto-fit, minmax(7em, 1fr)); }
-  .notehead { align-items: baseline; }
-  .asprose { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0; cursor: text; color: inherit; font: inherit; }
-  .mentions { gap: .2em; }
-  .mention { display: block; width: 100%; text-align: left; background: none; border: 0; border-left: 2px solid var(--border); padding: .1em .5em; cursor: pointer; }
-  .mention:hover { border-left-color: var(--accent); background: var(--bg-sunken); }
-  .mlabel { font-weight: 600; font-size: .9em; }
-  .mctx { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rec :global(.name) {
+    font-size: 1.2em;
+    font-weight: 600;
+    width: 100%;
+  }
+  .fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8.5em, 1fr));
+    gap: 0.4em;
+    margin: 0.6em 0;
+  }
+  .fields label,
+  .block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15em;
+  }
+  .block {
+    margin-top: 0.6em;
+  }
+  .lbl {
+    font-size: 0.85em;
+    color: var(--label-color);
+  }
+  .ties {
+    margin-top: 0.5em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+  }
+  .tie {
+    gap: 0.35em;
+  }
+  .ttype {
+    font-size: 0.85em;
+    color: var(--fg-muted);
+    min-width: 6em;
+  }
+  .tie :global(.tnote) {
+    flex: 1;
+    min-width: 6em;
+  }
+  .addtie {
+    gap: 0.3em;
+    margin-top: 0.2em;
+  }
+  .addtie input {
+    width: 11em;
+  }
+  .linky {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--accent);
+    cursor: pointer;
+    font: inherit;
+  }
+  .secret :global(textarea) {
+    border-color: var(--warn);
+  }
+  .gmbar {
+    margin-top: 0.7em;
+    gap: 0.5em;
+  }
+  .chk {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    color: var(--fg);
+    font-size: 0.9em;
+  }
+  .dense .fields {
+    grid-template-columns: repeat(auto-fit, minmax(7em, 1fr));
+  }
+  .notehead {
+    align-items: baseline;
+  }
+  .asprose {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: text;
+    color: inherit;
+    font: inherit;
+  }
+  .mentions {
+    gap: 0.2em;
+  }
+  .mention {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-left: 2px solid var(--border);
+    padding: 0.1em 0.5em;
+    cursor: pointer;
+  }
+  .mention:hover {
+    border-left-color: var(--accent);
+    background: var(--bg-sunken);
+  }
+  .mlabel {
+    font-weight: 600;
+    font-size: 0.9em;
+  }
+  .mctx {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 </style>
