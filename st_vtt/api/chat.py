@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -55,7 +55,10 @@ class ApplyBody(BaseModel):
 
 @router.get("/messages")
 def list_messages(
-    request: Request, before: int | None = None, limit: int = 100, user: UserConfig = Depends(current_user)
+    request: Request,
+    before: int | None = None,
+    limit: int = Query(100, ge=1),
+    user: UserConfig = Depends(current_user),
 ) -> list[dict]:
     msgs = request.app.state.db.list_messages(limit=min(limit, MAX_MESSAGE_PAGE), before=before)
     return [m for m in msgs if visible_to(user, m.get("visibility"))]

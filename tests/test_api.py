@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import anyio
@@ -60,6 +61,27 @@ def test_login_rules(app):
     assert c.get("/api/me").json() is None
     users = c.get("/api/users").json()
     assert {u["name"]: u["has_password"] for u in users} == {"Gm": False, "Alice": False, "Bob": True}
+
+
+def test_the_hub_is_only_read_on_the_event_loop(app, alice, monkeypatch):
+    # The loop changes the hub's dicts as sockets come and go; a plain `def` route runs on a
+    # worker thread, where iterating them can meet "dictionary changed size during iteration".
+    from st_vtt.ws import Hub
+
+    on_loop = []
+    users = Hub.users.fget
+
+    def checked(self):
+        try:
+            asyncio.get_running_loop()
+            on_loop.append(True)
+        except RuntimeError:
+            on_loop.append(False)
+        return users(self)
+
+    monkeypatch.setattr(Hub, "users", property(checked))
+    assert alice.get("/api/state").status_code == 200
+    assert on_loop and all(on_loop)
 
 
 def test_state_and_content(alice):
@@ -667,6 +689,21 @@ def test_stale_applied_refs_are_forgotten(tmp_path):
     db.close()
 
 
+def test_a_page_of_older_messages(alice):
+    for i in range(3):
+        alice.post("/api/chat", json={"text": str(i)})
+
+    def texts(r):
+        return [m["payload"]["text"] for m in r.json()]
+
+    assert texts(alice.get("/api/messages?limit=2")) == ["1", "2"]
+    newest = alice.get("/api/messages").json()[-1]["id"]
+    assert texts(alice.get(f"/api/messages?before={newest}&limit=1")) == ["1"]
+    # SQLite reads a negative LIMIT as none at all, which handed back the whole history.
+    for bad in (0, -1):
+        assert alice.get(f"/api/messages?limit={bad}").status_code == 422
+
+
 def test_campaign_export_has_every_message(tmp_path):
     from st_vtt.db import Database
 
@@ -960,6 +997,32 @@ def test_single_session_lock(app):
     # logout invalidates the session for every copy of the cookie
     assert a3.post("/api/logout").status_code == 200
     assert a3.get("/api/me").json() is None
+
+
+@pytest.mark.parametrize("single_session", [True, False])
+def test_logging_out_closes_that_sessions_sockets(app, gm, single_session):
+    # Other tabs of the browser that signed out kept a working socket, and could go on editing.
+    app.state.config.single_session = single_session
+    a1 = client_for(app, "Alice")
+    with a1.websocket_connect("/ws") as tab:
+        tab.receive_json()  # presence
+        if single_session:
+            assert a1.post("/api/logout").status_code == 200
+            gm.post("/api/chat", json={"text": "an open socket would hear this"})
+            with pytest.raises(WebSocketDisconnect) as ei:
+                _recv_until(tab, 1)
+            assert ei.value.code == WS_NOT_LOGGED_IN
+            return
+        a2 = client_for(app, "Alice")  # another browser: a session of its own
+        with a2.websocket_connect("/ws") as other:
+            other.receive_json()
+            assert a1.post("/api/logout").status_code == 200
+            gm.post("/api/chat", json={"text": "an open socket would hear this"})
+            with pytest.raises(WebSocketDisconnect) as ei:
+                _recv_until(tab, 1)
+            assert ei.value.code == WS_NOT_LOGGED_IN
+            other.send_json({"type": "chat", "text": "still here", "ref": 1})
+            assert _recv_until(other, 1)[0]["type"] == "message"
 
 
 def test_multiple_sessions_when_disabled(config):
