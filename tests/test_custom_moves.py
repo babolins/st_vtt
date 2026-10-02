@@ -108,3 +108,15 @@ def test_a_custom_move_the_server_cannot_read_is_an_unknown_move(alice, bad):
     assert r.status_code == 400 and r.json()["detail"] == "unknown move 'custom_abc'"
     assert alice.post("/api/share_move", json={"character_id": cid, "move_id": "custom_abc"}).status_code == 400
 
+
+@pytest.mark.parametrize("op, value", [
+    ("remove", None), ("set", 5), ("set", "custom_abc"), ("set", ["custom_abc", {"id": "custom_other", "name": "Other"}]),
+])
+def test_a_sheet_without_a_list_of_custom_moves_has_none_of_them(alice, op, value):
+    cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": "Bryn"}).json()["id"]
+    assert alice.post(f"/api/characters/{cid}/patch", json={"path": "/custom_moves", "op": op, "value": value}).status_code == 200
+    r = alice.post("/api/roll", json={"character_id": cid, "move_id": "custom_abc"})
+    assert r.status_code == 400 and r.json()["detail"] == "unknown move 'custom_abc'"
+    assert alice.post("/api/share_move", json={"character_id": cid, "move_id": "custom_abc"}).status_code == 400
+    # The sheet's pack moves are unaffected.
+    assert alice.post("/api/share_move", json={"character_id": cid, "move_id": "brawl"}).status_code == 200

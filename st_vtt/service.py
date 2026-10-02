@@ -612,7 +612,11 @@ def _chosen_modifiers(move: Move | None, raw: Any) -> list[dict[str, Any]]:
 
 
 def _custom_move(pack: ContentPack, doc: dict[str, Any], move_id: str) -> Move | None:
-    for raw in doc["custom_moves"]:
+    # A sheet's owner can patch the list away or into something else; that is no moves, not a 500.
+    customs = doc.get("custom_moves")
+    if not isinstance(customs, list):
+        return None
+    for raw in customs:
         if isinstance(raw, dict) and raw.get("id") == move_id:
             try:
                 return Move.model_validate(raw)
