@@ -242,3 +242,25 @@ def test_import_into_a_pack_without_playbooks_is_refused():
     pack = ContentPack.model_validate({"pack": {"id": "t", "name": "T", "stats": [{"id": "str", "label": "STR"}]}})
     with pytest.raises(ValueError, match="pack 't' has no playbooks, so it can't hold a character"):
         validate_import(pack, {"playbook": "pb", "name": "Pedr"})
+
+
+def test_import_resets_numbers_that_are_not_whole_numbers():
+    pack = _pack()
+    doc, warnings = validate_import(pack, {
+        "playbook": "pb",
+        "stats": {"str": "abc"},
+        "hp": {"current": "lots", "max": 8},
+        "xp": True,
+        "level": 2,
+        "moves": {"hold": {"readiness": 1.5, "ammo": 2}},
+    })
+    assert doc["stats"] == {"str": 0}
+    assert doc["hp"] == {"current": 10, "max": 8}
+    assert (doc["xp"], doc["level"]) == (0, 2)
+    assert doc["moves"]["hold"] == {"ammo": 2}
+    assert warnings == [
+        "/stats/str was 'abc', not a whole number; reset to 0",
+        "/hp/current was 'lots', not a whole number; reset to 10",
+        "/xp was True, not a whole number; reset to 0",
+        "/moves/hold/readiness was 1.5, not a whole number; dropped",
+    ]

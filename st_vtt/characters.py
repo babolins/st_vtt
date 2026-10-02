@@ -227,6 +227,26 @@ def bad_numbers(entity: str, doc: dict[str, Any]) -> list[str]:
     return list(dict.fromkeys(problems))
 
 
+def reset_bad_numbers(entity: str, doc: dict[str, Any], template: dict[str, Any]) -> list[str]:
+    """Put the template's value back wherever `doc` holds something other than a whole number
+    (or drop it, when the template has none there). `doc` has been `deep_fill`ed from
+    `template`, so every object on the way is one. Returns a warning for each."""
+    warnings: list[str] = []
+    for path, node, key in list(_number_slots(entity, doc)):
+        if node is None or is_whole_number(node[key]):
+            continue
+        was = node.pop(key)
+        fallback: Any = template
+        for tok in path.split("/")[1:]:
+            fallback = fallback.get(tok) if isinstance(fallback, dict) else None
+        if is_whole_number(fallback):
+            node[key] = fallback
+            warnings.append(f"{path} was {was!r}, not a whole number; reset to {fallback}")
+        else:
+            warnings.append(f"{path} was {was!r}, not a whole number; dropped")
+    return warnings
+
+
 def validate_import(pack: ContentPack, doc: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Coerce an imported character into a well-formed document.
 
@@ -252,6 +272,7 @@ def validate_import(pack: ContentPack, doc: dict[str, Any]) -> tuple[dict[str, A
         warnings.append(f"character was exported from pack {doc['pack_id']!r}, current pack is {pack.pack.id!r}")
     merged = deep_fill(doc, template)
     merged["pack_id"] = pack.pack.id
+    warnings += reset_bad_numbers("character", merged, template)
     known = set(pack.all_moves()) | {m.get("id") for m in merged.get("custom_moves", []) if isinstance(m, dict)}
     for mid in merged["moves"].get("taken", []):
         if mid not in known:

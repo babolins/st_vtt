@@ -245,6 +245,7 @@ def import_shared(app: FastAPI, user: UserConfig, sid: str, doc: dict[str, Any])
     template = chars.new_shared_sheet(pack_of(app), tpl) if tpl else dict(row["data"])
     merged = chars.deep_fill(doc, template)
     merged["template"] = row["template"]
+    chars.reset_bad_numbers("shared", merged, template)
     for k in ("id", "revision"):
         merged.pop(k, None)
     chars.ensure_list_ids(pack_of(app), merged, "shared")

@@ -201,3 +201,8 @@ def test_a_sheet_saved_with_a_bad_number_can_still_be_edited_and_mended(app, wor
     service.patch_entity(app, ALICE, "character", world.cid, "/name", "Wren the Bold")
     service.patch_entity(app, ALICE, "character", world.cid, "/stats/str", 1)
     assert db.get_character(world.cid)["data"]["stats"]["str"] == 1
+
+
+def test_a_shared_sheet_imported_with_a_bad_number_gets_the_templates(app, world):  # noqa: F811
+    service.import_shared(app, GM, world.sid, {"stats": {"luck": "abc", "stores": 4}})
+    assert app.state.db.get_shared(world.sid)["data"]["stats"] == {"luck": 1, "stores": 4, "wealth": 0, "folk": 0, "walls": 0}
