@@ -534,6 +534,31 @@ def test_campaign_export_has_every_message(tmp_path):
     db.close()
 
 
+@pytest.mark.parametrize("kind", ["character", "shared", "record"])
+def test_saving_a_document_that_is_gone_raises(tmp_path, kind):
+    from st_vtt.db import Database
+
+    db = Database(tmp_path / "t.db")
+    with pytest.raises(KeyError):
+        getattr(db, f"save_{kind}")("gone", {"name": "x"})
+    db.close()
+
+
+@pytest.mark.parametrize("kind", ["character", "shared", "record"])
+def test_every_kind_of_document_row_has_the_same_bookkeeping(tmp_path, kind):
+    from st_vtt.db import Database
+
+    db = Database(tmp_path / "t.db")
+    insert = {"character": lambda: db.insert_character("a", "Alice", {"name": "A"}),
+              "shared": lambda: db.insert_shared("a", "village", {"name": "A"}),
+              "record": lambda: db.insert_record("a", "npc", {"name": "A"})}[kind]
+    row = insert()
+    assert {"id", "data", "revision", "created_at", "updated_at"} <= set(row)
+    assert getattr(db, f"save_{kind}")("a", {"name": "B"}) == 1
+    assert getattr(db, f"get_{kind}")("a")["revision"] == 1
+    db.close()
+
+
 def test_refused_patch_is_not_counted_as_applied(alice):
     cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": "Bryn"}).json()["id"]
     with alice.websocket_connect("/ws") as wa:
