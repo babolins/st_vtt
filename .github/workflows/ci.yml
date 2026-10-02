@@ -15,6 +15,7 @@ jobs:
           python-version: "3.13"
           enable-cache: true
       - run: uv sync --locked
+      - run: uv run pyright
       - run: uv run pytest
       - run: uv run st-vtt validate content/example
       - name: Check content/schema.json is up to date
