@@ -5,15 +5,15 @@
   import { app, canEdit, isGm, toast } from '../lib/state.svelte';
   import Markdown from '../ui/Markdown.svelte';
   import MoveBody from '../ui/MoveBody.svelte';
-  import type { Message, OutcomeAction } from '../lib/types';
+  import type { OutcomeAction, RollMessage } from '../lib/types';
 
-  let { message }: { message: Message } = $props();
+  let { message }: { message: RollMessage } = $props();
   const p = $derived(message.payload);
   const tierClass = $derived(p.tier === '10+' ? 'hit' : p.tier === '7-9' ? 'mixed' : p.tier ? 'miss' : '');
 
   // Outcomes can be applied to the sheet they were rolled for, by whoever may edit it.
-  const actions = $derived((p.actions ?? []) as OutcomeAction[]);
-  const applied = $derived((p.applied ?? {}) as Record<string, { by: string; detail: string }>);
+  const actions = $derived(p.actions ?? []);
+  const applied = $derived(p.applied ?? {});
   const character = $derived(p.character_id ? app.characters[p.character_id] : undefined);
   const mayApply = $derived(p.character_id ? !!character && canEdit(character) : !!p.shared_id && (isGm() || !!app.shared[p.shared_id]));
   const debilities = $derived(app.content?.pack.debilities ?? []);
@@ -54,10 +54,10 @@
   <div class="detail muted small">
     {#each p.roll.dice as d, i}
       {#if i > 0 || d.sign < 0}<span>{d.sign < 0 ? '−' : '+'}</span>{/if}
-      <span class="die" title={d.die}>{d.die}: [{d.results.map((r: number) => (d.kept.includes(r) ? r : `~${r}~`)).join(' ')}]</span>
+      <span class="die" title={d.die}>{d.die}: [{d.results.map((r) => (d.kept.includes(r) ? r : `~${r}~`)).join(' ')}]</span>
     {/each}
     {#if p.roll.modifier}<span>{fmtMod(p.roll.modifier)}</span>{/if}
-    {#if p.stat_label}<span>{fmtMod(p.stat_mod)} {p.stat_label}</span>{/if}
+    {#if p.stat_label}<span>{fmtMod(p.stat_mod ?? 0)} {p.stat_label}</span>{/if}
     {#each p.modifiers ?? [] as m}<span>{fmtMod(m.value)} {m.option}</span>{/each}
     {#if p.bonus}<span>{fmtMod(p.bonus)} total bonus</span>{/if}
     {#if p.mode && p.mode !== 'normal'}<span class="pill">{p.mode === 'both' ? 'adv + disadv' : p.mode}</span>{/if}

@@ -2,7 +2,7 @@ import { api, basePath } from './api';
 import { applyPointer, type PatchOp } from './pointer';
 import { app, loadState, toast } from './state.svelte';
 import { applyEcho, PatchQueue, type PatchEntry } from './sync';
-import type { Message, StateResponse } from './types';
+import type { ServerEvent, StateResponse } from './types';
 import { presenceKey } from './util';
 
 export const clientId = Math.random().toString(36).slice(2, 10);
@@ -147,7 +147,7 @@ export function sendPatch(msg: Record<string, unknown>, value: unknown): Promise
   });
 }
 
-function handle(ev: any): void {
+function handle(ev: ServerEvent): void {
   switch (ev.type) {
     case 'ack': {
       const p = pending.get(ev.ref);
@@ -156,18 +156,19 @@ function handle(ev: any): void {
       break;
     }
     case 'error': {
-      const p = ev.ref != null ? pending.get(ev.ref) : undefined;
-      if (p) {
-        pending.delete(ev.ref);
+      const ref = ev.ref;
+      const p = ref != null ? pending.get(ref) : undefined;
+      if (ref != null && p) {
+        pending.delete(ref);
         p.reject(new Error(ev.message));
-        if (patches.settle(ev.ref)) refreshState().catch(() => {});
+        if (patches.settle(ref)) refreshState().catch(() => {});
       }
       toast(ev.message, 'error');
       break;
     }
     case 'patch': {
       if (ev.client === clientId) {
-        if (!applyEcho(patches.get(ev.ref), ev.merged)) break; // already shown, and nothing landed on top of it since
+        if (!applyEcho(ev.ref != null ? patches.get(ev.ref) : undefined, ev.merged)) break; // already shown, and nothing landed on top of it since
       } else {
         patches.overtake(ev.entity, ev.id, ev.path);
       }
@@ -181,13 +182,11 @@ function handle(ev: any): void {
       }
       break;
     }
-    case 'message': {
-      const m = ev.message as Message;
-      app.messages = [...app.messages.slice(-499), m];
+    case 'message':
+      app.messages = [...app.messages.slice(-499), ev.message];
       break;
-    }
     case 'message_updated': {
-      const m = ev.message as Message;
+      const m = ev.message;
       app.messages = app.messages.map((old) => (old.id === m.id ? m : old));
       break;
     }
@@ -208,7 +207,6 @@ function handle(ev: any): void {
       app.shared[ev.sheet.id] = ev.sheet;
       break;
     case 'record_created':
-    case 'record_updated':
       app.records[ev.record.id] = ev.record;
       break;
     case 'record_deleted':
