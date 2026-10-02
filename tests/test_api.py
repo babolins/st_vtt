@@ -119,6 +119,20 @@ def test_character_lifecycle_and_perms(gm, alice, bob):
     assert any("made_up_move" in w for w in r.json()["warnings"])
 
 
+@pytest.mark.parametrize("name", ["Łucja 🐺", 'Bryn "the Bold"\r\nX-Evil: 1'])
+def test_export_any_name(alice, gm, name):
+    # Headers go out as Latin-1, so a name outside it used to fail the export with a 500.
+    cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": name}).json()["id"]
+    sid = sheet_id(gm)
+    gm.post(f"/api/shared/{sid}/patch", json={"path": "/name", "value": name})
+    for r in (alice.get(f"/api/characters/{cid}/export"), alice.get(f"/api/shared/{sid}/export")):
+        assert r.status_code == 200
+        assert r.json()["name"] == name
+        disposition = r.headers["content-disposition"]
+        assert disposition.startswith("attachment; filename=")
+        assert "\n" not in disposition and "x-evil" not in r.headers
+
+
 def sheet_id(c, template="village"):
     return next(x["id"] for x in c.get("/api/shared").json() if x["template"] == template)
 
