@@ -1,5 +1,7 @@
 """Document construction from a content pack."""
 
+import pytest
+
 from st_vtt.characters import default_section_value, ensure_list_ids, new_character, new_shared_sheet, validate_import
 from st_vtt.content import ContentPack
 
@@ -172,3 +174,66 @@ def test_import_gives_list_items_ids():
     doc["sections"]["crew"] = [{"name": "Bryn"}]
     clean, _ = validate_import(pack, doc)
     assert clean["gear"]["items"][0]["id"] and clean["sections"]["crew"][0]["id"]
+
+
+def test_import_of_something_that_is_not_a_character():
+    with pytest.raises(ValueError, match="character must be a JSON object"):
+        validate_import(_pack(), ["playbook", "pb"])
+
+
+def test_import_with_an_unknown_playbook_keeps_it_and_brings_no_sections():
+    pack = _pack()
+    doc, warnings = validate_import(pack, {"playbook": "druid", "name": "Pedr"})
+    assert warnings == ["unknown playbook 'druid'; sheet will render with generic sections only"]
+    assert doc["playbook"] == "druid" and doc["name"] == "Pedr"
+    # The generic parts of a sheet are filled in, but none of another playbook's sections.
+    assert doc["sections"] == {} and doc["hp"] and doc["stats"] == {"str": 0}
+    # Its own sections are kept for when the playbook comes back.
+    doc, _ = validate_import(pack, {"playbook": "druid", "sections": {"grove": {"oak": True}}})
+    assert doc["sections"] == {"grove": {"oak": True}}
+
+
+def test_import_with_no_playbook_at_all():
+    doc, warnings = validate_import(_pack(), {"name": "Pedr"})
+    assert warnings == ["unknown playbook None; sheet will render with generic sections only"]
+    assert doc["playbook"] == ""
+
+
+def test_import_from_another_pack_is_moved_into_this_one():
+    doc, warnings = validate_import(_pack(), {"playbook": "pb", "pack_id": "stonetop"})
+    assert warnings == ["character was exported from pack 'stonetop', current pack is 't'"]
+    assert doc["pack_id"] == "t"
+    # Nothing to say about one with no pack, or this pack.
+    for raw in ({"playbook": "pb"}, {"playbook": "pb", "pack_id": "t"}):
+        assert validate_import(_pack(), raw)[1] == []
+
+
+def test_import_drops_stats_this_pack_does_not_have():
+    doc, warnings = validate_import(_pack(), {"playbook": "pb", "stats": {"str": 2, "cha": 1, "luck": 3}})
+    assert doc["stats"] == {"str": 2}
+    assert warnings == ["unknown stat 'cha' dropped", "unknown stat 'luck' dropped"]
+
+
+def test_import_keeps_moves_this_pack_does_not_have():
+    pack = _pack(moves={"basic": [{"id": "brawl", "name": "Brawl"}]})
+    doc, warnings = validate_import(pack, {
+        "playbook": "pb",
+        "moves": {"taken": ["brawl", "mystery", "custom_x"]},
+        "custom_moves": [{"id": "custom_x", "name": "Mine"}],
+    })
+    assert doc["moves"]["taken"] == ["brawl", "mystery", "custom_x"]
+    # The sheet's own custom moves are known.
+    assert warnings == ["unknown move 'mystery' kept as-is"]
+
+
+def test_import_replaces_a_part_of_the_wrong_shape_with_its_default():
+    doc, _ = validate_import(_pack(), {"playbook": "pb", "hp": "lots", "stats": [3], "moves": {"taken": ["x"]}})
+    fresh = new_character(_pack(), _pack().playbooks[0], "")
+    assert doc["hp"] == fresh["hp"] and doc["stats"] == {"str": 0}
+    assert doc["moves"]["taken"] == ["x"]  # only what's missing from a part of the right shape is filled
+
+
+def test_import_leaves_out_what_the_server_assigns():
+    doc, _ = validate_import(_pack(), {"playbook": "pb", "id": "abc", "owner": "Mallory", "revision": 99})
+    assert not {"id", "owner", "revision"} & doc.keys()
+
