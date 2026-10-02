@@ -7,6 +7,7 @@ import json
 import logging
 from typing import Any, Iterable
 
+import anyio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from . import service
@@ -144,9 +145,15 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     except WebSocketDisconnect:
         pass
     finally:
-        await hub.disconnect(ws)
+        # Shielded: this task may be the one being cancelled (a shutdown, or the TestClient
+        # closing a socket). disconnect() drops the socket before it broadcasts, so a cancel
+        # there would leave everyone else showing the user online. Bounded, so a stalled
+        # client cannot hold the task open.
+        with anyio.move_on_after(DISCONNECT_TIMEOUT, shield=True):
+            await hub.disconnect(ws)
 
 
+DISCONNECT_TIMEOUT = 5.0
 EPHEMERAL = {"focus", "blur", "typing", "presence_sync"}
 
 
