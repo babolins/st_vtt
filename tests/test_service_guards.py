@@ -121,6 +121,7 @@ _BAD_REQUESTS = {
     "an empty message": (ALICE, lambda a, u, w: service.post_chat(a, u, "   "), (400, "empty message")),
     "a whisper with no message": (ALICE, lambda a, u, w: service.post_chat(a, u, "/w Bob"), (400, "usage: /w <name> <message>")),
     "a whisper to nobody": (ALICE, lambda a, u, w: service.post_chat(a, u, "/w Nobody hi"), (400, "unknown user 'Nobody'")),
+    "a whisper to a list naming nobody": (ALICE, lambda a, u, w: service.post_chat(a, u, "hi", ["Bob", "Nobody"]), (400, "unknown user 'Nobody'")),
     "an unknown command": (ALICE, lambda a, u, w: service.post_chat(a, u, "/dance"), (400, "unknown command /dance")),
     # rolls
     "roll against two sheets": (ALICE, lambda a, u, w: service.do_roll(a, u, {"character_id": w.cid, "shared_id": w.sid}), (400, "not both")),

@@ -412,10 +412,7 @@ def post_chat(app: FastAPI, user: UserConfig, text: str, to: list[str] | None = 
             parts = rest.split(None, 1)
             if len(parts) < 2:
                 raise ServiceError("usage: /w <name> <message>")
-            target = app.state.config.user(parts[0]) or next((u for u in app.state.config.users if u.name.lower() == parts[0].lower()), None)
-            if target is None:
-                raise ServiceError(f"unknown user {parts[0]!r}")
-            to = [target.name]
+            to = [parts[0]]
             text = parts[1]
         elif cmd in ("gm",):
             to = gm_names(app)
@@ -423,11 +420,20 @@ def post_chat(app: FastAPI, user: UserConfig, text: str, to: list[str] | None = 
         else:
             raise ServiceError(f"unknown command /{cmd}")
     if to:
+        to = list(dict.fromkeys(_whisper_target(app, name) for name in to))
         vis = sorted(set([user.name, *to]))
         msg = db_of(app).add_message(user.name, "whisper", {"text": text, "to": to}, vis)
     else:
         msg = db_of(app).add_message(user.name, "chat", {"text": text})
     return [_message_render(msg)]
+
+
+def _whisper_target(app: FastAPI, name: str) -> str:
+    """A user's name as configured, matching case-insensitively if nothing matches exactly."""
+    target = app.state.config.user(name) or next((u for u in app.state.config.users if u.name.lower() == name.lower()), None)
+    if target is None:
+        raise ServiceError(f"unknown user {name!r}")
+    return target.name
 
 
 def do_roll(app: FastAPI, user: UserConfig, spec: dict[str, Any]) -> list[Render]:

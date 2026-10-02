@@ -280,6 +280,16 @@ def test_chat_commands_and_visibility(gm, alice, bob):
     assert [m["kind"] for m in alice.get("/api/messages").json()] == ["system"]
 
 
+def test_a_whisper_reaches_its_recipients_by_their_names(gm, alice, bob):
+    # Matched as /w matches them, so the message names (and is shown to) the real user.
+    assert alice.post("/api/chat", json={"text": "psst", "to": ["bob", "Bob"]}).status_code == 200
+    m = bob.get("/api/messages").json()[-1]
+    assert m["kind"] == "whisper" and m["payload"] == {"text": "psst", "to": ["Bob"]}
+    assert m["visibility"] == ["Alice", "Bob"]
+    # A bare name is not a list of them.
+    assert alice.post("/api/chat", json={"text": "psst", "to": "Bob"}).status_code == 422
+
+
 def test_move_roll_with_debility(alice):
     cid = alice.post("/api/characters", json={"playbook": "wanderer", "name": "Bryn"}).json()["id"]
     alice.post(f"/api/characters/{cid}/patch", json={"path": "/stats/str", "value": 2})
