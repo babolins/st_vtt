@@ -46,6 +46,8 @@ def test_invalid_json_names_the_line(tmp_path):
     ({"users": [{"name": "  "}]}, "users", "user name must not be empty"),
     ({"users": [{"name": "Gm", "role": "admin"}]}, "users.0.role", "'gm' or 'player'"),
     ({"users": [{"name": "Gm"}], "port": "eighty"}, "port", "valid integer"),
+    ({"users": [{"name": "Gm"}], "secret": "change-me-to-something-random"}, "secret", "still the example's placeholder"),
+    ({"users": [{"name": "Gm"}], "secret": "change-me"}, "secret", "still the example's placeholder"),
 ])
 def test_each_problem_is_reported_where_it_is(tmp_path, raw, where, what):
     path = write(tmp_path / "config.json", raw)
@@ -69,3 +71,35 @@ def test_relative_paths_are_relative_to_the_config_file(tmp_path, monkeypatch):
     assert cfg.database_path == tmp_path / "table" / "data" / "campaign.db"
     assert cfg.static_path == tmp_path / "table" / "frontend" / "dist"
     assert cfg.content_path == ROOT / "content" / "example"  # absolute stays as written
+
+
+def test_with_no_secret_one_is_made_and_kept_with_the_campaign(config, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from st_vtt.main import create_app
+
+    config = config.model_copy(update={"secret": None})
+    first = create_app(config)
+    made = first.state.config.secret
+    assert made and len(made) >= 32
+    cookie = TestClient(first).post("/api/login", json={"name": "Gm"}).cookies
+    first.state.db.close()
+
+    # Restarted on the same database: the same secret, so nobody is signed out.
+    again = create_app(config)
+    assert again.state.config.secret == made
+    assert TestClient(again, cookies=cookie).get("/api/me").json()["name"] == "Gm"
+    again.state.db.close()
+
+    # Another campaign gets its own.
+    other = create_app(config.model_copy(update={"database": str(tmp_path / "other.db")}))
+    assert other.state.config.secret != made
+    other.state.db.close()
+
+
+def test_a_secret_in_the_config_is_used_as_given(config):
+    from st_vtt.main import create_app
+
+    app = create_app(config)
+    assert app.state.config.secret == "test-secret"
+    app.state.db.close()

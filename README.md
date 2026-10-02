@@ -27,7 +27,7 @@ character sheets, shared sheets such as the town everyone lives in, and a chat w
 ```bash
 uv sync
 cd frontend && npm install && npm run build && cd ..
-cp config.example.json config.json   # then edit users, secret, content_pack
+cp config.example.json config.json   # then edit users, content_pack
 ```
 
 ## Run
@@ -76,7 +76,6 @@ uv run st-vtt serve --reload                  # auto-reload while hacking
   "database": "data/campaign.db",
   "host": "0.0.0.0",
   "port": 8000,
-  "secret": "change-me-to-something-random",
   "users": [
     {"name": "Brendan", "role": "gm"},
     {"name": "Alice", "role": "player"},
@@ -86,8 +85,11 @@ uv run st-vtt serve --reload                  # auto-reload while hacking
 ```
 
 - `role` is `gm` or `player`. Any number of GMs is fine.
-- `secret` signs the login cookie. Change it once; changing it again logs
-  everyone out.
+- `secret` (optional) signs the login cookie. Leave it out and one is made
+  the first time the campaign runs and kept in its database, so each
+  campaign has its own. Set it only to share one between campaigns or keep
+  it outside the database; changing it logs everyone out. The example's old
+  placeholder is refused, as anyone could sign in as anyone with it.
 - `content_pack` is a directory of JSON files (merged) or a single JSON file.
 - `single_session` (default `true`): each user can be signed in from one
   browser at a time. Signing in elsewhere is refused while the first browser

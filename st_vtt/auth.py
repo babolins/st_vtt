@@ -8,6 +8,7 @@ so signing in on a new device signs the old one out.
 from __future__ import annotations
 
 import hmac
+import secrets
 import uuid
 
 from fastapi import Depends, HTTPException, Request, WebSocket
@@ -23,7 +24,18 @@ WS_SIGNED_IN_ELSEWHERE = 4409
 
 
 def serializer(cfg: Config) -> URLSafeSerializer:
+    assert cfg.secret, "create_app() gives a config without a secret the campaign's own"
     return URLSafeSerializer(cfg.secret, salt="st_vtt.session")
+
+
+def campaign_secret(db: Database) -> str:
+    """The secret made for this campaign the first time it ran without one in the config.
+    Kept in its database, so a restart signs nobody out and each campaign has its own."""
+    secret = db.get_meta("secret")
+    if not secret:
+        secret = secrets.token_urlsafe(32)
+        db.set_meta("secret", secret)
+    return secret
 
 
 def make_token(cfg: Config, user: UserConfig, sid: str) -> str:
