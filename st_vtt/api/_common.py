@@ -6,7 +6,7 @@ from .. import service
 
 
 async def emit(request: Request, renders: Iterable[service.Render]) -> None:
-    await request.app.state.hub.emit(renders)
+    request.app.state.hub.emit(renders)
 
 
 def http(e: service.ServiceError) -> HTTPException:

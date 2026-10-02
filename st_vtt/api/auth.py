@@ -36,7 +36,7 @@ async def login(body: LoginBody, request: Request, response: Response, cfg: Conf
         if hub.sessions_of(user.name):
             if not body.force:
                 raise HTTPException(409, f"{user.name} is already signed in on another device")
-            await hub.kick(user.name, WS_SIGNED_IN_ELSEWHERE)
+            hub.kick(user.name, WS_SIGNED_IN_ELSEWHERE)
     sid = new_session_id()
     db.set_meta(session_key(user), sid)
     response.set_cookie(COOKIE, make_token(cfg, user, sid), httponly=True, samesite="lax", max_age=60 * 60 * 24 * 365)
