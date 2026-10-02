@@ -5,7 +5,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from conftest import ROOT
+from st_vtt.auth import COOKIE
 from st_vtt.main import create_app
+from st_vtt.ws import websocket_endpoint
 
 
 @pytest.fixture
@@ -504,6 +506,49 @@ def test_ephemeral_focus_and_typing(app, gm, alice, bob):
             # alice never receives her own ephemeral events: a chat proves the next event is the chat
             wb.send_text(json.dumps({"type": "chat", "text": "ping"}))
             assert recv(wa)["type"] == "message"
+
+
+class FakeSocket:
+    """Just enough of a WebSocket for websocket_endpoint: it never sends, only listens."""
+
+    def __init__(self, app, client):
+        self.app = app
+        self.cookies = {COOKIE: client.cookies[COOKIE]}
+        self.sent = []
+
+    async def accept(self):
+        pass
+
+    async def send_text(self, text):
+        await anyio.sleep(0)  # a real send yields, which is where a cancel lands
+        self.sent.append(json.loads(text))
+
+    async def receive_text(self):
+        await anyio.sleep_forever()
+
+
+def test_presence_goes_out_when_a_connection_is_cancelled(app, alice, bob):
+    # The TestClient cancels a socket's task as it closes it, and a server shutdown cancels
+    # them too: the others must still hear that the user left.
+    wa, wb = FakeSocket(app, alice), FakeSocket(app, bob)
+
+    async def serve(ws, *, task_status):
+        with anyio.CancelScope() as cs:
+            task_status.started(cs)
+            await websocket_endpoint(ws)
+
+    async def main():
+        async with anyio.create_task_group() as tg:
+            await tg.start(serve, wa)
+            bob_scope = await tg.start(serve, wb)
+            await anyio.wait_all_tasks_blocked()
+            assert wa.sent[-1] == {"type": "presence", "users": ["Alice", "Bob"]}
+            bob_scope.cancel()
+            await anyio.wait_all_tasks_blocked()
+            assert wa.sent[-1] == {"type": "presence", "users": ["Alice"]}
+            tg.cancel_scope.cancel()
+
+    app.state.test_portal.call(main)
 
 
 def test_share_move_to_chat(alice, bob):
