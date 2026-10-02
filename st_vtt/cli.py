@@ -18,6 +18,8 @@ def main(argv: list[str] | None = None) -> int:
     serve = sub.add_parser("serve", help="Run the server (default).")
     serve.add_argument("-c", "--config", default="config.json")
     serve.add_argument("--reload", action="store_true", help="Auto-reload on code changes (development).")
+    # With no command it serves, so it needs serve's defaults too.
+    parser.set_defaults(config="config.json", reload=False)
 
     validate = sub.add_parser("validate", help="Validate a content pack directory or file.")
     validate.add_argument("path", nargs="?", help="Content pack path (default: from config).")
@@ -47,26 +49,24 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(text)
             return 0
-        if cmd == "serve":
-            cfg = load_config(args.config)
-            load_content(cfg.content_path)  # fail fast with a readable error
-            import uvicorn
+        # serve, the default
+        cfg = load_config(args.config)
+        load_content(cfg.content_path)  # fail fast with a readable error
+        import uvicorn
 
-            if args.reload:
-                import os
+        if args.reload:
+            import os
 
-                os.environ["ST_VTT_CONFIG"] = str(Path(args.config).resolve())
-                uvicorn.run("st_vtt.main:create_app", factory=True, host=cfg.host, port=cfg.port, reload=True)
-            else:
-                from .main import create_app
+            os.environ["ST_VTT_CONFIG"] = str(Path(args.config).resolve())
+            uvicorn.run("st_vtt.main:create_app", factory=True, host=cfg.host, port=cfg.port, reload=True)
+        else:
+            from .main import create_app
 
-                uvicorn.run(create_app(cfg), host=cfg.host, port=cfg.port)
-            return 0
+            uvicorn.run(create_app(cfg), host=cfg.host, port=cfg.port)
+        return 0
     except (ConfigError, ContentError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
-    parser.print_help()
-    return 2
 
 
 if __name__ == "__main__":
