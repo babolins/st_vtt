@@ -13,6 +13,11 @@ class ConfigError(Exception):
     pass
 
 
+# Secrets config.example.json has shipped with. Anyone who has read it could sign a login
+# cookie with one, as any user, the GM included.
+PLACEHOLDER_SECRETS = frozenset({"change-me", "change-me-to-something-random"})
+
+
 class UserConfig(BaseModel):
     name: str
     role: Literal["gm", "player"] = "player"
@@ -33,7 +38,8 @@ class Config(BaseModel):
     database: str = "data/campaign.db"
     host: str = "0.0.0.0"
     port: int = 8000
-    secret: str = "change-me"
+    # Signs the login cookie. Left out, one is made for the campaign and kept in its database.
+    secret: str | None = None
     users: list[UserConfig] = Field(min_length=1)
     # One active browser per user: a new login replaces (or is refused by) an existing one.
     single_session: bool = True
@@ -54,6 +60,16 @@ class Config(BaseModel):
                 raise ValueError(f"duplicate user name: {u.name!r}")
             seen.add(key)
         return users
+
+    @field_validator("secret")
+    @classmethod
+    def _not_a_placeholder(cls, secret: str | None) -> str | None:
+        if secret in PLACEHOLDER_SECRETS:
+            raise ValueError(
+                "is still the example's placeholder, so anyone could sign in as anyone. "
+                "Delete the line to have one made for you, or set it to a long random string."
+            )
+        return secret
 
     def user(self, name: str) -> UserConfig | None:
         for u in self.users:
@@ -95,6 +111,6 @@ def load_config(path: str | Path) -> Config:
         lines = [f"{path}: invalid config"]
         for err in e.errors():
             loc = ".".join(str(x) for x in err["loc"]) or "<root>"
-            lines.append(f"  {loc}: {err['msg']}")
+            lines.append(f"  {loc}: {err['msg'].removeprefix('Value error, ')}")
         raise ConfigError("\n".join(lines)) from e
     return cfg

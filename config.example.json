@@ -4,7 +4,6 @@
   "database": "data/campaign.db",
   "host": "0.0.0.0",
   "port": 8000,
-  "secret": "change-me-to-something-random",
   "users": [
     {"name": "Brendan", "role": "gm"},
     {"name": "Alice", "role": "player"},

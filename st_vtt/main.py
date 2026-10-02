@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .api import router as api_router
 from . import service
+from .auth import campaign_secret
 from .config import Config, load_config
 from .content import load_content
 from .db import Database
@@ -46,10 +47,13 @@ def create_app(config: Config | None = None) -> FastAPI:
         app.state.db.close()
 
     app = FastAPI(title="Shared Table", docs_url="/api/docs", openapi_url="/api/openapi.json", lifespan=lifespan)
+    db = Database(config.database_path)
+    if not config.secret:
+        config = config.model_copy(update={"secret": campaign_secret(db)})
     app.state.config = config
     app.state.pack = pack
     app.state.pack_json = pack.model_dump(mode="json", by_alias=True)
-    app.state.db = Database(config.database_path)
+    app.state.db = db
     app.state.hub = Hub()
     service.migrate_list_ids(app)
     service.autocreate_shared(app)
