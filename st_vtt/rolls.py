@@ -12,6 +12,29 @@ MIN_BONUS = -10
 MAX_BONUS = 10
 
 
+class SheetError(ValueError):
+    """A sheet holds something a roll can't count with."""
+
+
+def sheet_number(doc: dict[str, Any], *path: str, default: int = 0) -> int:
+    """The number at `path` in a sheet, or `default` when it isn't there.
+
+    Patches and imports keep these whole numbers, but a sheet saved before they did may
+    hold anything; that is reported, not crashed on.
+    """
+    node: Any = doc
+    for depth, key in enumerate(path):
+        if not isinstance(node, dict):
+            raise SheetError(f"this sheet's /{'/'.join(path[:depth])} must be an object")
+        if key not in node:
+            return default
+        node = node[key]
+    try:
+        return int(node)
+    except (TypeError, ValueError):
+        raise SheetError(f"this sheet's /{'/'.join(path)} is {node!r}, not a whole number") from None
+
+
 def debility_disadvantage(pack: ContentPack, doc: dict[str, Any], stat: str | None) -> list[str]:
     """Labels of marked debilities that affect `stat`."""
     if stat is None:
@@ -54,7 +77,7 @@ def roll_move(
     stat_mod = 0
     stat_label = None
     if stat is not None:
-        stat_mod = int((doc or {}).get("stats", {}).get(stat, 0))
+        stat_mod = sheet_number(doc or {}, "stats", stat)
         if stat_source is not None:
             stat_label = stat_source.get(stat, stat)
         else:
@@ -138,8 +161,8 @@ def roll_expr(
     if doc:
         pb = pack.playbook(doc.get("playbook", ""))
         refs["damage_die"] = pb.damage_die if pb else "1d6"
-        for sid, val in (doc.get("stats") or {}).items():
-            refs[sid] = int(val)
+        for sid in pack.stat_ids():
+            refs[sid] = sheet_number(doc, "stats", sid)
     else:
         refs["damage_die"] = "1d6"
         for s in pack.pack.stats:

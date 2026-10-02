@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import copy
 import uuid
-from typing import Any
+from typing import Any, Iterator
 
 from .content import ContentPack, Playbook, Section, SharedSheetDef, level_up_cost
 
@@ -185,6 +185,68 @@ def ensure_list_ids(pack: ContentPack, doc: dict[str, Any], entity: str) -> bool
     return changed
 
 
+# The numbers a roll adds up or an outcome counts on, which have to be whole numbers.
+# "*" is every key of that object.
+WHOLE_NUMBERS: dict[str, tuple[tuple[str, ...], ...]] = {
+    "character": (("stats", "*"), ("hp", "current"), ("hp", "max"), ("xp",), ("level",), ("armor",), ("moves", "hold", "*")),
+    "shared": (("stats", "*"), ("moves", "hold", "*")),
+}
+
+
+def is_whole_number(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _number_slots(entity: str, doc: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any] | None, str]]:
+    """(path, object, key) for each number `doc` holds where WHOLE_NUMBERS names one; the
+    object is None when what is at `path` should be an object of them and isn't. Paths
+    that aren't there are skipped."""
+    for pattern in WHOLE_NUMBERS.get(entity, ()):
+        nodes: list[tuple[Any, str]] = [(doc, "")]
+        for depth, tok in enumerate(pattern):
+            found: list[tuple[Any, str]] = []
+            for node, path in nodes:
+                if not isinstance(node, dict):
+                    yield path, None, ""
+                    continue
+                for key in (list(node) if tok == "*" else [tok] if tok in node else []):
+                    if depth == len(pattern) - 1:
+                        yield f"{path}/{key}", node, key
+                    else:
+                        found.append((node[key], f"{path}/{key}"))
+            nodes = found
+
+
+def bad_numbers(entity: str, doc: dict[str, Any]) -> list[str]:
+    """What is wrong with `doc`'s numbers, one line each (none if nothing)."""
+    problems = (
+        f"{path} must be an object" if node is None else f"{path} must be a whole number"
+        for path, node, key in _number_slots(entity, doc)
+        if node is None or not is_whole_number(node[key])
+    )
+    return list(dict.fromkeys(problems))
+
+
+def reset_bad_numbers(entity: str, doc: dict[str, Any], template: dict[str, Any]) -> list[str]:
+    """Put the template's value back wherever `doc` holds something other than a whole number
+    (or drop it, when the template has none there). `doc` has been `deep_fill`ed from
+    `template`, so every object on the way is one. Returns a warning for each."""
+    warnings: list[str] = []
+    for path, node, key in list(_number_slots(entity, doc)):
+        if node is None or is_whole_number(node[key]):
+            continue
+        was = node.pop(key)
+        fallback: Any = template
+        for tok in path.split("/")[1:]:
+            fallback = fallback.get(tok) if isinstance(fallback, dict) else None
+        if is_whole_number(fallback):
+            node[key] = fallback
+            warnings.append(f"{path} was {was!r}, not a whole number; reset to {fallback}")
+        else:
+            warnings.append(f"{path} was {was!r}, not a whole number; dropped")
+    return warnings
+
+
 def validate_import(pack: ContentPack, doc: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Coerce an imported character into a well-formed document.
 
@@ -210,6 +272,7 @@ def validate_import(pack: ContentPack, doc: dict[str, Any]) -> tuple[dict[str, A
         warnings.append(f"character was exported from pack {doc['pack_id']!r}, current pack is {pack.pack.id!r}")
     merged = deep_fill(doc, template)
     merged["pack_id"] = pack.pack.id
+    warnings += reset_bad_numbers("character", merged, template)
     known = set(pack.all_moves()) | {m.get("id") for m in merged.get("custom_moves", []) if isinstance(m, dict)}
     for mid in merged["moves"].get("taken", []):
         if mid not in known:
