@@ -117,6 +117,17 @@ _BAD_REQUESTS = {
     "patch a record with no id": (GM, lambda a, u, w: service.patch_entity(a, u, "record", None, "/name", "x"), (400, "missing record id")),
     "patch a missing record": (GM, lambda a, u, w: service.patch_entity(a, u, "record", "nope", "/name", "x"), (404, "no such record")),
     "patch an unknown kind of thing": (GM, lambda a, u, w: service.patch_entity(a, u, "map", "x", "/name", "x"), (400, "unknown entity 'map'")),
+    # numbers the dice add up have to stay whole numbers
+    "a stat that isn't a number": (ALICE, lambda a, u, w: service.patch_entity(a, u, "character", w.cid, "/stats/str", "abc"), (400, "/stats/str must be a whole number")),
+    "a stat that's a fraction": (ALICE, lambda a, u, w: service.patch_entity(a, u, "character", w.cid, "/stats/str", 1.5), (400, "/stats/str must be a whole number")),
+    "a stat that's true": (ALICE, lambda a, u, w: service.patch_entity(a, u, "character", w.cid, "/stats/str", True), (400, "/stats/str must be a whole number")),
+    "stats set whole, one not a number": (ALICE, lambda a, u, w: service.patch_entity(a, u, "character", w.cid, "/stats", {**w.doc["stats"], "dex": "2"}),
+                                          (400, "/stats/dex must be a whole number")),
+    "hp that isn't an object": (ALICE, lambda a, u, w: service.patch_entity(a, u, "character", w.cid, "/hp", "full"), (400, "/hp must be an object")),
+    **{f"{path} that isn't a number": (ALICE, lambda a, u, w, path=path: service.patch_entity(a, u, "character", w.cid, path, "x"), (400, f"{path} must be a whole number"))
+       for path in ("/hp/current", "/hp/max", "/xp", "/level", "/armor", "/moves/hold/readiness")},
+    "a shared sheet's stat that isn't a number": (GM, lambda a, u, w: service.patch_entity(a, u, "shared", w.sid, "/stats/luck", "abc"), (400, "/stats/luck must be a whole number")),
+    "a shared sheet's hold that isn't a number": (GM, lambda a, u, w: service.patch_entity(a, u, "shared", w.sid, "/moves/hold/x", None), (400, "/moves/hold/x must be a whole number")),
     # chat
     "an empty message": (ALICE, lambda a, u, w: service.post_chat(a, u, "   "), (400, "empty message")),
     "a whisper with no message": (ALICE, lambda a, u, w: service.post_chat(a, u, "/w Bob"), (400, "usage: /w <name> <message>")),
@@ -170,3 +181,23 @@ def test_a_roll_you_cannot_see_is_not_there(app, world):  # noqa: F811
     service.apply_outcome(app, GM, secret, 0)
     assert refused() == (404, "no such roll")  # not "already applied by Gm"
     assert app.state.db.get_character(world.cid)["data"]["xp"] == world.doc["xp"] + 1
+
+
+def test_a_refused_number_leaves_the_sheet_as_it_was(app, world):  # noqa: F811
+    before = app.state.db.get_character(world.cid)
+    with pytest.raises(service.ServiceError):
+        service.patch_entity(app, ALICE, "character", world.cid, "/stats/str", "abc")
+    after = app.state.db.get_character(world.cid)
+    assert (after["data"], after["revision"]) == (before["data"], before["revision"])
+    # and whole numbers still go in, negative ones included
+    service.patch_entity(app, ALICE, "character", world.cid, "/stats/str", -1)
+    assert app.state.db.get_character(world.cid)["data"]["stats"]["str"] == -1
+
+
+def test_a_sheet_saved_with_a_bad_number_can_still_be_edited_and_mended(app, world):  # noqa: F811
+    """Sheets saved before numbers were checked may hold anything. Only what a patch breaks is refused."""
+    db = app.state.db
+    db.save_character(world.cid, {**world.doc, "stats": {**world.doc["stats"], "str": "abc"}}, None)
+    service.patch_entity(app, ALICE, "character", world.cid, "/name", "Wren the Bold")
+    service.patch_entity(app, ALICE, "character", world.cid, "/stats/str", 1)
+    assert db.get_character(world.cid)["data"]["stats"]["str"] == 1

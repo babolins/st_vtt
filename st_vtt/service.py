@@ -342,10 +342,14 @@ def patch_entity(app: FastAPI, user: UserConfig, entity: str, eid: str | None, p
         # A tab still running the build from before list items were patched by id appends them
         # without one. Give it one here, so it is saved and broadcast with it.
         value = {**value, "id": chars.new_id()}
+    already_bad = set(chars.bad_numbers(entity, doc))
     try:
         result = apply_patch(doc, path, value, op, patch)
     except PatchError as e:
         raise ServiceError(f"bad patch: {e}") from e
+    # Refuse what this patch breaks, not what a sheet saved before numbers were checked holds.
+    if broken := [p for p in chars.bad_numbers(entity, doc) if p not in already_bad]:
+        raise ServiceError("; ".join(broken))
     merged = op == "text_patch"
     if merged:
         op, value = "set", result
