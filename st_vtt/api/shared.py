@@ -63,7 +63,7 @@ async def import_shared(sid: str, body: dict[str, Any], request: Request, user: 
 
 @router.post("/{sid}/patch")
 async def patch_shared(sid: str, body: PatchBody, request: Request, user: UserConfig = Depends(current_user)) -> dict:
-    renders = service.patch_entity(request.app, user, "shared", sid, body.path, body.value, body.op, None, body.patch)
+    renders = service.patch_entity(request.app, user, "shared", sid, body.path, body.value, op=body.op, patch=body.patch)
     emit(request, renders)
     row = request.app.state.db.get_shared(sid)
     return {"revision": row["revision"] if row else None}
