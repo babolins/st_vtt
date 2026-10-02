@@ -8,10 +8,27 @@
   import { presence } from '../lib/presence.svelte';
 
   let {
-    value, onchange, path, multiline = false, placeholder = '', readonly = false, delay = 400, rows = 3, mono = false, class: klass = '',
+    value,
+    onchange,
+    path,
+    multiline = false,
+    placeholder = '',
+    readonly = false,
+    delay = 400,
+    rows = 3,
+    mono = false,
+    class: klass = '',
   }: {
-    value: string; onchange?: (v: string) => void; path?: string; multiline?: boolean; placeholder?: string;
-    readonly?: boolean; delay?: number; rows?: number; mono?: boolean; class?: string;
+    value: string;
+    onchange?: (v: string) => void;
+    path?: string;
+    multiline?: boolean;
+    placeholder?: string;
+    readonly?: boolean;
+    delay?: number;
+    rows?: number;
+    mono?: boolean;
+    class?: string;
   } = $props();
 
   const sheet = getContext<SheetContext | undefined>(SHEET);
@@ -57,7 +74,10 @@
     timer = setTimeout(flush, delay);
   }
   function flush() {
-    if (timer) { clearTimeout(timer); timer = null; }
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
     if (local === base) return;
     if (path && sheet) {
       const patchText = dmp.patch_toText(dmp.patch_make(base, local));
@@ -71,13 +91,42 @@
 </script>
 
 {#if multiline}
-  <textarea class={klass} class:mono bind:this={el} bind:value={local} {placeholder} {readonly} {rows} use:presence={pres}
-    onfocus={() => (focused = true)} onblur={() => { flush(); focused = false; }} oninput={schedule}></textarea>
+  <textarea
+    class={klass}
+    class:mono
+    bind:this={el}
+    bind:value={local}
+    {placeholder}
+    {readonly}
+    {rows}
+    use:presence={pres}
+    onfocus={() => (focused = true)}
+    onblur={() => {
+      flush();
+      focused = false;
+    }}
+    oninput={schedule}
+  ></textarea>
 {:else}
-  <input type="text" class={klass} bind:this={el} bind:value={local} {placeholder} {readonly} use:presence={pres}
-    onfocus={() => (focused = true)} onblur={() => { flush(); focused = false; }} oninput={schedule} />
+  <input
+    type="text"
+    class={klass}
+    bind:this={el}
+    bind:value={local}
+    {placeholder}
+    {readonly}
+    use:presence={pres}
+    onfocus={() => (focused = true)}
+    onblur={() => {
+      flush();
+      focused = false;
+    }}
+    oninput={schedule}
+  />
 {/if}
 
 <style>
-  .mono { font-family: var(--mono); }
+  .mono {
+    font-family: var(--mono);
+  }
 </style>

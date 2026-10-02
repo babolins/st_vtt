@@ -4,7 +4,11 @@ import { app } from './state.svelte';
 import { sendEphemeral } from './ws';
 import { presenceKey, userColor } from './util';
 
-export interface PresenceOpts { entity: string; id: string; path: string }
+export interface PresenceOpts {
+  entity: string;
+  id: string;
+  path: string;
+}
 
 // The badge is tied to its input by CSS anchor positioning (see .presence-badge
 // in app.css), so the browser keeps it on the input through any layout change.
@@ -17,8 +21,12 @@ export function presence(node: HTMLElement, opts: PresenceOpts | undefined) {
   const anchor = `--presence-${++anchors}`;
 
   const key = () => (current ? presenceKey(current.entity, current.id, current.path) : null);
-  const onFocus = () => { if (current) sendEphemeral({ type: 'focus', ...current }); };
-  const onBlur = () => { if (current) sendEphemeral({ type: 'blur' }); };
+  const onFocus = () => {
+    if (current) sendEphemeral({ type: 'focus', ...current });
+  };
+  const onBlur = () => {
+    if (current) sendEphemeral({ type: 'blur' });
+  };
   node.addEventListener('focusin', onFocus);
   node.addEventListener('focusout', onBlur);
 
@@ -53,7 +61,9 @@ export function presence(node: HTMLElement, opts: PresenceOpts | undefined) {
   });
 
   return {
-    update(next: PresenceOpts | undefined) { current = next; },
+    update(next: PresenceOpts | undefined) {
+      current = next;
+    },
     destroy() {
       node.removeEventListener('focusin', onFocus);
       node.removeEventListener('focusout', onBlur);

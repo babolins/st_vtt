@@ -40,10 +40,16 @@ class FakeSocket {
 
 function snapshot(over: Partial<StateResponse> = {}): StateResponse {
   return {
-    me: { name: 'Alice', role: 'player' }, campaign_name: 'Test', users: [], online: ['Alice'],
+    me: { name: 'Alice', role: 'player' },
+    campaign_name: 'Test',
+    users: [],
+    online: ['Alice'],
     characters: [{ id: 'c1', owner: 'Alice', revision: 0, data: { name: 'Bryn', hp: { current: 5, max: 10 } } }],
     shared: [{ id: 'v', template: 'village', revision: 0, created_at: 0, data: { notes: 'hello' } }],
-    records: [], messages: [], applied_ref: 0, ...over,
+    records: [],
+    messages: [],
+    applied_ref: 0,
+    ...over,
   } as unknown as StateResponse;
 }
 
@@ -99,7 +105,19 @@ async function reconnect(): Promise<FakeSocket> {
 }
 
 function echo(s: FakeSocket, sent: any, over: Record<string, unknown> = {}) {
-  s.receive({ type: 'patch', entity: sent.entity, id: sent.id, path: sent.path, value: sent.value, op: sent.op, revision: 1, client: ws.clientId, ref: sent.ref, merged: false, ...over });
+  s.receive({
+    type: 'patch',
+    entity: sent.entity,
+    id: sent.id,
+    path: sent.path,
+    value: sent.value,
+    op: sent.op,
+    revision: 1,
+    client: ws.clientId,
+    ref: sent.ref,
+    merged: false,
+    ...over,
+  });
 }
 
 describe('connecting', () => {
@@ -130,7 +148,10 @@ describe('connecting', () => {
     expect(hp()).toBe(3);
     expect((app.shared.v.data as any).notes).toBe('offline');
     expect(kinds(s2)).toEqual(['patch', 'patch', 'presence_sync']);
-    expect(s2.sent.slice(0, 2).map((m) => [m.ref, m.path, m.value])).toEqual([[1, '/hp/current', 3], [2, '/notes', 'offline']]);
+    expect(s2.sent.slice(0, 2).map((m) => [m.ref, m.path, m.value])).toEqual([
+      [1, '/hp/current', 3],
+      [2, '/notes', 'offline'],
+    ]);
     expect(app.unsaved).toBe(0);
   });
 
@@ -161,7 +182,8 @@ describe('connecting', () => {
     void patch('character', 'c1', '/hp/current', 3);
 
     // The first reconnect drops while its snapshot loads; the next opens before that load ends.
-    const slow = deferred<StateResponse>(), next = deferred<StateResponse>();
+    const slow = deferred<StateResponse>(),
+      next = deferred<StateResponse>();
     get.mockImplementationOnce(() => slow.promise).mockImplementationOnce(() => next.promise);
     await vi.advanceTimersByTimeAsync(10_000);
     const s2 = latest();
@@ -325,7 +347,18 @@ describe('patches from the server', () => {
     // The server applied theirs first and ours last, so ours is what it holds.
     const s = await online();
     void patch('character', 'c1', '/hp/current', 3);
-    s.receive({ type: 'patch', entity: 'character', id: 'c1', path: '/hp', value: { current: 7, max: 10 }, op: 'set', revision: 1, client: 'other', ref: 9, merged: false });
+    s.receive({
+      type: 'patch',
+      entity: 'character',
+      id: 'c1',
+      path: '/hp',
+      value: { current: 7, max: 10 },
+      op: 'set',
+      revision: 1,
+      client: 'other',
+      ref: 9,
+      merged: false,
+    });
     expect(hp()).toBe(7);
     echo(s, s.sent[0], { revision: 2 });
     expect(hp()).toBe(3);
@@ -336,12 +369,23 @@ describe('patches from the server', () => {
     const s = await online();
     void patch('character', 'c1', '/hp/current', 3);
     void patch('character', 'c1', '/hp/current', 4);
-    s.receive({ type: 'patch', entity: 'character', id: 'c1', path: '/name', value: 'Bryony', op: 'set', revision: 1, client: 'other', ref: 9, merged: false });
+    s.receive({
+      type: 'patch',
+      entity: 'character',
+      id: 'c1',
+      path: '/name',
+      value: 'Bryony',
+      op: 'set',
+      revision: 1,
+      client: 'other',
+      ref: 9,
+      merged: false,
+    });
     echo(s, s.sent[0]);
     expect(hp()).toBe(4);
   });
 
-  it('applies a merged text edit, which carries other people\'s typing too', async () => {
+  it("applies a merged text edit, which carries other people's typing too", async () => {
     const s = await online();
     void patch('shared', 'v', '/notes', 'hello there', 'text_patch', '@@ -1,5 +1,11 @@\n hello\n+ there\n');
     expect(s.sent[0]).toMatchObject({ op: 'text_patch', patch: '@@ -1,5 +1,11 @@\n hello\n+ there\n' });
@@ -350,11 +394,29 @@ describe('patches from the server', () => {
     expect((app.shared.v.data as any).notes).toBe('hello there, all');
   });
 
-  it("reloads the table for a sheet it does not have, or a patch that will not apply", async () => {
+  it('reloads the table for a sheet it does not have, or a patch that will not apply', async () => {
     const s = await online();
-    s.receive({ type: 'patch', entity: 'character', id: 'c9', path: '/hp/current', value: 1, op: 'set', revision: 1, client: 'other' });
+    s.receive({
+      type: 'patch',
+      entity: 'character',
+      id: 'c9',
+      path: '/hp/current',
+      value: 1,
+      op: 'set',
+      revision: 1,
+      client: 'other',
+    });
     expect(get).toHaveBeenCalledTimes(2);
-    s.receive({ type: 'patch', entity: 'character', id: 'c1', path: '/name/first', value: 'B', op: 'set', revision: 1, client: 'other' });
+    s.receive({
+      type: 'patch',
+      entity: 'character',
+      id: 'c1',
+      path: '/name/first',
+      value: 'B',
+      op: 'set',
+      revision: 1,
+      client: 'other',
+    });
     expect(get).toHaveBeenCalledTimes(3);
   });
 });
@@ -364,7 +426,16 @@ describe('patch()', () => {
     const s = await online();
     const sending = patch('shared', 'v', '/notes', 'now');
     expect((app.shared.v.data as any).notes).toBe('now');
-    expect(s.sent[0]).toEqual({ type: 'patch', entity: 'shared', id: 'v', path: '/notes', op: 'set', value: 'now', ref: 1, client: ws.clientId });
+    expect(s.sent[0]).toEqual({
+      type: 'patch',
+      entity: 'shared',
+      id: 'v',
+      path: '/notes',
+      op: 'set',
+      value: 'now',
+      ref: 1,
+      client: ws.clientId,
+    });
     s.receive({ type: 'ack', ref: 1 });
     await expect(sending).resolves.toBeUndefined();
   });
@@ -411,13 +482,34 @@ describe('events from the server', () => {
 
   it('shows who is online, where, and who is typing', async () => {
     const s = await online();
-    s.receive({ type: 'field_presence', user: 'Bob', client: 'cb', entity: 'character', id: 'c1', path: '/hp/current' });
-    s.receive({ type: 'field_presence', user: 'Alice', client: ws.clientId, entity: 'character', id: 'c1', path: '/name' });
+    s.receive({
+      type: 'field_presence',
+      user: 'Bob',
+      client: 'cb',
+      entity: 'character',
+      id: 'c1',
+      path: '/hp/current',
+    });
+    s.receive({
+      type: 'field_presence',
+      user: 'Alice',
+      client: ws.clientId,
+      entity: 'character',
+      id: 'c1',
+      path: '/name',
+    });
     expect(app.fieldPresence).toEqual({ cb: { user: 'Bob', key: 'character/c1/hp/current' } });
     s.receive({ type: 'field_presence', user: 'Bob', client: 'cb', entity: null, id: null, path: null });
     expect(app.fieldPresence).toEqual({});
 
-    s.receive({ type: 'field_presence', user: 'Bob', client: 'cb', entity: 'character', id: 'c1', path: '/hp/current' });
+    s.receive({
+      type: 'field_presence',
+      user: 'Bob',
+      client: 'cb',
+      entity: 'character',
+      id: 'c1',
+      path: '/hp/current',
+    });
     s.receive({ type: 'presence', users: ['Alice'] });
     expect(app.online).toEqual(['Alice']);
     expect(app.fieldPresence).toEqual({}); // Bob left

@@ -12,8 +12,18 @@
   import GenericSection from './GenericSection.svelte';
   import MoveCard from './MoveCard.svelte';
 
-  let { doc, p, editable, pb, characterId }: {
-    doc: CharacterDoc; p: Patcher; editable: boolean; pb: Playbook | undefined; characterId: string;
+  let {
+    doc,
+    p,
+    editable,
+    pb,
+    characterId,
+  }: {
+    doc: CharacterDoc;
+    p: Patcher;
+    editable: boolean;
+    pb: Playbook | undefined;
+    characterId: string;
   } = $props();
 
   const content = $derived(app.content!);
@@ -62,20 +72,37 @@
         <div class="row top">
           <strong>{ins.name}</strong><span class="tag">{ins.kind}</span>
           <span class="grow"></span>
-          {#if editable}<button class="ghost small danger" title="Remove insert" onclick={() => remove(ins)}>✕</button>{/if}
+          {#if editable}<button class="ghost small danger" title="Remove insert" onclick={() => remove(ins)}>✕</button
+            >{/if}
         </div>
         {#if ins.blurb}<p class="muted small">{@html renderInline(ins.blurb)}</p>{/if}
         {#if ins.description}<Markdown text={ins.description} />{/if}
 
         {#each ins.sections as sec (sec.id)}
-          <GenericSection section={sec} value={doc.sections?.[sec.id]} {editable}
-            basePath={`/sections/${sec.id}`} {doc} {p} idPrefix="{characterId}.{ins.id}." />
+          <GenericSection
+            section={sec}
+            value={doc.sections?.[sec.id]}
+            {editable}
+            basePath={`/sections/${sec.id}`}
+            {doc}
+            {p}
+            idPrefix="{characterId}.{ins.id}."
+          />
         {/each}
 
         {#each takenOf(ins) as m (m.id)}
-          <MoveCard move={m} {characterId} {editable} {doc} {p} tracks={doc.moves.tracks[m.id]}
+          <MoveCard
+            move={m}
+            {characterId}
+            {editable}
+            {doc}
+            {p}
+            tracks={doc.moves.tracks[m.id]}
             ontrack={(kind, v) => p(`/moves/tracks/${m.id}/${kind}`, v)}
-            onremove={ins.starting_moves.fixed.includes(m.id) ? undefined : () => p('/moves/taken', m.id, 'list_remove')} />
+            onremove={ins.starting_moves.fixed.includes(m.id)
+              ? undefined
+              : () => p('/moves/taken', m.id, 'list_remove')}
+          />
         {/each}
 
         {#if editable && offeredBy(ins).length}
@@ -84,7 +111,8 @@
               {@const why = locked(m)}
               <div class="row pick">
                 <div class="grow">
-                  <strong>{m.name}</strong> {#if why}<span class="tag warn">{why}</span>{/if}
+                  <strong>{m.name}</strong>
+                  {#if why}<span class="tag warn">{why}</span>{/if}
                   <div class="muted small">{movePreview(m)}</div>
                 </div>
                 <button class="small" onclick={() => p('/moves/taken', m.id, 'list_add')}>Take</button>
@@ -98,9 +126,23 @@
 {/if}
 
 <style>
-  .insert { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5em .75em; margin-bottom: .5em; }
-  .insert .top { margin-bottom: .25em; }
-  .pick { padding: .25em 0; border-bottom: 1px solid var(--border); }
-  .pick:last-child { border-bottom: 0; }
-  .tag.warn { color: var(--warn); }
+  .insert {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.5em 0.75em;
+    margin-bottom: 0.5em;
+  }
+  .insert .top {
+    margin-bottom: 0.25em;
+  }
+  .pick {
+    padding: 0.25em 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .pick:last-child {
+    border-bottom: 0;
+  }
+  .tag.warn {
+    color: var(--warn);
+  }
 </style>

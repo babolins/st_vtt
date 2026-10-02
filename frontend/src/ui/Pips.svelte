@@ -5,8 +5,20 @@
   import { SHEET, type SheetContext } from '../lib/patch';
   import { presence } from '../lib/presence.svelte';
 
-  let { value, max, onchange, disabled = false, path, shape = 'diamond', labels }: {
-    value: number; max: number; onchange: (v: number) => void; disabled?: boolean; path?: string;
+  let {
+    value,
+    max,
+    onchange,
+    disabled = false,
+    path,
+    shape = 'diamond',
+    labels,
+  }: {
+    value: number;
+    max: number;
+    onchange: (v: number) => void;
+    disabled?: boolean;
+    path?: string;
     shape?: 'diamond' | 'circle' | 'square';
     /** one label per box, shown beside it (ammo statuses) */
     labels?: string[];
@@ -22,16 +34,25 @@
   {#each Array(max) as _, i}
     {#if labels}
       <span class="labelled-pip">
-        <button class="pip {shape}" class:on={i < value} onclick={() => click(i)} {disabled} aria-label={labels[i]}></button>
+        <button class="pip {shape}" class:on={i < value} onclick={() => click(i)} {disabled} aria-label={labels[i]}
+        ></button>
         <span class="small muted">{labels[i]}</span>
       </span>
     {:else}
-      <button class="pip {shape}" class:on={i < value} onclick={() => click(i)} {disabled} aria-label="pip {i + 1}"></button>
+      <button class="pip {shape}" class:on={i < value} onclick={() => click(i)} {disabled} aria-label="pip {i + 1}"
+      ></button>
     {/if}
   {/each}
 </span>
 
 <style>
-  .pips.labelled { gap: .5em; }
-  .labelled-pip { display: inline-flex; align-items: baseline; gap: .25em; white-space: nowrap; }
+  .pips.labelled {
+    gap: 0.5em;
+  }
+  .labelled-pip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.25em;
+    white-space: nowrap;
+  }
 </style>

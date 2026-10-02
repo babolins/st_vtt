@@ -25,9 +25,17 @@
 
   const pb = $derived(character ? content.playbooks.find((p) => p.id === character.data.playbook) : undefined);
   const mineWithMove = $derived(
-    move ? Object.values(app.characters).find((row) => canEdit(row) && movesOf(content, row).some((e) => e.move.id === move.move.id)) : undefined,
+    move
+      ? Object.values(app.characters).find(
+          (row) => canEdit(row) && movesOf(content, row).some((e) => e.move.id === move.move.id),
+        )
+      : undefined,
   );
-  const holders = $derived(move ? Object.values(app.characters).filter((row) => movesOf(content, row).some((e) => e.move.id === move.move.id)) : []);
+  const holders = $derived(
+    move
+      ? Object.values(app.characters).filter((row) => movesOf(content, row).some((e) => e.move.id === move.move.id))
+      : [],
+  );
   const debilities = $derived(content.pack.debilities.filter((d) => character?.data.debilities[d.id]));
 
   function onkey(e: KeyboardEvent) {
@@ -39,7 +47,17 @@
 
 <aside class="peek" aria-label="Preview">
   <div class="row bar">
-    <span class="muted small">{move ? move.source.label : character ? `${pb?.name ?? ''} · ${character.owner ?? 'unowned'}` : record ? record.data.kind : sheet ? 'Shared sheet' : ''}</span>
+    <span class="muted small"
+      >{move
+        ? move.source.label
+        : character
+          ? `${pb?.name ?? ''} · ${character.owner ?? 'unowned'}`
+          : record
+            ? record.data.kind
+            : sheet
+              ? 'Shared sheet'
+              : ''}</span
+    >
     <span class="grow"></span>
     <button class="ghost small" onclick={() => go(place)} title="Open this as the page">Open</button>
     <button class="ghost small" onclick={unpeek} title="Close (esc)">✕</button>
@@ -50,15 +68,26 @@
     <MoveBody move={move.move} />
     <div class="row acts">
       {#if move.move.roll && mineWithMove}
-        <button class="small primary" onclick={() => openRoll({ characterId: mineWithMove.id, sharedId: null, move: move.move })}>Roll</button>
+        <button
+          class="small primary"
+          onclick={() => openRoll({ characterId: mineWithMove.id, sharedId: null, move: move.move })}>Roll</button
+        >
       {/if}
-      <button class="small" onclick={() => send({ type: 'share_move', character_id: mineWithMove?.id ?? null, move_id: move.move.id }).catch(() => {})}>Show the table</button>
+      <button
+        class="small"
+        onclick={() =>
+          send({ type: 'share_move', character_id: mineWithMove?.id ?? null, move_id: move.move.id }).catch(() => {})}
+        >Show the table</button
+      >
     </div>
     {#if holders.length}
       <p class="small muted who">
         Taken by
         {#each holders as row, i}<!--
-          -->{i > 0 ? ', ' : ' '}<button class="linky" onclick={() => peekAt({ kind: 'character', id: row.id })}>{row.data.name || 'Unnamed'}</button><!--
+          -->{i > 0 ? ', ' : ' '}<button
+            class="linky"
+            onclick={() => peekAt({ kind: 'character', id: row.id })}>{row.data.name || 'Unnamed'}</button
+          ><!--
         -->{/each}
       </p>
     {/if}
@@ -66,7 +95,9 @@
     <h3 class="title">{character.data.name || 'Unnamed'}</h3>
     <div class="stats">
       {#each content.pack.stats as s}
-        <div class="stat"><span class="lbl">{s.label}</span><span class="val">{fmtMod(character.data.stats[s.id] ?? 0)}</span></div>
+        <div class="stat">
+          <span class="lbl">{s.label}</span><span class="val">{fmtMod(character.data.stats[s.id] ?? 0)}</span>
+        </div>
       {/each}
     </div>
     <p class="vitals small">
@@ -89,25 +120,85 @@
 
 <style>
   .peek {
-    grid-column: 3; grid-row: 2; min-height: 0; overflow-y: auto;
-    border-left: 1px solid var(--border); background: var(--bg-elev); padding: .5em .75em 1em;
+    grid-column: 3;
+    grid-row: 2;
+    min-height: 0;
+    overflow-y: auto;
+    border-left: 1px solid var(--border);
+    background: var(--bg-elev);
+    padding: 0.5em 0.75em 1em;
   }
-  .bar { gap: .3em; position: sticky; top: -.5em; background: var(--bg-elev); padding: .2em 0 .3em; }
-  .title { font-size: 1.15em; margin: .1em 0 .4em; }
-  .acts { gap: .4em; margin-top: .7em; }
-  .who { margin-top: .7em; }
-  .linky { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(3.2em, 1fr)); gap: .3em; margin: .2em 0 .5em; }
-  .stat { text-align: center; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .2em; }
-  .lbl { display: block; font-size: .7em; letter-spacing: .06em; color: var(--label-color); text-transform: var(--label-case); }
-  .val { font-size: 1.1em; font-weight: 700; font-family: var(--display); }
-  .vitals { display: flex; gap: .8em; flex-wrap: wrap; }
-  .deb { color: var(--warn); font-style: var(--debility-style); }
+  .bar {
+    gap: 0.3em;
+    position: sticky;
+    top: -0.5em;
+    background: var(--bg-elev);
+    padding: 0.2em 0 0.3em;
+  }
+  .title {
+    font-size: 1.15em;
+    margin: 0.1em 0 0.4em;
+  }
+  .acts {
+    gap: 0.4em;
+    margin-top: 0.7em;
+  }
+  .who {
+    margin-top: 0.7em;
+  }
+  .linky {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--accent);
+    cursor: pointer;
+    font: inherit;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(3.2em, 1fr));
+    gap: 0.3em;
+    margin: 0.2em 0 0.5em;
+  }
+  .stat {
+    text-align: center;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.2em;
+  }
+  .lbl {
+    display: block;
+    font-size: 0.7em;
+    letter-spacing: 0.06em;
+    color: var(--label-color);
+    text-transform: var(--label-case);
+  }
+  .val {
+    font-size: 1.1em;
+    font-weight: 700;
+    font-family: var(--display);
+  }
+  .vitals {
+    display: flex;
+    gap: 0.8em;
+    flex-wrap: wrap;
+  }
+  .deb {
+    color: var(--warn);
+    font-style: var(--debility-style);
+  }
   @media (max-width: 900px) {
     /* Narrow: a sheet from the bottom, not a column that squeezes the page. */
     .peek {
-      grid-column: 1 / -1; grid-row: 3; position: fixed; inset: auto 0 0 0; height: 70vh; z-index: 30;
-      border-left: 0; border-top: 1px solid var(--border); box-shadow: 0 -4px 20px rgba(0, 0, 0, .2);
+      grid-column: 1 / -1;
+      grid-row: 3;
+      position: fixed;
+      inset: auto 0 0 0;
+      height: 70vh;
+      z-index: 30;
+      border-left: 0;
+      border-top: 1px solid var(--border);
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
     }
   }
 </style>

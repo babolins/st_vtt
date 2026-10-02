@@ -216,7 +216,8 @@ uv run ruff format st_vtt tests  # format the backend (CI checks it)
 uv run pytest                    # backend tests
 uv run st-vtt validate content/example
 cd frontend && npm run dev       # Vite dev server on :5173 proxying to :8000
-cd frontend && npm run check     # svelte-check (type checking)
+cd frontend && npm run check     # formatting (Prettier) and svelte-check (type checking)
+cd frontend && npm run format    # format the frontend
 cd frontend && npm test          # frontend tests (vitest)
 cd frontend && npm run build     # production build into frontend/dist
 ```

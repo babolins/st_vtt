@@ -25,7 +25,9 @@
   );
   const people = $derived([
     ...Object.values(app.characters).map((c) => ({ id: c.id, name: c.data.name || 'Unnamed', character: true })),
-    ...records().filter((r) => r.kind !== 'event').map((r) => ({ id: r.id, name: r.data.name, character: false })),
+    ...records()
+      .filter((r) => r.kind !== 'event')
+      .map((r) => ({ id: r.id, name: r.data.name, character: false })),
   ]);
   const nameOf = (id: string) => app.records[id]?.data.name ?? app.characters[id]?.data.name ?? id;
 
@@ -67,32 +69,57 @@
     <h2>What happened</h2>
     <span class="muted small">{events.length} {events.length === 1 ? 'event' : 'events'}, earliest first</span>
     <span class="grow"></span>
-    <input class="new" bind:value={newTitle} placeholder="Something that happened…" onkeydown={(e) => e.key === 'Enter' && add()} />
+    <input
+      class="new"
+      bind:value={newTitle}
+      placeholder="Something that happened…"
+      onkeydown={(e) => e.key === 'Enter' && add()}
+    />
     <button class="small primary" onclick={add} disabled={!newTitle.trim() || busy}>Add</button>
   </div>
 
   {#if !events.length}
-    <p class="muted empty">Nothing written down yet. “Pedr bested Ivan”, “the Forest Folk disappeared” — say when in whatever words the table uses, and order them by hand.</p>
+    <p class="muted empty">
+      Nothing written down yet. “Pedr bested Ivan”, “the Forest Folk disappeared” — say when in whatever words the table
+      uses, and order them by hand.
+    </p>
   {:else}
     <ol class="line">
       {#each events as row, i (row.id)}
         {@const p = recordPatcher(row.id)}
         <li class="event" class:hidden={row.data.visibility === 'gm'}>
           <div class="when">
-            <DebouncedText value={row.data.when ?? ''} onchange={(v) => p('/when', v)} placeholder="nine years ago…" class="whenin" />
+            <DebouncedText
+              value={row.data.when ?? ''}
+              onchange={(v) => p('/when', v)}
+              placeholder="nine years ago…"
+              class="whenin"
+            />
             <div class="nudge">
               <button class="ghost small" disabled={i === 0} onclick={() => move(i, -1)} title="Earlier">↑</button>
-              <button class="ghost small" disabled={i === events.length - 1} onclick={() => move(i, 1)} title="Later">↓</button>
+              <button class="ghost small" disabled={i === events.length - 1} onclick={() => move(i, 1)} title="Later"
+                >↓</button
+              >
             </div>
           </div>
           <div class="what">
             <div class="row title">
-              <DebouncedText value={row.data.name} onchange={(v) => p('/name', v)} class="etitle" placeholder="What happened" />
+              <DebouncedText
+                value={row.data.name}
+                onchange={(v) => p('/name', v)}
+                class="etitle"
+                placeholder="What happened"
+              />
               {#if row.data.visibility === 'gm'}<span class="tag gm">GM</span>{/if}
             </div>
             {#if editing === row.id}
-              <DebouncedText value={row.data.notes} onchange={(v) => p('/notes', v)} multiline rows={2}
-                placeholder="What happened, and to whom. Link anyone with [[their name]]." />
+              <DebouncedText
+                value={row.data.notes}
+                onchange={(v) => p('/notes', v)}
+                multiline
+                rows={2}
+                placeholder="What happened, and to whom. Link anyone with [[their name]]."
+              />
               <button class="ghost small" onclick={() => (editing = null)}>Done</button>
             {:else}
               <button class="asprose" onclick={() => (editing = row.id)} title="Click to edit">
@@ -101,19 +128,35 @@
             {/if}
             <div class="row who">
               {#each row.data.involves ?? [] as id}
-                <button class="pill who-pill" onclick={() => peek(app.characters[id] ? { kind: 'character', id } : { kind: 'record', id })}>{nameOf(id)}</button>
+                <button
+                  class="pill who-pill"
+                  onclick={() => peek(app.characters[id] ? { kind: 'character', id } : { kind: 'record', id })}
+                  >{nameOf(id)}</button
+                >
               {/each}
-              <select class="small" value="" onchange={(e) => { involve(row, (e.currentTarget as HTMLSelectElement).value); (e.currentTarget as HTMLSelectElement).value = ''; }} aria-label="Who was involved">
+              <select
+                class="small"
+                value=""
+                onchange={(e) => {
+                  involve(row, (e.currentTarget as HTMLSelectElement).value);
+                  (e.currentTarget as HTMLSelectElement).value = '';
+                }}
+                aria-label="Who was involved"
+              >
                 <option value="">+ who</option>
                 {#each people as person}
-                  {#if !(row.data.involves ?? []).includes(person.id)}<option value={person.id}>{person.name}</option>{/if}
+                  {#if !(row.data.involves ?? []).includes(person.id)}<option value={person.id}>{person.name}</option
+                    >{/if}
                 {/each}
               </select>
               {#if isGm()}
                 <span class="grow"></span>
                 <label class="chk small">
-                  <input type="checkbox" checked={row.data.visibility === 'gm'}
-                    onchange={(e) => p('/visibility', (e.currentTarget as HTMLInputElement).checked ? 'gm' : 'table')} />
+                  <input
+                    type="checkbox"
+                    checked={row.data.visibility === 'gm'}
+                    onchange={(e) => p('/visibility', (e.currentTarget as HTMLInputElement).checked ? 'gm' : 'table')}
+                  />
                   GM only
                 </label>
               {/if}
@@ -126,24 +169,100 @@
 </div>
 
 <style>
-  .page { padding: .75em 1em 1em; }
-  .head { gap: .5em; align-items: baseline; margin-bottom: .6em; }
-  .head h2 { font-size: 1.3em; }
-  .new { width: 14em; }
-  .line { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--border); }
-  .event { display: grid; grid-template-columns: minmax(7em, 10em) minmax(0, 1fr); gap: .3em .9em; padding: .6em .8em; position: relative; }
-  .event::before { content: ''; position: absolute; left: -.42em; top: 1.1em; width: .55em; height: .55em; border-radius: 50%; background: var(--fg-muted); }
-  .event.hidden::before { background: var(--accent); }
-  .event + .event { border-top: 1px solid var(--border); }
-  .when { display: flex; flex-direction: column; gap: .2em; }
-  .when :global(.whenin) { width: 100%; font-style: italic; }
-  .nudge { display: flex; gap: .2em; }
-  .what :global(.etitle) { font-weight: 600; width: 100%; }
-  .title { gap: .4em; }
-  .asprose { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0; cursor: text; color: inherit; font: inherit; }
-  .who { gap: .3em; margin-top: .3em; flex-wrap: wrap; }
-  .who-pill { cursor: pointer; background: none; }
-  .tag.gm { background: var(--accent-soft); color: var(--accent); }
-  .chk { display: inline-flex; align-items: center; gap: .3em; color: var(--fg-muted); }
-  .empty { padding: 1em 0; }
+  .page {
+    padding: 0.75em 1em 1em;
+  }
+  .head {
+    gap: 0.5em;
+    align-items: baseline;
+    margin-bottom: 0.6em;
+  }
+  .head h2 {
+    font-size: 1.3em;
+  }
+  .new {
+    width: 14em;
+  }
+  .line {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-left: 2px solid var(--border);
+  }
+  .event {
+    display: grid;
+    grid-template-columns: minmax(7em, 10em) minmax(0, 1fr);
+    gap: 0.3em 0.9em;
+    padding: 0.6em 0.8em;
+    position: relative;
+  }
+  .event::before {
+    content: '';
+    position: absolute;
+    left: -0.42em;
+    top: 1.1em;
+    width: 0.55em;
+    height: 0.55em;
+    border-radius: 50%;
+    background: var(--fg-muted);
+  }
+  .event.hidden::before {
+    background: var(--accent);
+  }
+  .event + .event {
+    border-top: 1px solid var(--border);
+  }
+  .when {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2em;
+  }
+  .when :global(.whenin) {
+    width: 100%;
+    font-style: italic;
+  }
+  .nudge {
+    display: flex;
+    gap: 0.2em;
+  }
+  .what :global(.etitle) {
+    font-weight: 600;
+    width: 100%;
+  }
+  .title {
+    gap: 0.4em;
+  }
+  .asprose {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: text;
+    color: inherit;
+    font: inherit;
+  }
+  .who {
+    gap: 0.3em;
+    margin-top: 0.3em;
+    flex-wrap: wrap;
+  }
+  .who-pill {
+    cursor: pointer;
+    background: none;
+  }
+  .tag.gm {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .chk {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    color: var(--fg-muted);
+  }
+  .empty {
+    padding: 1em 0;
+  }
 </style>

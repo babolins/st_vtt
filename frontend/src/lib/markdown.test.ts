@@ -40,7 +40,9 @@ describe('rendering a link', () => {
 
   it('works inside block markdown too', () => {
     setLinkResolver(() => ({ href: '#/n/abc', title: 'Record' }));
-    expect(render('- saw [[Cerys]]')).toBe('<ul><li>saw <a class="entity" href="#/n/abc" title="Record">Cerys</a></li></ul>');
+    expect(render('- saw [[Cerys]]')).toBe(
+      '<ul><li>saw <a class="entity" href="#/n/abc" title="Record">Cerys</a></li></ul>',
+    );
   });
 
   it('does not disturb ordinary emphasis', () => {

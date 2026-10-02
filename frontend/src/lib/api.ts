@@ -5,7 +5,10 @@ export const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) { super(message); this.status = status; }
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
 }
 
 async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
@@ -21,7 +24,10 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
       app.me = null;
     }
     let detail = res.statusText;
-    try { const j = await res.json(); detail = j.detail ?? j.error ?? detail; } catch {}
+    try {
+      const j = await res.json();
+      detail = j.detail ?? j.error ?? detail;
+    } catch {}
     throw new ApiError(res.status, typeof detail === 'string' ? detail : JSON.stringify(detail));
   }
   return res.json() as Promise<T>;

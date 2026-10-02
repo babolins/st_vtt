@@ -5,20 +5,46 @@ import type { Move } from './types';
 
 function move(name: string, trigger = '', text = '', extra: Partial<Move> = {}): Move {
   return {
-    id: name.toLowerCase().replace(/\W+/g, '_'), name, trigger, text,
-    roll: null, outcomes: {}, hold: null, tracks: {} as Move['tracks'],
-    requires: null, themes: [], tags: [], replaces: null, insert: null, grants: null,
-    options: [], min: null, max: null, ...extra,
+    id: name.toLowerCase().replace(/\W+/g, '_'),
+    name,
+    trigger,
+    text,
+    roll: null,
+    outcomes: {},
+    hold: null,
+    tracks: {} as Move['tracks'],
+    requires: null,
+    themes: [],
+    tags: [],
+    replaces: null,
+    insert: null,
+    grants: null,
+    options: [],
+    min: null,
+    max: null,
+    ...extra,
   };
 }
 
-const entry = (m: Move, label = 'Basic moves'): IndexedMove => ({ move: m, source: { kind: 'group', id: 'basic', label } });
+const entry = (m: Move, label = 'Basic moves'): IndexedMove => ({
+  move: m,
+  source: { kind: 'group', id: 'basic', label },
+});
 
 const clash = entry(move('Clash', 'When you fight in melee or close quarters...', '...roll +STR.'));
-const makeCamp = entry(move('Make Camp', 'When you settle in to rest in an unsafe area...', 'Consume 1 use of supplies.'));
-const defend = entry(move('Defend', 'When you take up a defensive stance or jump in to protect others...', 'Hold 3 Readiness.'));
-const tormentsBlessing = entry(move("Torment's Blessing: Word of Torment", 'When you speak the word...', 'They suffer.'), 'Thrall');
-const seekInsight = entry(move('Seek Insight', 'When you study a situation or person...', 'Ask the GM 3 questions from the list.'));
+const makeCamp = entry(
+  move('Make Camp', 'When you settle in to rest in an unsafe area...', 'Consume 1 use of supplies.'),
+);
+const defend = entry(
+  move('Defend', 'When you take up a defensive stance or jump in to protect others...', 'Hold 3 Readiness.'),
+);
+const tormentsBlessing = entry(
+  move("Torment's Blessing: Word of Torment", 'When you speak the word...', 'They suffer.'),
+  'Thrall',
+);
+const seekInsight = entry(
+  move('Seek Insight', 'When you study a situation or person...', 'Ask the GM 3 questions from the list.'),
+);
 const pack = [clash, makeCamp, defend, tormentsBlessing, seekInsight];
 
 const top = (q: string) => search(pack, q)[0]?.entry.move.name;

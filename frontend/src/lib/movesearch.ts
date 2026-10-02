@@ -77,8 +77,36 @@ function lineAround(text: string, at: number, len: number): string {
 }
 
 /** Words every trigger contains; matching on them tells you nothing. */
-const STOP = new Set(['the', 'a', 'an', 'and', 'or', 'of', 'to', 'in', 'on', 'at', 'for', 'with', 'you', 'your',
-  'when', 'that', 'this', 'it', 'is', 'are', 'be', 'as', 'by', 'from', 'one', 'someone', 'something', 'about']);
+const STOP = new Set([
+  'the',
+  'a',
+  'an',
+  'and',
+  'or',
+  'of',
+  'to',
+  'in',
+  'on',
+  'at',
+  'for',
+  'with',
+  'you',
+  'your',
+  'when',
+  'that',
+  'this',
+  'it',
+  'is',
+  'are',
+  'be',
+  'as',
+  'by',
+  'from',
+  'one',
+  'someone',
+  'something',
+  'about',
+]);
 
 /** "resting" also matches "rest": enough stemming to be useful, not enough to be wrong. */
 function stem(token: string): string {
@@ -90,7 +118,12 @@ function stem(token: string): string {
   return token;
 }
 
-interface Fields { name: string; trigger: string; body: string; where: string }
+interface Fields {
+  name: string;
+  trigger: string;
+  body: string;
+  where: string;
+}
 
 /** Earlier in a field counts for more: the opening clause is what a move is about. */
 function nearness(at: number): number {
@@ -99,7 +132,13 @@ function nearness(at: number): number {
 
 function tokenScore(t: string, f: Fields): { score: number; field: MatchField; at: number } | null {
   const stemmed = stem(t);
-  const tries: [string, number][] = stemmed === t ? [[t, 1]] : [[t, 1], [stemmed, 0.8]];
+  const tries: [string, number][] =
+    stemmed === t
+      ? [[t, 1]]
+      : [
+          [t, 1],
+          [stemmed, 0.8],
+        ];
   for (const [needle, weight] of tries) {
     let at = f.name.indexOf(needle);
     if (at >= 0) return { score: 90 * weight, field: 'name', at };
@@ -146,12 +185,24 @@ export function search(entries: IndexedMove[], query: string, limit = 60): Hit[]
     }
     if (at > 0) {
       const wordStart = /[\s\-—(]/.test(name[at - 1] ?? '');
-      hits.push({ entry, score: (wordStart ? 860 : 780) - name.length, field: 'name', marks: [[at, at + q.length]], snippet: '' });
+      hits.push({
+        entry,
+        score: (wordStart ? 860 : 780) - name.length,
+        field: 'name',
+        marks: [[at, at + q.length]],
+        snippet: '',
+      });
       continue;
     }
     const fuzzy = subsequence(name, squashed);
     if (fuzzy) {
-      hits.push({ entry, score: 600 + tightness(fuzzy, name) - name.length, field: 'name', marks: ranges(fuzzy), snippet: '' });
+      hits.push({
+        entry,
+        score: 600 + tightness(fuzzy, name) - name.length,
+        field: 'name',
+        marks: ranges(fuzzy),
+        snippet: '',
+      });
       continue;
     }
 
@@ -189,9 +240,7 @@ export function search(entries: IndexedMove[], query: string, limit = 60): Hit[]
     });
   }
 
-  return hits
-    .sort((a, b) => b.score - a.score || a.entry.move.name.localeCompare(b.entry.move.name))
-    .slice(0, limit);
+  return hits.sort((a, b) => b.score - a.score || a.entry.move.name.localeCompare(b.entry.move.name)).slice(0, limit);
 }
 
 /** Split a name into emphasised and plain runs, for rendering a hit. */

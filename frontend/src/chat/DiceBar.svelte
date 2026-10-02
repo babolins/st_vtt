@@ -50,8 +50,23 @@
 </div>
 
 <style>
-  .bar { border-top: 1px solid var(--border); padding: .4em .75em; display: flex; flex-direction: column; gap: .3em; background: var(--bg); }
-  .custom input { width: 7em; }
-  .opts { font-size: .9em; }
-  .opts label { display: inline-flex; gap: .25em; align-items: center; }
+  .bar {
+    border-top: 1px solid var(--border);
+    padding: 0.4em 0.75em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3em;
+    background: var(--bg);
+  }
+  .custom input {
+    width: 7em;
+  }
+  .opts {
+    font-size: 0.9em;
+  }
+  .opts label {
+    display: inline-flex;
+    gap: 0.25em;
+    align-items: center;
+  }
 </style>

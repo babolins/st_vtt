@@ -24,7 +24,9 @@
 
   /** The stats this roll can use: a shared sheet's own, or the pack's character stats. */
   const statList = $derived(
-    sheetDef ? sheetDef.stats.map((s) => ({ id: s.id, label: s.label })) : content.pack.stats.map((s) => ({ id: s.id, label: s.label })),
+    sheetDef
+      ? sheetDef.stats.map((s) => ({ id: s.id, label: s.label }))
+      : content.pack.stats.map((s) => ({ id: s.id, label: s.label })),
   );
   const statLabel = (id: string) => statList.find((s) => s.id === id)?.label ?? id;
 
@@ -38,7 +40,9 @@
     return Array.isArray(spec.stat) ? spec.stat : [spec.stat];
   });
   let stat = $state<string | null>(null);
-  $effect(() => { if (stat === null || !statChoices.includes(stat)) stat = statChoices[0] ?? null; });
+  $effect(() => {
+    if (stat === null || !statChoices.includes(stat)) stat = statChoices[0] ?? null;
+  });
 
   const modifiers = $derived(spec?.modifiers ?? []);
   let picks = $state<Record<string, number>>({});
@@ -55,9 +59,11 @@
 
   // Debilities only apply to characters, never to a shared sheet.
   const autoDis = $derived(
-    !sharedId && doc && stat ? content.pack.debilities.filter((d) => doc.debilities[d.id] && d.affects.includes(stat!)).map((d) => d.label) : [],
+    !sharedId && doc && stat
+      ? content.pack.debilities.filter((d) => doc.debilities[d.id] && d.affects.includes(stat!)).map((d) => d.label)
+      : [],
   );
-  const statMod = $derived(doc && stat ? doc.stats[stat] ?? 0 : 0);
+  const statMod = $derived(doc && stat ? (doc.stats[stat] ?? 0) : 0);
   const label = $derived(req.label ?? req.move?.name ?? 'Roll');
   const total = $derived(statMod + bonus + modTotal + (spec?.bonus ?? 0));
 
@@ -85,7 +91,8 @@
     {#if sharedId}
       <div class="muted small">Rolling for <strong>{sheet?.data.name ?? 'a shared sheet'}</strong></div>
     {:else if candidates.length > 1}
-      <label class="field">Character
+      <label class="field"
+        >Character
         <select bind:value={characterId}>
           {#each candidates as c}<option value={c.id}>{c.data.name || '(unnamed)'}</option>{/each}
         </select>
@@ -96,7 +103,9 @@
       <div class="row">
         <span class="muted small lbl">Stat</span>
         {#each statChoices as s}
-          <button class="small" class:primary={stat === s} onclick={() => (stat = s)}>{statLabel(s)} {fmtMod(doc?.stats[s] ?? 0)}</button>
+          <button class="small" class:primary={stat === s} onclick={() => (stat = s)}
+            >{statLabel(s)} {fmtMod(doc?.stats[s] ?? 0)}</button
+          >
         {/each}
       </div>
     {:else if statChoices.length === 1}
@@ -108,7 +117,10 @@
     {#each modifiers as m (m.id)}
       <label class="field">
         {m.label}
-        <select value={picks[m.id] ?? m.default} onchange={(e) => (picks[m.id] = Number((e.target as HTMLSelectElement).value))}>
+        <select
+          value={picks[m.id] ?? m.default}
+          onchange={(e) => (picks[m.id] = Number((e.target as HTMLSelectElement).value))}
+        >
           {#each m.options as o}<option value={o.value}>{o.label} ({fmtMod(o.value)})</option>{/each}
         </select>
         {#if m.help}<span class="muted small">{m.help}</span>{/if}
@@ -122,17 +134,33 @@
     <div class="row opts">
       <label><input type="checkbox" bind:checked={adv} /> advantage</label>
       <label><input type="checkbox" bind:checked={disadv} /> disadvantage</label>
-      <span class="row"><span class="muted small">bonus</span><Stepper value={bonus} min={MIN_BONUS} max={MAX_BONUS} onchange={(v) => (bonus = v)} /></span>
+      <span class="row"
+        ><span class="muted small">bonus</span><Stepper
+          value={bonus}
+          min={MIN_BONUS}
+          max={MAX_BONUS}
+          onchange={(v) => (bonus = v)}
+        /></span
+      >
       <label><input type="checkbox" bind:checked={gmOnly} /> GM only</label>
     </div>
 
     <div class="row total muted small">
-      {content.pack.roll.base}{#if adv !== disadv} ({adv ? 'advantage' : 'disadvantage'}){/if} {fmtMod(total)} total modifier
+      {content.pack.roll.base}{#if adv !== disadv}
+        ({adv ? 'advantage' : 'disadvantage'}){/if}
+      {fmtMod(total)} total modifier
     </div>
 
     <div class="row" style="justify-content:flex-end">
       {#if req.move}
-        <button class="ghost" onclick={() => { send({ type: 'share_move', character_id: sharedId ? null : characterId, move_id: req.move!.id }).catch(() => {}); }}>Share text</button>
+        <button
+          class="ghost"
+          onclick={() => {
+            send({ type: 'share_move', character_id: sharedId ? null : characterId, move_id: req.move!.id }).catch(
+              () => {},
+            );
+          }}>Share text</button
+        >
       {/if}
       <span class="grow"></span>
       <button onclick={onclose}>Cancel</button>
@@ -142,10 +170,30 @@
 </Modal>
 
 <style>
-  .warn { color: var(--warn); }
-  label { display: inline-flex; gap: .3em; align-items: center; color: var(--fg); }
-  .field { display: flex; flex-direction: column; gap: .2em; align-items: stretch; }
-  .lbl { min-width: 2.5em; color: var(--label-color); }
-  .opts { gap: .75em; }
-  .total { border-top: 1px dashed var(--border); padding-top: .4em; }
+  .warn {
+    color: var(--warn);
+  }
+  label {
+    display: inline-flex;
+    gap: 0.3em;
+    align-items: center;
+    color: var(--fg);
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2em;
+    align-items: stretch;
+  }
+  .lbl {
+    min-width: 2.5em;
+    color: var(--label-color);
+  }
+  .opts {
+    gap: 0.75em;
+  }
+  .total {
+    border-top: 1px dashed var(--border);
+    padding-top: 0.4em;
+  }
 </style>

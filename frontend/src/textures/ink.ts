@@ -96,7 +96,9 @@ export function ruleTile(seed: number, width = 320, bar = 3.2, height = 4.4): st
 /** A chipped outline with chamfered corners, for border-image (9-slice). */
 export function boxTile(seed: number, ink = INK, size = 32, stroke = 5, chamfer = 8): string {
   const rng = seeded(seed);
-  const s = stroke / 2, c = chamfer, h = size;
+  const s = stroke / 2,
+    c = chamfer,
+    h = size;
   const path =
     `M${f(c)},${f(s)} L${f(h - c)},${f(s)} L${f(h - s)},${f(c)} ` +
     `L${f(h - s)},${f(h - c)} L${f(h - c)},${f(h - s)} L${f(c)},${f(h - s)} ` +
@@ -106,13 +108,19 @@ export function boxTile(seed: number, ink = INK, size = 32, stroke = 5, chamfer 
     // Knock chips off wherever the stroke runs, biased to the edges.
     const side = 'tblr'[Math.floor(rng.random() * 4)];
     const along = rng.uniform(c * 0.4, h - c * 0.4);
-    const w = rng.uniform(1.0, 3.0), d = rng.uniform(0.9, 2.3);
+    const w = rng.uniform(1.0, 3.0),
+      d = rng.uniform(0.9, 2.3);
     if (side === 't') chips.push(`<rect x="${f(along)}" y="-0.2" width="${f(w)}" height="${f(d)}"/>`);
     else if (side === 'b') chips.push(`<rect x="${f(along)}" y="${f(h - d + 0.2)}" width="${f(w)}" height="${f(d)}"/>`);
     else if (side === 'l') chips.push(`<rect x="-0.2" y="${f(along)}" width="${f(d)}" height="${f(w)}"/>`);
     else chips.push(`<rect x="${f(h - d + 0.2)}" y="${f(along)}" width="${f(d)}" height="${f(w)}"/>`);
   }
-  return svg(h, h, wearMask(h, h, chips) + `<path d="${path}" fill="none" stroke="${ink}" stroke-width="${stroke}" mask="url(#wear)"/>`);
+  return svg(
+    h,
+    h,
+    wearMask(h, h, chips) +
+      `<path d="${path}" fill="none" stroke="${ink}" stroke-width="${stroke}" mask="url(#wear)"/>`,
+  );
 }
 
 /** Every texture the paper theme uses, by the file name app.css asks for. */

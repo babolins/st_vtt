@@ -4,7 +4,10 @@
 export function splitPointer(path: string): string[] {
   if (path === '') return [];
   if (!path.startsWith('/')) throw new Error(`bad pointer ${path}`);
-  return path.slice(1).split('/').map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'));
+  return path
+    .slice(1)
+    .split('/')
+    .map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'));
 }
 
 export function escapeToken(tok: string): string {
@@ -40,7 +43,8 @@ export function applyPointer(doc: any, path: string, value: any, op: PatchOp = '
   if (op === 'list_add' || op === 'list_remove') {
     let list = getPointer(doc, path);
     if (!Array.isArray(list)) list = [];
-    const next = op === 'list_add' ? (list.includes(value) ? list : [...list, value]) : list.filter((x: any) => x !== value);
+    const next =
+      op === 'list_add' ? (list.includes(value) ? list : [...list, value]) : list.filter((x: any) => x !== value);
     applyPointer(doc, path, next, 'set');
     return;
   }

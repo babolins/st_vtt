@@ -55,31 +55,43 @@
     if (!doc.name?.trim()) items.push('Choose a name');
     const arr = pb?.stat_array ?? content.pack.stat_array;
     if (arr.length) {
-      const have = Object.values(doc.stats ?? {}).slice().sort((a, b) => a - b).join(',');
-      const want = arr.slice().sort((a, b) => a - b).join(',');
+      const have = Object.values(doc.stats ?? {})
+        .slice()
+        .sort((a, b) => a - b)
+        .join(',');
+      const want = arr
+        .slice()
+        .sort((a, b) => a - b)
+        .join(',');
       if (have !== want) items.push(`Assign stats from ${arr.map((n) => (n >= 0 ? '+' + n : n)).join(', ')}`);
     }
     for (const sec of sheetSections) {
       if (!sec.required) continue;
       const v = doc.sections?.[sec.id];
-      if (sec.type === 'choose' && (v === null || v === undefined || v === '')) items.push(`Choose ${sec.title.toLowerCase()}`);
+      if (sec.type === 'choose' && (v === null || v === undefined || v === ''))
+        items.push(`Choose ${sec.title.toLowerCase()}`);
       else if (sec.type === 'multichoose') {
         const need = (sec.min ?? 1) - ((v as string[])?.length ?? 0);
         if (need > 0) items.push(`${sec.title}: pick ${need} more`);
-      } else if (sec.type === 'checklist' && !((v as string[])?.length)) items.push(`${sec.title}: check at least one`);
+      } else if (sec.type === 'checklist' && !(v as string[])?.length) items.push(`${sec.title}: check at least one`);
       else if (sec.type === 'lines') {
         const picks = (v ?? {}) as Record<string, string | null>;
-        const missing = sec.lines.filter((ln) => !picks[ln.id] && !(doc.option_text[sec.id]?.[ln.id] ?? '').trim()).length;
+        const missing = sec.lines.filter(
+          (ln) => !picks[ln.id] && !(doc.option_text[sec.id]?.[ln.id] ?? '').trim(),
+        ).length;
         if (missing) items.push(`${sec.title}: choose 1 on ${missing} more line${missing > 1 ? 's' : ''}`);
       } else if (sec.type === 'names' && !String((v as { name?: string })?.name ?? '').trim()) {
         items.push(`Choose ${sec.title.toLowerCase()}`);
       } else if (sec.type === 'text' && !String(v ?? '').trim()) items.push(`Fill in ${sec.title.toLowerCase()}`);
-      else if (sec.type === 'table' && !((v as unknown[])?.length)) items.push(`${sec.title}: add at least one row`);
+      else if (sec.type === 'table' && !(v as unknown[])?.length) items.push(`${sec.title}: add at least one row`);
       items.push(...subChoiceGaps(sec));
     }
     for (const c of pb?.starting_moves.choose ?? []) {
       const have = c.from.filter((id) => doc.moves.taken.includes(id)).length;
-      if (have < c.n) items.push(`Choose ${c.n - have} more starting move${c.n - have > 1 ? 's' : ''} (${c.from.map((id) => pb?.moves.find((m) => m.id === id)?.name ?? id).join(' / ')}) using + Move in the Moves section`);
+      if (have < c.n)
+        items.push(
+          `Choose ${c.n - have} more starting move${c.n - have > 1 ? 's' : ''} (${c.from.map((id) => pb?.moves.find((m) => m.id === id)?.name ?? id).join(' / ')}) using + Move in the Moves section`,
+        );
     }
     return items;
   });
@@ -90,19 +102,36 @@
   });
 
   async function exportJson() {
-    try { download(`${doc.name || 'character'}.json`, await api.get(`/api/characters/${row.id}/export`)); } catch (e) { toast((e as Error).message, 'error'); }
+    try {
+      download(`${doc.name || 'character'}.json`, await api.get(`/api/characters/${row.id}/export`));
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
   }
   async function remove() {
-    try { await api.del(`/api/characters/${row.id}`); } catch (e) { toast((e as Error).message, 'error'); }
+    try {
+      await api.del(`/api/characters/${row.id}`);
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
   }
   async function setOwner(e: Event) {
     const owner = (e.target as HTMLSelectElement).value || null;
-    try { await api.post(`/api/characters/${row.id}/owner`, { owner }); } catch (err) { toast((err as Error).message, 'error'); }
+    try {
+      await api.post(`/api/characters/${row.id}/owner`, { owner });
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    }
   }
   const inserts = $derived(doc.inserts);
 </script>
 
-<Collapsible id="char.{row.id}" title={doc.name || '(unnamed)'} level={2} subtitle="{pb?.name ?? doc.playbook} · {row.owner ?? 'unowned'}">
+<Collapsible
+  id="char.{row.id}"
+  title={doc.name || '(unnamed)'}
+  level={2}
+  subtitle="{pb?.name ?? doc.playbook} · {row.owner ?? 'unowned'}"
+>
   {#snippet right()}
     <!-- The numbers consulted constantly, kept on screen while the sheet scrolls
          past: on a 4,400px sheet the stat block is otherwise long gone. -->
@@ -122,17 +151,23 @@
       </select>
     {/if}
     <button class="ghost small" onclick={exportJson} title="Export JSON">⇩</button>
-    {#if editable}<button class="ghost small danger" onclick={() => (confirmDelete = true)} title="Delete">🗑</button>{/if}
+    {#if editable}<button class="ghost small danger" onclick={() => (confirmDelete = true)} title="Delete">🗑</button
+      >{/if}
   {/snippet}
 
   {#if !pb}
-    <p class="muted">Unknown playbook <code>{doc.playbook}</code>: the content pack has no definition for it, so only core sections are shown.</p>
+    <p class="muted">
+      Unknown playbook <code>{doc.playbook}</code>: the content pack has no definition for it, so only core sections are
+      shown.
+    </p>
   {/if}
 
   {#if editable && !doc.creation_done && checklist.length}
     <div class="checklist">
       <strong>Character creation</strong>
-      <ul>{#each checklist as item}<li>{item}</li>{/each}</ul>
+      <ul>
+        {#each checklist as item}<li>{item}</li>{/each}
+      </ul>
       <button class="small" onclick={() => p('/creation_done', true)}>Hide checklist</button>
     </div>
   {/if}
@@ -141,7 +176,14 @@
   <Stats {doc} {p} {editable} {pb} />
 
   {#each pb?.sections ?? [] as sec (sec.id)}
-    <GenericSection section={sec} value={doc.sections?.[sec.id]} {editable} basePath={`/sections/${sec.id}`} {doc} {p} />
+    <GenericSection
+      section={sec}
+      value={doc.sections?.[sec.id]}
+      {editable}
+      basePath={`/sections/${sec.id}`}
+      {doc}
+      {p}
+    />
   {/each}
 
   <Moves {doc} {p} {editable} {pb} characterId={row.id} />
@@ -153,14 +195,42 @@
 </Collapsible>
 
 {#if confirmDelete}
-  <Confirm title="Delete {doc.name || 'this character'}?" text="Export it first if you want a backup." onyes={remove} onclose={() => (confirmDelete = false)} />
+  <Confirm
+    title="Delete {doc.name || 'this character'}?"
+    text="Export it first if you want a backup."
+    onyes={remove}
+    onclose={() => (confirmDelete = false)}
+  />
 {/if}
 
 <style>
-  .vitals { display: inline-flex; gap: .55em; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
-  .vitals .hurt { color: var(--bad); font-weight: 600; }
-  .vitals .deb { color: var(--warn); font-style: italic; }
-  @media (max-width: 700px) { .vitals { display: none; } }
-  .checklist { background: var(--accent-soft); border: var(--checklist-border); border-radius: var(--radius-sm); padding: .5em .75em; margin: .25em 0 .5em; }
-  .checklist ul { margin: .25em 0 .5em; }
+  .vitals {
+    display: inline-flex;
+    gap: 0.55em;
+    color: var(--fg-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .vitals .hurt {
+    color: var(--bad);
+    font-weight: 600;
+  }
+  .vitals .deb {
+    color: var(--warn);
+    font-style: italic;
+  }
+  @media (max-width: 700px) {
+    .vitals {
+      display: none;
+    }
+  }
+  .checklist {
+    background: var(--accent-soft);
+    border: var(--checklist-border);
+    border-radius: var(--radius-sm);
+    padding: 0.5em 0.75em;
+    margin: 0.25em 0 0.5em;
+  }
+  .checklist ul {
+    margin: 0.25em 0 0.5em;
+  }
 </style>

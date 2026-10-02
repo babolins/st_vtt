@@ -10,7 +10,11 @@
   let gmOpen = $state(false);
 
   async function logout() {
-    if (app.unsaved && !confirm(`${app.unsaved} unsaved ${app.unsaved === 1 ? 'edit' : 'edits'} will be lost. Log out anyway?`)) return;
+    if (
+      app.unsaved &&
+      !confirm(`${app.unsaved} unsaved ${app.unsaved === 1 ? 'edit' : 'edits'} will be lost. Log out anyway?`)
+    )
+      return;
     await api.post('/api/logout');
     disconnect();
     app.me = null;
@@ -29,7 +33,12 @@
     <span class="grow"></span>
     <span class="presence" title="online">
       {#each app.users as u}
-        <span class="who" class:on={app.online.includes(u.name)} class:me={u.name === app.me?.name} title="{u.name} ({u.role}){app.online.includes(u.name) ? ', online' : ''}">
+        <span
+          class="who"
+          class:on={app.online.includes(u.name)}
+          class:me={u.name === app.me?.name}
+          title="{u.name} ({u.role}){app.online.includes(u.name) ? ', online' : ''}"
+        >
           <span class="dot"></span>{u.name}
         </span>
       {/each}
@@ -40,7 +49,9 @@
     {#if isGm()}
       <button class="small" class:primary={gmOpen} onclick={() => (gmOpen = !gmOpen)}>GM tools</button>
     {/if}
-    <button class="ghost small" onclick={() => (theme = nextTheme())} title="Theme: light, dark, paper">{THEME_GLYPH[theme]}</button>
+    <button class="ghost small" onclick={() => (theme = nextTheme())} title="Theme: light, dark, paper"
+      >{THEME_GLYPH[theme]}</button
+    >
     <button class="ghost small" onclick={logout} title="Log out">Log out</button>
   </div>
   {#if gmOpen && isGm()}
@@ -50,17 +61,51 @@
 
 <style>
   header {
-    grid-column: 1 / -1; grid-row: 1; border-bottom: var(--header-border);
+    grid-column: 1 / -1;
+    grid-row: 1;
+    border-bottom: var(--header-border);
     background: var(--bg-elev) var(--header-rule) left bottom / auto var(--heading-rule-height) repeat-x;
   }
-  .bar { padding: .4em .75em; }
-  .title { font-size: 1.1em; }
-  .presence { display: inline-flex; gap: .5em; flex-wrap: wrap; }
-  .who { display: inline-flex; align-items: center; gap: .3em; font-size: .85em; color: var(--fg-muted); }
-  .who.on { color: var(--fg); }
-  .who.me { font-weight: 600; }
-  .dot { width: .55em; height: .55em; border-radius: 50%; background: var(--border); }
-  .on .dot { background: var(--ok); }
-  .pill.bad { color: var(--bad); border-color: var(--bad); }
-  @media (max-width: 700px) { .presence { display: none; } }
+  .bar {
+    padding: 0.4em 0.75em;
+  }
+  .title {
+    font-size: 1.1em;
+  }
+  .presence {
+    display: inline-flex;
+    gap: 0.5em;
+    flex-wrap: wrap;
+  }
+  .who {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    font-size: 0.85em;
+    color: var(--fg-muted);
+  }
+  .who.on {
+    color: var(--fg);
+  }
+  .who.me {
+    font-weight: 600;
+  }
+  .dot {
+    width: 0.55em;
+    height: 0.55em;
+    border-radius: 50%;
+    background: var(--border);
+  }
+  .on .dot {
+    background: var(--ok);
+  }
+  .pill.bad {
+    color: var(--bad);
+    border-color: var(--bad);
+  }
+  @media (max-width: 700px) {
+    .presence {
+      display: none;
+    }
+  }
 </style>

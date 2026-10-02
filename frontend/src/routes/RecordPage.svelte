@@ -18,5 +18,8 @@
 </div>
 
 <style>
-  .page { padding: .75em 1em 1em; max-width: 46em; }
+  .page {
+    padding: 0.75em 1em 1em;
+    max-width: 46em;
+  }
 </style>

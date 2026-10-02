@@ -12,18 +12,40 @@
   import MoveCard from './MoveCard.svelte';
   import { renderInline } from '../../lib/markdown';
 
-  let { doc, p, editable, characterId }: { doc: CharacterDoc; p: Patcher; editable: boolean; characterId: string } = $props();
+  let { doc, p, editable, characterId }: { doc: CharacterDoc; p: Patcher; editable: boolean; characterId: string } =
+    $props();
   const library = $derived(app.content!.arcana);
   const list = $derived(doc.arcana ?? []);
   let pick = $state('');
 
   function blank(): ArcanumInstance {
-    return { id: uid(), ref: null, name: '', kind: 'minor', tags: [], description: '', questions: [], answers: {}, prerequisites: '', moves: [], trackers: [], state: {}, notes: '' };
+    return {
+      id: uid(),
+      ref: null,
+      name: '',
+      kind: 'minor',
+      tags: [],
+      description: '',
+      questions: [],
+      answers: {},
+      prerequisites: '',
+      moves: [],
+      trackers: [],
+      state: {},
+      notes: '',
+    };
   }
   function addFromLibrary() {
     const src = library.find((a) => a.id === pick);
     if (!src) return;
-    const inst: ArcanumInstance = { ...blank(), ...JSON.parse(JSON.stringify(src)), id: uid(), ref: src.id, answers: {}, notes: "" };
+    const inst: ArcanumInstance = {
+      ...blank(),
+      ...JSON.parse(JSON.stringify(src)),
+      id: uid(),
+      ref: src.id,
+      answers: {},
+      notes: '',
+    };
     inst.state = Object.fromEntries(src.trackers.map((t) => [t.id, t.type === 'toggle' ? false : 0]));
     p('/arcana/-', inst);
     pick = '';
@@ -60,7 +82,14 @@
         {#if editable}<button class="ghost small danger" onclick={() => p(base, null, 'remove')}>✕</button>{/if}
       </div>
       {#if custom}
-        <DebouncedText multiline rows={3} value={a.description} path={`${base}/description`} readonly={!editable} placeholder="Description (markdown)" />
+        <DebouncedText
+          multiline
+          rows={3}
+          value={a.description}
+          path={`${base}/description`}
+          readonly={!editable}
+          placeholder="Description (markdown)"
+        />
       {:else}
         <Markdown text={a.description} />
       {/if}
@@ -68,8 +97,13 @@
       {#if a.questions?.length}
         <div class="qs">
           {#each a.questions as q, qi}
-            <label class="q">{q}
-              <DebouncedText value={a.answers?.[String(qi)] ?? ''} path={`${base}/answers/${qi}`} readonly={!editable} />
+            <label class="q"
+              >{q}
+              <DebouncedText
+                value={a.answers?.[String(qi)] ?? ''}
+                path={`${base}/answers/${qi}`}
+                readonly={!editable}
+              />
             </label>
           {/each}
         </div>
@@ -81,31 +115,93 @@
               <span class="muted small">{t.label}</span>
               {#if t.type === 'pips'}
                 <!-- an arcanum's boxes are charges: circles, like the book -->
-                <Pips shape="circle" value={Number(a.state?.[t.id]) || 0} max={t.max ?? 3} onchange={(v) => p(`${base}/state/${t.id}`, v)} path={`${base}/state/${t.id}`} disabled={!editable} />
+                <Pips
+                  shape="circle"
+                  value={Number(a.state?.[t.id]) || 0}
+                  max={t.max ?? 3}
+                  onchange={(v) => p(`${base}/state/${t.id}`, v)}
+                  path={`${base}/state/${t.id}`}
+                  disabled={!editable}
+                />
               {:else if t.type === 'counter'}
-                <Stepper value={Number(a.state?.[t.id]) || 0} min={0} max={t.max ?? Infinity} onchange={(v) => p(`${base}/state/${t.id}`, v)} path={`${base}/state/${t.id}`} disabled={!editable} />
+                <Stepper
+                  value={Number(a.state?.[t.id]) || 0}
+                  min={0}
+                  max={t.max ?? Infinity}
+                  onchange={(v) => p(`${base}/state/${t.id}`, v)}
+                  path={`${base}/state/${t.id}`}
+                  disabled={!editable}
+                />
               {:else}
-                <input type="checkbox" checked={!!a.state?.[t.id]} disabled={!editable} onchange={(e) => p(`${base}/state/${t.id}`, (e.target as HTMLInputElement).checked)} />
+                <input
+                  type="checkbox"
+                  checked={!!a.state?.[t.id]}
+                  disabled={!editable}
+                  onchange={(e) => p(`${base}/state/${t.id}`, (e.target as HTMLInputElement).checked)}
+                />
               {/if}
             </span>
           {/each}
         </div>
       {/if}
       {#each a.moves ?? [] as m (m.id)}
-        <MoveCard move={m} {characterId} {editable} {doc} {p} tracks={doc.moves.tracks[m.id]} ontrack={(kind, v) => p(`/moves/tracks/${m.id}/${kind}`, v)} />
+        <MoveCard
+          move={m}
+          {characterId}
+          {editable}
+          {doc}
+          {p}
+          tracks={doc.moves.tracks[m.id]}
+          ontrack={(kind, v) => p(`/moves/tracks/${m.id}/${kind}`, v)}
+        />
       {/each}
-      <DebouncedText multiline rows={2} value={a.notes ?? ''} path={`${base}/notes`} readonly={!editable} placeholder="Notes" />
+      <DebouncedText
+        multiline
+        rows={2}
+        value={a.notes ?? ''}
+        path={`${base}/notes`}
+        readonly={!editable}
+        placeholder="Notes"
+      />
     </div>
   {/each}
   {#if list.length === 0}<p class="muted small">No arcana.</p>{/if}
 </Collapsible>
 
 <style>
-  .arc { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5em .75em; margin: .4em 0; background: var(--bg); display: flex; flex-direction: column; gap: .4em; }
-  :global(.aname) { font-weight: 600; width: 14em; }
-  :global(.akind) { width: 6em; }
-  .qs { display: flex; flex-direction: column; gap: .25em; }
-  .q { display: flex; flex-direction: column; gap: .1em; color: var(--fg); font-size: .95em; }
-  .trackers { gap: 1em; }
-  .tr { gap: .4em; }
+  .arc {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.5em 0.75em;
+    margin: 0.4em 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+  }
+  :global(.aname) {
+    font-weight: 600;
+    width: 14em;
+  }
+  :global(.akind) {
+    width: 6em;
+  }
+  .qs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+  }
+  .q {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1em;
+    color: var(--fg);
+    font-size: 0.95em;
+  }
+  .trackers {
+    gap: 1em;
+  }
+  .tr {
+    gap: 0.4em;
+  }
 </style>

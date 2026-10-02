@@ -12,8 +12,22 @@
   import { peek, type Place } from '../lib/router.svelte';
   import { userColor } from '../lib/util';
 
-  interface Node { id: string; name: string; place: Place; kind: 'record' | 'character'; hidden: boolean; x: number; y: number; vx: number; vy: number }
-  interface Edge { from: string; to: string; type: string }
+  interface Node {
+    id: string;
+    name: string;
+    place: Place;
+    kind: 'record' | 'character';
+    hidden: boolean;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+  }
+  interface Edge {
+    from: string;
+    to: string;
+    type: string;
+  }
 
   const W = 900;
   const H = 560;
@@ -43,7 +57,17 @@
     const add = (id: string, name: string, place: Place, kind: Node['kind'], hidden: boolean) => {
       const a = seeded(id) * Math.PI * 2;
       const r = 120 + seeded(id + 'r') * 150;
-      nodes.push({ id, name, place, kind, hidden, x: W / 2 + Math.cos(a) * r, y: H / 2 + Math.sin(a) * r, vx: 0, vy: 0 });
+      nodes.push({
+        id,
+        name,
+        place,
+        kind,
+        hidden,
+        x: W / 2 + Math.cos(a) * r,
+        y: H / 2 + Math.sin(a) * r,
+        vx: 0,
+        vy: 0,
+      });
     };
     for (const row of people) {
       add(row.id, row.data.name || 'Unnamed', { kind: 'record', id: row.id }, 'record', row.data.visibility === 'gm');
@@ -81,8 +105,10 @@
         const pull = (d * d) / k;
         const fx = (dx / d) * pull;
         const fy = (dy / d) * pull;
-        a.vx -= fx; a.vy -= fy;
-        b.vx += fx; b.vy += fy;
+        a.vx -= fx;
+        a.vy -= fy;
+        b.vx += fx;
+        b.vy += fy;
       }
       for (const n of nodes) {
         const speed = Math.hypot(n.vx, n.vy) || 0.01;
@@ -111,7 +137,9 @@
   });
 
   const near = (id: string) =>
-    hover === null || hover === id || graph.edges.some((e) => (e.from === hover && e.to === id) || (e.to === hover && e.from === id));
+    hover === null ||
+    hover === id ||
+    graph.edges.some((e) => (e.from === hover && e.to === id) || (e.to === hover && e.from === id));
 </script>
 
 <div class="card page">
@@ -121,9 +149,17 @@
   </div>
 
   {#if !graph.edges.length}
-    <p class="muted empty">No ties yet. Open anyone under People and say who they are to someone — “deputy-of”, “sidekick-of”, “sweet-on” — and they will appear here.</p>
+    <p class="muted empty">
+      No ties yet. Open anyone under People and say who they are to someone — “deputy-of”, “sidekick-of”, “sweet-on” —
+      and they will appear here.
+    </p>
   {:else}
-    <svg viewBox="0 0 {W} {H}" class="graph" role="img" aria-label="Relationships between the people this campaign remembers">
+    <svg
+      viewBox="0 0 {W} {H}"
+      class="graph"
+      role="img"
+      aria-label="Relationships between the people this campaign remembers"
+    >
       {#each graph.edges as e}
         {@const a = graph.index.get(e.from)}
         {@const b = graph.index.get(e.to)}
@@ -135,31 +171,82 @@
         {/if}
       {/each}
       {#each graph.nodes as n}
-        <g class="node" class:dim={!near(n.id)} class:character={n.kind === 'character'}
-           onmouseenter={() => (hover = n.id)} onmouseleave={() => (hover = null)}
-           onclick={() => peek(n.place)} role="button" tabindex="0"
-           onkeydown={(e) => e.key === 'Enter' && peek(n.place)}>
-          <circle cx={n.x} cy={n.y} r={n.kind === 'character' ? 9 : 6}
-                  style={n.kind === 'character' ? `fill: ${userColor(n.name)}` : ''} />
-          <text x={n.x} y={n.y - 13} text-anchor="middle">{n.name}{#if n.hidden}&nbsp;·&nbsp;GM{/if}</text>
+        <g
+          class="node"
+          class:dim={!near(n.id)}
+          class:character={n.kind === 'character'}
+          onmouseenter={() => (hover = n.id)}
+          onmouseleave={() => (hover = null)}
+          onclick={() => peek(n.place)}
+          role="button"
+          tabindex="0"
+          onkeydown={(e) => e.key === 'Enter' && peek(n.place)}
+        >
+          <circle
+            cx={n.x}
+            cy={n.y}
+            r={n.kind === 'character' ? 9 : 6}
+            style={n.kind === 'character' ? `fill: ${userColor(n.name)}` : ''}
+          />
+          <text x={n.x} y={n.y - 13} text-anchor="middle"
+            >{n.name}{#if n.hidden}&nbsp;·&nbsp;GM{/if}</text
+          >
         </g>
       {/each}
     </svg>
-    <p class="small muted key">Larger marks are player characters. Hover to isolate someone's ties; click to open them.</p>
+    <p class="small muted key">
+      Larger marks are player characters. Hover to isolate someone's ties; click to open them.
+    </p>
   {/if}
 </div>
 
 <style>
-  .page { padding: .75em 1em 1em; }
-  .head { gap: .5em; align-items: baseline; margin-bottom: .5em; }
-  .head h2 { font-size: 1.3em; }
-  .graph { width: 100%; height: auto; display: block; }
-  .edge line { stroke: var(--border); stroke-width: 1.5; }
-  .edge text { fill: var(--fg-muted); font-size: 11px; }
-  .node circle { fill: var(--fg); stroke: var(--bg-elev); stroke-width: 2; cursor: pointer; }
-  .node text { fill: var(--fg); font-size: 13px; font-weight: 600; cursor: pointer; }
-  .node:hover circle { stroke: var(--accent); }
-  .dim { opacity: .25; }
-  .empty { padding: 1em 0; }
-  .key { margin-top: .5em; }
+  .page {
+    padding: 0.75em 1em 1em;
+  }
+  .head {
+    gap: 0.5em;
+    align-items: baseline;
+    margin-bottom: 0.5em;
+  }
+  .head h2 {
+    font-size: 1.3em;
+  }
+  .graph {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .edge line {
+    stroke: var(--border);
+    stroke-width: 1.5;
+  }
+  .edge text {
+    fill: var(--fg-muted);
+    font-size: 11px;
+  }
+  .node circle {
+    fill: var(--fg);
+    stroke: var(--bg-elev);
+    stroke-width: 2;
+    cursor: pointer;
+  }
+  .node text {
+    fill: var(--fg);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .node:hover circle {
+    stroke: var(--accent);
+  }
+  .dim {
+    opacity: 0.25;
+  }
+  .empty {
+    padding: 1em 0;
+  }
+  .key {
+    margin-top: 0.5em;
+  }
 </style>

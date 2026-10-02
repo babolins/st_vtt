@@ -7,20 +7,38 @@
   import Stepper from '../../ui/Stepper.svelte';
   import MoveCard from './MoveCard.svelte';
 
-  let { doc, p, editable, pb, characterId }: { doc: CharacterDoc; p: Patcher; editable: boolean; pb: Playbook | undefined; characterId: string } = $props();
+  let {
+    doc,
+    p,
+    editable,
+    pb,
+    characterId,
+  }: { doc: CharacterDoc; p: Patcher; editable: boolean; pb: Playbook | undefined; characterId: string } = $props();
   const content = $derived(app.content!);
   const index = $derived(moveIndex(content, doc));
-  const sharedIds = $derived(new Set(Object.values(content.moves).flat().map((m) => m.id)));
+  const sharedIds = $derived(
+    new Set(
+      Object.values(content.moves)
+        .flat()
+        .map((m) => m.id),
+    ),
+  );
   const mineInserts = $derived(packInserts(content, doc));
   // Insert moves live on their own insert, not in this list.
   const insertIds = $derived(new Set(mineInserts.flatMap((i) => i.moves.map((m) => m.id))));
-  const taken = $derived(doc.moves.taken.map((id) => index.get(id)).filter((m): m is Move => !!m && !sharedIds.has(m.id) && !insertIds.has(m.id)));
+  const taken = $derived(
+    doc.moves.taken
+      .map((id) => index.get(id))
+      .filter((m): m is Move => !!m && !sharedIds.has(m.id) && !insertIds.has(m.id)),
+  );
   const available = $derived((pb?.moves ?? []).filter((m) => !doc.moves.taken.includes(m.id)));
   // A move with `grants` opens up another playbook's moves; those are extra, so they
   // are not counted against this playbook's own budget.
   const borrowed = $derived(granted(content, doc, pb));
   const borrowedCount = $derived(taken.filter((m) => borrowedFrom(content, m.id, pb)).length);
-  const startingCount = $derived((pb?.starting_moves.fixed.length ?? 0) + (pb?.starting_moves.choose.reduce((a, c) => a + c.n, 0) ?? 0));
+  const startingCount = $derived(
+    (pb?.starting_moves.fixed.length ?? 0) + (pb?.starting_moves.choose.reduce((a, c) => a + c.n, 0) ?? 0),
+  );
   const expected = $derived(startingCount + (doc.level - content.pack.xp.start_level) + borrowedCount);
   const holdNames = $derived.by(() => {
     const names = new Set<string>([...content.pack.hold_names, ...(pb?.hold_names ?? [])]);
@@ -67,20 +85,49 @@
     // The server reads this with the pack's strict Move model: a key it doesn't know makes
     // the move "unknown". tests/test_custom_moves.py writes the same shape; keep the two alike.
     const m: Move = {
-      id: `custom_${uid()}`, name: cName.trim(), trigger: cTrigger, text: cText,
-      roll: cStat === '' ? null : { stat: cStat === 'nothing' ? null : cStat === 'choose' ? 'choose' : cStat, bonus: 0, label: null, modifiers: [] },
-      outcomes: {}, hold: null, tracks: { marks: null, bulk: null, uses: null, statuses: [] },
-      requires: null, themes: [], tags: ['custom'], replaces: null, insert: null, grants: null,
-      options: [], min: null, max: null,
+      id: `custom_${uid()}`,
+      name: cName.trim(),
+      trigger: cTrigger,
+      text: cText,
+      roll:
+        cStat === ''
+          ? null
+          : {
+              stat: cStat === 'nothing' ? null : cStat === 'choose' ? 'choose' : cStat,
+              bonus: 0,
+              label: null,
+              modifiers: [],
+            },
+      outcomes: {},
+      hold: null,
+      tracks: { marks: null, bulk: null, uses: null, statuses: [] },
+      requires: null,
+      themes: [],
+      tags: ['custom'],
+      replaces: null,
+      insert: null,
+      grants: null,
+      options: [],
+      min: null,
+      max: null,
     };
     p('/custom_moves/-', m);
     p('/moves/taken', m.id, 'list_add');
-    cName = cTrigger = cText = ''; cStat = ''; customOpen = false;
+    cName = cTrigger = cText = '';
+    cStat = '';
+    customOpen = false;
   }
 </script>
 
-<Collapsible id="moves.{characterId}" title="Moves"
-  subtitle={editable && taken.length < expected ? `pick ${expected - taken.length} more` : editable && borrowed.left > 0 ? `${borrowed.left} from another playbook` : ''}>
+<Collapsible
+  id="moves.{characterId}"
+  title="Moves"
+  subtitle={editable && taken.length < expected
+    ? `pick ${expected - taken.length} more`
+    : editable && borrowed.left > 0
+      ? `${borrowed.left} from another playbook`
+      : ''}
+>
   {#snippet right()}
     {#if editable}
       <button class="small" onclick={() => (picking = !picking)}>{picking ? 'Close' : '+ Move'}</button>
@@ -95,8 +142,10 @@
         {@const why = locked(m)}
         <div class="row pick">
           <div class="grow">
-            <strong>{m.name}</strong> {#if why}<span class="tag warn">{why}</span>{/if}
-            {#if pb?.starting_moves.choose.some((c) => c.from.includes(m.id))}<span class="tag">starting option</span>{/if}
+            <strong>{m.name}</strong>
+            {#if why}<span class="tag warn">{why}</span>{/if}
+            {#if pb?.starting_moves.choose.some((c) => c.from.includes(m.id))}<span class="tag">starting option</span
+              >{/if}
             <div class="muted small">{movePreview(m)}</div>
           </div>
           <button class="small" onclick={() => take(m)}>Take</button>
@@ -137,9 +186,16 @@
 
   {#each taken as m (m.id)}
     {@const from = borrowedFrom(content, m.id, pb)}
-    <MoveCard move={from ? { ...m, tags: [...m.tags, from.name] } : m} {characterId} {editable} {doc} {p} tracks={doc.moves.tracks[m.id]}
+    <MoveCard
+      move={from ? { ...m, tags: [...m.tags, from.name] } : m}
+      {characterId}
+      {editable}
+      {doc}
+      {p}
+      tracks={doc.moves.tracks[m.id]}
       ontrack={(kind, v) => p(`/moves/tracks/${m.id}/${kind}`, v)}
-      onremove={() => remove(m.id)} />
+      onremove={() => remove(m.id)}
+    />
   {/each}
   {#if taken.length === 0}<p class="muted small">No playbook moves yet.</p>{/if}
 
@@ -147,7 +203,14 @@
     <div class="row hold">
       <span class="muted small">Hold</span>
       {#each holdNames as h}
-        <Stepper label={h} value={doc.moves.hold[h] ?? 0} min={0} onchange={(v) => p(`/moves/hold/${h}`, v)} path={`/moves/hold/${h}`} disabled={!editable} />
+        <Stepper
+          label={h}
+          value={doc.moves.hold[h] ?? 0}
+          min={0}
+          onchange={(v) => p(`/moves/hold/${h}`, v)}
+          path={`/moves/hold/${h}`}
+          disabled={!editable}
+        />
       {/each}
     </div>
   {/if}
@@ -155,18 +218,47 @@
   {#each Object.entries(content.moves) as [group, moves]}
     <Collapsible id="moves.{group}" title="{group} moves" open={false}>
       {#each moves as m (m.id)}
-        <MoveCard move={m} {characterId} {editable} compact {doc} {p}
-          tracks={doc.moves.tracks[m.id]} ontrack={(kind, v) => p(`/moves/tracks/${m.id}/${kind}`, v)} />
+        <MoveCard
+          move={m}
+          {characterId}
+          {editable}
+          compact
+          {doc}
+          {p}
+          tracks={doc.moves.tracks[m.id]}
+          ontrack={(kind, v) => p(`/moves/tracks/${m.id}/${kind}`, v)}
+        />
       {/each}
     </Collapsible>
   {/each}
 </Collapsible>
 
 <style>
-  .picker { border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: .5em .75em; margin: .25em 0 .5em; }
-  .pick { padding: .25em 0; border-bottom: 1px solid var(--border); }
-  .pick:last-child { border-bottom: 0; }
-  .tag.warn { color: var(--warn); }
-  .borrowed { margin: .6em 0 .2em; font-size: .85em; text-transform: uppercase; letter-spacing: .04em; color: var(--fg-muted); }
-  .hold { margin: .5em 0; gap: 1em; }
+  .picker {
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.5em 0.75em;
+    margin: 0.25em 0 0.5em;
+  }
+  .pick {
+    padding: 0.25em 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .pick:last-child {
+    border-bottom: 0;
+  }
+  .tag.warn {
+    color: var(--warn);
+  }
+  .borrowed {
+    margin: 0.6em 0 0.2em;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--fg-muted);
+  }
+  .hold {
+    margin: 0.5em 0;
+    gap: 1em;
+  }
 </style>
