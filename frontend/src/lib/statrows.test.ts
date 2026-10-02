@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { balancedRows, placements } from './statrows';
+import { balancedRows, fitCount, placements } from './statrows';
 
 describe('balancedRows', () => {
   it.each([
@@ -57,5 +57,28 @@ describe('placements', () => {
     expect(placements([3, 2]).slice(3)).toEqual([{ row: 2, column: 2 }, { row: 2, column: 4 }]);
     // The lone box of 2 + 2 + 1 sits in the middle of four half-tracks.
     expect(placements([2, 2, 1])[4]).toEqual({ row: 3, column: 2 });
+  });
+});
+
+describe('fitCount', () => {
+  it('counts the gaps between boxes, not after the last', () => {
+    expect(fitCount(300, 100, 10)).toBe(2);
+    expect(fitCount(320, 100, 10)).toBe(3);
+  });
+
+  it('works in fractional pixels, so a box never comes out under its minimum', () => {
+    // A 14px font: the gap is 5.6px and a box at least 100.6px, so four boxes
+    // need 419.2px. Rounded to whole pixels first, (418 + 6) / 106 made it four.
+    expect(fitCount(418, 100.6, 5.6)).toBe(3);
+    expect(fitCount(419.2, 100.6, 5.6)).toBe(4);
+  });
+
+  it('fits none in a row narrower than one box', () => {
+    expect(fitCount(80, 100.6, 5.6)).toBe(0);
+  });
+
+  it('has no answer until the row and a box have been measured', () => {
+    expect(fitCount(0, 100.6, 5.6)).toBeNull();
+    expect(fitCount(418, 0, 5.6)).toBeNull();
   });
 });

@@ -36,3 +36,17 @@ export function placements(rows: number[]): Placement[] {
     Array.from({ length: size }, (_, i) => ({ row: r + 1, column: 1 + (cols - size) + 2 * i })),
   );
 }
+
+// Within this of a fit is a fit: float sums of fractional widths land a hair
+// either side of an exact one.
+const SLACK = 0.01;
+
+/**
+ * How many boxes at least `box` px wide fit a `width` px row with `gap` px
+ * between them, or null until the row and a box have been measured. Widths
+ * are fractional: whole-pixel sums can come out a box too many.
+ */
+export function fitCount(width: number, box: number, gap: number): number | null {
+  if (width <= 0 || box <= 0) return null;
+  return Math.max(0, Math.floor((width + gap + SLACK) / (box + gap)));
+}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { timeShort, fmtMod } from '../lib/util';
+  import { keptMask } from '../lib/dice';
   import { api } from '../lib/api';
   import { allMoves } from '../lib/moveindex';
   import { app, canEdit, isGm, toast } from '../lib/state.svelte';
@@ -53,8 +54,9 @@
   </div>
   <div class="detail muted small">
     {#each p.roll.dice as d, i}
+      {@const kept = keptMask(d.results, d.kept)}
       {#if i > 0 || d.sign < 0}<span>{d.sign < 0 ? '−' : '+'}</span>{/if}
-      <span class="die" title={d.die}>{d.die}: [{d.results.map((r) => (d.kept.includes(r) ? r : `~${r}~`)).join(' ')}]</span>
+      <span class="die" title={d.die}>{d.die}: [{d.results.map((r, j) => (kept[j] ? r : `~${r}~`)).join(' ')}]</span>
     {/each}
     {#if p.roll.modifier}<span>{fmtMod(p.roll.modifier)}</span>{/if}
     {#if p.stat_label}<span>{fmtMod(p.stat_mod ?? 0)} {p.stat_label}</span>{/if}

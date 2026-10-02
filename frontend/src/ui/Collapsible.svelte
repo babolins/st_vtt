@@ -32,7 +32,8 @@
 <style>
   .coll { border-top: 1px solid var(--border); }
   .coll.top { position: relative; border: 1px solid var(--sheet-border); border-radius: var(--radius); background: var(--bg-elev); box-shadow: var(--shadow); margin-bottom: .75em; }
-  .head { display: flex; align-items: center; gap: .5em; padding: .35em .5em; }
+  /* On a phone the title takes the line and what sits beside it drops below. */
+  .head { display: flex; flex-wrap: wrap; align-items: center; gap: .5em; padding: .35em .5em; }
   /* A sheet's own header stays put while the sheet scrolls under it: the name,
      and whatever the sheet puts beside it, are needed at every depth. */
   .top > .head {
@@ -48,6 +49,6 @@
   .chev { display: inline-block; transition: transform .15s; color: var(--fg-muted); }
   .chev.open { transform: rotate(90deg); }
   .sub { font-weight: normal; }
-  .right { display: flex; gap: .3em; align-items: center; }
+  .right { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .3em; align-items: center; margin-left: auto; min-width: 0; }
   .body { padding: .25em .75em .75em; }
 </style>
