@@ -15,6 +15,7 @@ const patches = new PatchQueue();
 /** Open, and the outbox replayed: until then patches queue behind it and other messages are refused. */
 let synced = false;
 let closedByUs = false;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 function entityRow(entity: unknown, id: unknown) {
   const key = String(id);
@@ -87,13 +88,18 @@ export function connect(): void {
       app.me = null;
       return;
     }
-    if (!closedByUs) setTimeout(connect, backoff), (backoff = Math.min(backoff * 2, 10000));
+    if (!closedByUs) {
+      reconnectTimer = setTimeout(connect, backoff);
+      backoff = Math.min(backoff * 2, 10000);
+    }
   };
 }
 
 /** Log out: stop reconnecting and drop anything unsent. */
 export function disconnect(): void {
   closedByUs = true;
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = null;
   patches.clear();
   countUnsaved();
   socket?.close();
