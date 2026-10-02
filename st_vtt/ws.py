@@ -201,7 +201,10 @@ def handle(app: FastAPI, user: UserConfig, msg: dict[str, Any]) -> list[service.
         return service.patch_entity(app, user, str(msg.get("entity")), msg.get("id"), str(msg.get("path", "")), msg.get("value"), str(msg.get("op", "set")), msg.get("client"), msg.get("patch"), msg.get("ref"))
     if kind == "chat":
         to = msg.get("to")
-        return service.post_chat(app, user, str(msg.get("text", "")), list(to) if to else None)
+        # As ChatBody requires over REST: list() would split a bare name into letters.
+        if to is not None and not (isinstance(to, list) and all(isinstance(n, str) for n in to)):
+            raise service.ServiceError("to must be a list of user names")
+        return service.post_chat(app, user, str(msg.get("text", "")), to or None)
     if kind == "roll":
         return service.do_roll(app, user, msg)
     if kind == "share_move":

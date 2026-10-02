@@ -364,6 +364,25 @@ def test_websocket_roundtrip(app, gm, alice, bob):
         assert recv(wa)["users"] == ["Alice"]
 
 
+def test_a_whisper_over_the_socket_needs_a_list_of_names(gm, alice, bob):
+    with alice.websocket_connect("/ws") as wa, bob.websocket_connect("/ws") as wb, gm.websocket_connect("/ws") as wg:
+        for ws, n in ((wa, 3), (wb, 2), (wg, 1)):
+            for _ in range(n):
+                ws.receive_json()  # presence
+        # A bare name, not a list, would otherwise be split into letters and reach nobody.
+        for ref, to in enumerate(["Gm", 5, ["Gm", 5], {"Gm": True}], start=1):
+            wa.send_text(json.dumps({"type": "chat", "text": "psst", "to": to, "ref": ref}))
+            assert wa.receive_json() == {"type": "error", "message": "to must be a list of user names", "ref": ref}
+        assert_ping_is_next(wa, wa, wb, wg)
+
+        wa.send_text(json.dumps({"type": "chat", "text": "psst", "to": ["Gm"], "ref": 9}))
+        for ws in (wa, wg):
+            m = ws.receive_json()["message"]
+            assert m["kind"] == "whisper" and m["payload"] == {"text": "psst", "to": ["Gm"]}
+        assert wa.receive_json() == {"type": "ack", "ref": 9}
+        assert_ping_is_next(wa, wa, wb, wg)
+
+
 def _recv_until(ws, n):
     """The next n events, skipping presence."""
     out = []
