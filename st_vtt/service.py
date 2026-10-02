@@ -249,7 +249,9 @@ def import_shared(app: FastAPI, user: UserConfig, sid: str, doc: dict[str, Any])
         merged.pop(k, None)
     chars.ensure_list_ids(pack_of(app), merged, "shared")
     db_of(app).save_shared(sid, merged)
-    return [_shared_render(app, db_of(app).get_shared(sid), "shared_replaced")]
+    saved = db_of(app).get_shared(sid)
+    assert saved is not None  # save_shared raises KeyError for a sheet that is gone
+    return [_shared_render(app, saved, "shared_replaced")]
 
 
 def autocreate_shared(app: FastAPI) -> None:
