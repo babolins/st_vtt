@@ -103,7 +103,10 @@ def load_config(path: str | Path) -> Config:
     except json.JSONDecodeError as e:
         raise ConfigError(f"{path}: invalid JSON at line {e.lineno}: {e.msg}") from e
     try:
-        cfg = Config.model_validate({**raw, "base_dir": path.resolve().parent})
+        # The directory the config was named from, not the one it may symlink into:
+        # resolving the file first would follow the link and send every relative path
+        # below (content, database, frontend build) into the link target's directory.
+        cfg = Config.model_validate({**raw, "base_dir": path.parent.resolve()})
     except ValidationError as e:
         lines = [f"{path}: invalid config"]
         for err in e.errors():

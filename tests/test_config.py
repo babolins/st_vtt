@@ -85,6 +85,22 @@ def test_relative_paths_are_relative_to_the_config_file(tmp_path, monkeypatch):
     assert cfg.content_path == ROOT / "content" / "example"  # absolute stays as written
 
 
+def test_a_symlinked_config_stays_relative_to_the_link_not_its_target(tmp_path, monkeypatch):
+    """A campaign's own config lives in a private data repo and is linked into the checkout.
+    Following the link would send every relative path into the data repo, where there is no
+    frontend build, and the app comes up as a 503."""
+    write(
+        tmp_path / "campaign_data" / "config.json",
+        {"users": [{"name": "Gm"}], "content_pack": str(ROOT / "content" / "example")},
+    )
+    (tmp_path / "checkout").mkdir()
+    (tmp_path / "checkout" / "config.json").symlink_to(tmp_path / "campaign_data" / "config.json")
+    monkeypatch.chdir(tmp_path / "checkout")
+    cfg = load_config("config.json")
+    assert cfg.static_path == tmp_path / "checkout" / "frontend" / "dist"
+    assert cfg.database_path == tmp_path / "checkout" / "data" / "campaign.db"
+
+
 def test_with_no_secret_one_is_made_and_kept_with_the_campaign(config, tmp_path):
     from fastapi.testclient import TestClient
 
