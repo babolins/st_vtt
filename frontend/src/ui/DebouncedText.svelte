@@ -105,8 +105,7 @@
       flush();
       focused = false;
     }}
-    oninput={schedule}
-  ></textarea>
+    oninput={schedule}></textarea>
 {:else}
   <input
     type="text"
